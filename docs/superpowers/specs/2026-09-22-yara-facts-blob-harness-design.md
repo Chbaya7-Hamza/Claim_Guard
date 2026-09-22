@@ -56,10 +56,13 @@ against the old one, not a replacement of it (yet).
 ## New components
 
 **`src/facts_extractor.py`** — pure, standard-library-only functions,
-one per rule: `r001_facts(claim) -> list[str]`, `r003_facts(claim) ->
-list[str]`, `r006_facts(claim) -> list[str]`. Each mirrors the logic
-already in `engine_core.base_check` for that rule but emits the tagged
-fact lines from Section 3 of the engine spec instead of a result dict:
+one per rule: `r001_details(claim) -> dict`, `r003_details(claim) ->
+dict`, `r006_details(claim) -> dict`. Each mirrors the logic already in
+`engine_core.base_check` for that rule, but computes it once and
+returns everything derived from it — `facts` (the tagged fact lines
+below), `evidence_paths`, `line_ids`, and `message` — in a single pass,
+so the tags YARA sees and the fields assembled into the final result
+can never drift apart from each other:
 
 ```
 R001:MISSING:<path>            (one per missing field)
@@ -75,9 +78,8 @@ R006:UNKNOWN
 R006:OK
 ```
 
-A `build_blob(claim) -> str` function joins every rule's fact lines for
-one claim into the flat, line-oriented blob, generated fresh on every
-run.
+A `build_blob(claim) -> str` function joins the three `details['facts']`
+lists into the flat, line-oriented blob, generated fresh on every run.
 
 **`rules/core.yar`** — one YARA rule per (rule_id, outcome) pair, for
 R001/R003/R006 only, following the Section 3 skeleton exactly (`meta:
@@ -95,31 +97,35 @@ match `rules/rules.json`'s `"1.0.0"` for these three rules.
   specifies, including raising `EngineError` when a rule in scope
   produces no outcome at all.
 - Assemble a result dict matching `schemas/result.schema.json` for
-  each of R001/R003/R006.
+  each of R001/R003/R006, using each rule's `details['evidence_paths']`,
+  `['line_ids']` and `['message']` from the *same* `rXXX_details()` call
+  that produced the fact tags YARA just matched — never a second,
+  independently-derived computation.
 
-**Evidence assembly rule** (the one judgment call in this slice): a
-computed/derived fact — anything a YARA pattern actually distinguishes
-(a mismatch, an out-of-period date, a duplicate pair) — has its
-observed value embedded directly in the fact tag, and evidence for
-that case is parsed from the matched tag text, never recomputed. A
-bare pass tag (`R001:OK`, `R003:OK`, `R006:OK`) carries no per-field
-values, because Section 3's own fact-tag table doesn't define any for
-that case; for that case only, evidence continues to be a direct field
-lookup off the already-loaded claim via the existing `pointer()`
-helper, matching current baseline behavior exactly. This is a lookup
-of data already present on the input, not a computation and not an
-invention, so it does not violate "never invent data" or "never
-re-derive evidence" — those non-negotiables target evidence for a
-*violation*, which must trace back to what the extractor actually
-observed, not to a value assembled after the fact.
+**Evidence assembly rule** (the one judgment call in this slice):
+`schemas/result.schema.json`'s `evidence` array pairs a JSON pointer
+path with the value `pointer()` finds there on the actual claim —
+exactly how `engine_core.make_result` already builds it today. Some of
+those paths come straight from a fact tag YARA matched (e.g. R001's
+per-field `MISSING:<path>` tags); others are a fixed, rule-specific set
+the current baseline also always reports regardless of outcome (e.g.
+R003 always evidences `/coverage/status`, `/coverage/start_date`,
+`/coverage/end_date` and every line's `service_date`, whether or not
+that line is the one that failed). Either way, the *path* is something
+the extractor genuinely identified as relevant — never guessed — and
+the *value* at that path is a direct, unaltered read of the input, not
+a computation. That satisfies "never invent data": nothing about a
+violation is invented, and nothing about a value is fabricated after
+the fact — it is read once, from the claim, at a path the same
+deterministic pass through the claim already decided mattered.
 
 **`tests/test_facts_blob.py`** — hand-built facts-blob fixtures per
 Section 11 of the engine spec: one PASS, one FAIL, one
-UNABLE_TO_ASSESS per rule (R003/R006 also get a `NOT_APPLICABLE`-free
-pass since R001/R003/R006 have none), run straight through
-`yara_engine` without going through `facts_extractor` or a real claim
-— this catches a broken YARA rule close to its cause, independent of
-extractor correctness.
+UNABLE_TO_ASSESS per rule (none of R001/R003/R006 has a
+`NOT_APPLICABLE` outcome). These compile `rules/core.yar` directly and
+scan hand-written tag strings — bypassing both `facts_extractor.py` and
+`yara_engine.py` entirely — so a broken YARA pattern is caught at its
+source, independent of extractor or precedence-resolution correctness.
 
 **`requirements.txt`** gains one pinned line: `yara-x==1.20.0`
 (confirmed available on PyPI at spec-writing time). This is the first
