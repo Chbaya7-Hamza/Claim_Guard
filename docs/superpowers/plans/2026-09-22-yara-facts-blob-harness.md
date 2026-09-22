@@ -19,6 +19,55 @@
 - `yara-x==1.20.0` is the one pinned third-party dependency this slice adds to `requirements.txt`. No other new dependency.
 - Nothing in `src/engine_core.py`, `src/run_baseline.py`, `rules/rules.json`, or `tests/test_baseline.py` is modified. The new pipeline is additive and is proven against the old one, never replaces it in this slice.
 - All new/modified files use LF line endings consistent with the rest of the repo; Windows Git will warn about CRLF conversion on commit — that is expected and not an error to fix.
+- `SHA256SUMS.json` is the mentor's release-integrity manifest. Never regenerate or edit it. Editing any file it lists (this slice edits `requirements.txt` in Task 1 and `src/validate_pack.py` in Task 8, both listed) is expected to make `validate_pack.py`'s own checksum block raise — that block's error message says as much ("expected after intentional edits; retain original pack for comparison"). Task 8 accounts for this explicitly; don't try to suppress or route around it.
+
+---
+
+### Task 0: Freeze the pristine starter-pack baseline
+
+Spec build-order step 1: confirm the given three-rule baseline runs end to end on this machine before touching anything, and freeze its metrics as the known-good starting point every later task is compared against.
+
+**Files:**
+- Create: `outputs/dev_predictions.jsonl`, `outputs/dev_metrics.json` (gitignored build output — normal)
+- Force-add: `outputs/dev_metrics.json` (the one frozen artifact this task keeps, as an exception to `.gitignore`)
+
+**Interfaces:** none — this task runs existing, unmodified tools only.
+
+- [ ] **Step 1: Run the test suite on the untouched tree**
+
+Run: `python -m unittest discover -s tests -v`
+Expected: `Ran 11 tests in <time>s` / `OK`
+
+- [ ] **Step 2: Run validate_pack.py on the untouched tree**
+
+Run: `python src/validate_pack.py`
+Expected: a JSON summary (`development`: 400 claims/6000 results, `validation`: 150/2250, `stress`: 50/750) followed by:
+`PASS: transport, public labels/evidence, CSV round trips, split IDs, mapping basics and release checksums. This is not full HL7 FHIR validation.`
+
+If either step fails, stop — do not proceed to Task 1. A pristine-tree failure is an environment problem (Python version, working directory, missing data files) to resolve first; it is not something Tasks 1–8 can fix.
+
+- [ ] **Step 3: Run the baseline and evaluator over the development split**
+
+```bash
+python src/run_baseline.py --input data/development/claims.jsonl --output outputs/dev_predictions.jsonl
+python src/evaluate.py --gold data/development/expected_results.jsonl --pred outputs/dev_predictions.jsonl --claims data/development/claims.jsonl --output outputs/dev_metrics.json
+```
+
+Expected: `Processed 400 claims. Implemented: R001, R003, R006. Other rules: NOT_IMPLEMENTED. Output: outputs\dev_predictions.jsonl`, then `Report: outputs\dev_metrics.json`.
+
+Confirm the frozen baseline's per-rule accuracy for the three implemented rules — this is the number every later task's `status` output must continue to match:
+
+Run: `python -c "import json;m=json.load(open('outputs/dev_metrics.json'));print({r:m['by_rule'][r]['status_accuracy'] for r in ('R001','R003','R006')})"`
+Expected: `{'R001': 1.0, 'R003': 1.0, 'R006': 1.0}`
+
+- [ ] **Step 4: Commit the frozen metrics as the working starting point**
+
+`outputs/` is gitignored (it's normal, regenerated-on-every-run build output for every later task too) — force-add only this one frozen snapshot:
+
+```bash
+git add -f outputs/dev_metrics.json
+git commit -m "chore: freeze pristine-baseline dev-split metrics as the starting point (R001/R003/R006 status_accuracy=1.0)"
+```
 
 ---
 
@@ -239,6 +288,20 @@ class R003DetailsTests(unittest.TestCase):
         d = r003_details(self.c)
         self.assertTrue(any(f.startswith('R003:INACTIVE:') for f in d['facts']))
 
+    def test_line_ids_preserve_index_order_not_sorted(self):
+        # Two out-of-period lines whose line_ids sort the opposite way from
+        # their index order — line_ids must come back in index order (['L9',
+        # 'L1']), matching engine_core.base_check exactly. A sorted-by-id
+        # implementation would wrongly return ['L1', 'L9'].
+        self.c['lines'][0]['line_id'] = 'L9'
+        second = copy.deepcopy(self.c['lines'][1])
+        second['line_id'] = 'L1'
+        self.c['lines'] = [self.c['lines'][0], second]
+        self.c['coverage']['start_date'] = '2026-01-01'
+        self.c['coverage']['end_date'] = '2026-01-02'
+        d = r003_details(self.c)
+        self.assertEqual(d['line_ids'], ['L9', 'L1'])
+
 
 if __name__ == '__main__':
     unittest.main()
@@ -295,13 +358,15 @@ def r003_details(c):
     else:
         facts = ['R003:OK']
         message = 'All service dates are within active coverage, including boundaries.'
-    return {'facts': facts, 'evidence_paths': paths, 'line_ids': sorted(set(ids)), 'message': message}
+    return {'facts': facts, 'evidence_paths': paths, 'line_ids': ids, 'message': message}
 ```
+
+`line_ids` is `ids` as accumulated in line-index order, **not** `sorted(set(ids))` — this matches `engine_core.base_check`'s R003 branch exactly, which appends to `ids` in loop order and passes it to `make_result` unsorted and (for R003 specifically, unlike R001/R006) un-deduplicated. A claim can't produce the same line twice in this loop, so dedup is moot here, but the ordering matters: with ten or more lines, sorting by `line_id` string would diverge from index order (e.g. `L10` sorts before `L2` lexicographically) and break Task 7's exact-match diff against the baseline.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `python -m unittest tests.test_facts_extractor_r003 -v`
-Expected: `OK` (6 tests)
+Expected: `OK` (7 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -950,39 +1015,33 @@ def check_core_yar(root, cfg):
     return sorted({rule_id for rule_id, _ in probes})
 ```
 
-- [ ] **Step 2: Call it from main()**
+- [ ] **Step 2: Call it from main(), before the release-checksum block**
 
-In `src/validate_pack.py`, find this block near the end of `main()`:
+`SHA256SUMS.json` lists both `requirements.txt` (edited in Task 1) and `src/validate_pack.py` (edited right now, this task) — so the existing checksum block a few lines below is expected to raise `AssertionError: Release checksum differs: ...` once this task's edit lands, per the Global Constraints note above and per that block's own error message. Print this task's own result *before* that block runs, so it's visible regardless of what the checksum block does afterward — don't make this task's pass/fail depend on the checksum block's outcome.
+
+In `src/validate_pack.py`, find this line near the end of `main()`:
 
 ```python
-    manifest=root/'SHA256SUMS.json'
-    if manifest.exists():
+    print(json.dumps(totals,indent=2));print('PASS: transport, public labels/evidence, CSV round trips, split IDs, mapping basics and release checksums. This is not full HL7 FHIR validation.')
 ```
 
 Insert immediately before it:
 
 ```python
-    yara_ids=check_core_yar(root,cfg)
+    yara_ids=check_core_yar(root,cfg);print(f'PASS: rules/core.yar compiles and matches rules.json for {yara_ids}.')
 ```
 
-Find the final `print` line:
+Leave everything else in `main()` — including the `manifest=root/'SHA256SUMS.json'` block and the existing final `print` line — exactly as it is.
 
-```python
-    print(json.dumps(totals,indent=2));print('PASS: transport, public labels/evidence, CSV round trips, split IDs, mapping basics and release checksums. This is not full HL7 FHIR validation.')
-```
-
-Replace it with:
-
-```python
-    print(json.dumps(totals,indent=2));print('PASS: transport, public labels/evidence, CSV round trips, split IDs, mapping basics and release checksums. This is not full HL7 FHIR validation.')
-    print(f'PASS: rules/core.yar compiles and matches rules.json for {yara_ids}.')
-```
-
-- [ ] **Step 3: Run it**
+- [ ] **Step 3: Run it and confirm the expected (not a bug) checksum failure**
 
 Run: `python src/validate_pack.py`
-Expected: the existing per-split JSON summary, the existing `PASS:` line, and a new final line:
+Expected: the existing per-split JSON summary, then:
 `PASS: rules/core.yar compiles and matches rules.json for ['R001', 'R003', 'R006'].`
+then the process exits non-zero with:
+`AssertionError: Release checksum differs: requirements.txt (expected after intentional edits; retain original pack for comparison)`
+
+(or `src/validate_pack.py`, depending on dict iteration order — either is fine.) This is `validate_pack.py`'s release-integrity manifest correctly detecting the intentional edits from Task 1 and this task, exactly as its own message says. It is not a regression to fix. This task's actual deliverable — the `core.yar` consistency line — already printed and already proves what this task set out to prove.
 
 - [ ] **Step 4: Run the full test suite once more to confirm nothing regressed**
 
