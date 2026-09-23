@@ -3,3 +3,5 @@ outputs/
 __pycache__/
 .env
 *.pyc
+agentdb.rvf
+agentdb.rvf.lock

@@ -1,0 +1,1014 @@
+<title>ClaimGuard Build Console</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#f2f5f4; --plane:#eef2f1; --surface:#ffffff; --surface-2:#eaf0ef;
+    --border:#d9e1df; --border-strong:#c3cfcc;
+    --ink:#132422; --ink-2:#3f5451; --muted:#75857f; --muted-2:#8e9c97;
+    --accent:#1f6f72; --accent-ink:#0f4547; --accent-soft:#dcefee; --accent-soft-border:#b9dddc;
+    --good:#0ca30c; --warning:#fab219; --critical:#d03b3b;
+    --na:#8a938f; --notbuilt:#6e6adb;
+    --shadow:0 1px 2px rgba(19,36,34,.06), 0 8px 24px -12px rgba(19,36,34,.18);
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0d1413; --plane:#101817; --surface:#141d1c; --surface-2:#1a2423;
+      --border:#263130; --border-strong:#334140;
+      --ink:#e9f2f0; --ink-2:#bccac7; --muted:#84928e; --muted-2:#6d7b77;
+      --accent:#5fc0c2; --accent-ink:#bdeceb; --accent-soft:#173231; --accent-soft-border:#254846;
+      --good:#3fc23f; --warning:#fab219; --critical:#e8635f;
+      --na:#7c8985; --notbuilt:#9b97ea;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d1413; --plane:#101817; --surface:#141d1c; --surface-2:#1a2423;
+    --border:#263130; --border-strong:#334140;
+    --ink:#e9f2f0; --ink-2:#bccac7; --muted:#84928e; --muted-2:#6d7b77;
+    --accent:#5fc0c2; --accent-ink:#bdeceb; --accent-soft:#173231; --accent-soft-border:#254846;
+    --good:#3fc23f; --warning:#fab219; --critical:#e8635f;
+    --na:#7c8985; --notbuilt:#9b97ea;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+    color-scheme:dark;
+  }
+
+  *{box-sizing:border-box;}
+  body{background:var(--bg); color:var(--ink); font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; margin:0;}
+  h1,h2,h3{font-family:"IBM Plex Serif",Georgia,serif; text-wrap:balance; margin:0;}
+  code, .mono, .num{font-family:"IBM Plex Mono","SF Mono",monospace; font-variant-numeric:tabular-nums;}
+  p{line-height:1.6; color:var(--ink-2);}
+  a{color:var(--accent);}
+  ::selection{background:var(--accent-soft); color:var(--accent-ink);}
+
+  .app{display:flex; min-height:100vh;}
+
+  /* ---------- rail ---------- */
+  .rail{
+    width:248px; flex:0 0 248px; background:var(--plane); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding:22px 16px; gap:22px; position:sticky; top:0; height:100vh;
+  }
+  .brand{display:flex; flex-direction:column; gap:2px; padding:0 4px;}
+  .brand .mark{display:flex; align-items:center; gap:9px;}
+  .brand .mark .dot{width:11px; height:11px; border-radius:3px; background:var(--accent); transform:rotate(45deg); flex:0 0 auto;}
+  .brand h1{font-size:1.05rem; font-weight:600; letter-spacing:.01em;}
+  .brand .meta{font-size:.72rem; color:var(--muted); line-height:1.5;}
+
+  .navgroup{display:flex; flex-direction:column; gap:3px;}
+  .navbtn{
+    all:unset; cursor:pointer; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px;
+    font-size:.86rem; color:var(--ink-2); font-weight:500;
+  }
+  .navbtn .n{font-family:"IBM Plex Mono",monospace; font-size:.68rem; color:var(--muted); width:16px;}
+  .navbtn:hover{background:var(--surface-2);}
+  .navbtn:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+  .navbtn[aria-current="true"]{background:var(--accent-soft); color:var(--accent-ink); box-shadow:inset 0 0 0 1px var(--accent-soft-border);}
+  .navbtn[aria-current="true"] .n{color:var(--accent-ink);}
+
+  .rail-progress{margin-top:auto; padding:14px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface); display:flex; flex-direction:column; gap:8px;}
+  .rail-progress .label{font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); display:flex; justify-content:space-between;}
+  .rail-progress .track{height:6px; border-radius:99px; background:var(--surface-2); overflow:hidden;}
+  .rail-progress .fill{height:100%; background:var(--accent); border-radius:99px; transition:width .3s ease;}
+  .rail-progress .figure{font-size:1.2rem; font-weight:600; font-family:"IBM Plex Mono",monospace;}
+  .rail-progress button{all:unset; cursor:pointer; font-size:.7rem; color:var(--muted); text-decoration:underline; text-underline-offset:2px;}
+  .rail-progress button:hover{color:var(--critical);}
+
+  /* ---------- main ---------- */
+  main{flex:1; min-width:0; padding:34px 44px 80px; max-width:1180px;}
+  .panel{display:none; flex-direction:column; gap:30px;}
+  .panel.active{display:flex;}
+  .eyebrow{font-size:.72rem; text-transform:uppercase; letter-spacing:.09em; color:var(--accent); font-weight:600;}
+  .pagehead{display:flex; flex-direction:column; gap:8px; padding-bottom:18px; border-bottom:1px solid var(--border);}
+  .pagehead h2{font-size:1.7rem;}
+  .pagehead .sub{max-width:70ch; font-size:.95rem;}
+
+  section.block{display:flex; flex-direction:column; gap:14px;}
+  .blockhead{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  .blockhead h3{font-size:1.08rem;}
+  .blockhead .note{font-size:.78rem; color:var(--muted);}
+
+  /* ---------- cards / grid ---------- */
+  .grid{display:grid; gap:12px;}
+  .grid.cols-4{grid-template-columns:repeat(4,1fr);}
+  .grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  .grid.cols-2{grid-template-columns:repeat(2,1fr);}
+  @media (max-width:1000px){ .grid.cols-4{grid-template-columns:repeat(2,1fr);} .grid.cols-3{grid-template-columns:repeat(2,1fr);} }
+
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:6px;}
+  .card .count{font-family:"IBM Plex Mono",monospace; font-size:1.5rem; font-weight:600; color:var(--accent-ink);}
+  .card .title{font-size:.86rem; font-weight:600;}
+  .card .desc{font-size:.8rem; color:var(--muted); line-height:1.5;}
+
+  .stat{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; box-shadow:var(--shadow);}
+  .stat .figure{font-family:"IBM Plex Mono",monospace; font-size:1.9rem; font-weight:600;}
+  .stat .figure.bad{color:var(--critical);}
+  .stat .figure.good{color:var(--good);}
+  .stat .label{font-size:.76rem; color:var(--muted); margin-top:2px;}
+
+  .callout{border:1px solid var(--accent-soft-border); background:var(--accent-soft); border-radius:12px; padding:16px 18px;}
+  .callout h3{font-size:.95rem; color:var(--accent-ink); margin-bottom:8px;}
+  .callout ul{margin:0; padding-left:0; list-style:none; display:flex; flex-direction:column; gap:7px;}
+  .callout li{font-size:.85rem; line-height:1.5; padding-left:20px; position:relative; color:var(--ink-2);}
+  .callout li::before{content:"β—†"; position:absolute; left:0; color:var(--accent); font-size:.7rem; top:.35em;}
+
+  .warnbox{border:1px solid var(--border-strong); border-radius:12px; padding:16px 18px; background:var(--surface-2);}
+  .warnbox h3{font-size:.9rem; margin-bottom:8px;}
+  .warnbox ul{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:5px;}
+  .warnbox li{font-size:.84rem; color:var(--ink-2);}
+
+  ol.steps{margin:0; padding-left:0; list-style:none; counter-reset:step; display:flex; flex-direction:column; gap:10px;}
+  ol.steps li{counter-increment:step; display:flex; gap:12px; font-size:.87rem; color:var(--ink-2); line-height:1.55; align-items:flex-start;}
+  ol.steps li::before{content:counter(step,decimal-leading-zero); font-family:"IBM Plex Mono",monospace; font-size:.72rem; color:var(--accent-ink); background:var(--accent-soft); border:1px solid var(--accent-soft-border); border-radius:6px; padding:2px 6px; flex:0 0 auto; margin-top:1px;}
+
+  /* ---------- tables ---------- */
+  .tablewrap{overflow-x:auto; border:1px solid var(--border); border-radius:12px; background:var(--surface);}
+  table{width:100%; border-collapse:collapse; font-size:.83rem;}
+  thead th{text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:10px 14px; border-bottom:1px solid var(--border); background:var(--surface-2); white-space:nowrap;}
+  tbody td{padding:10px 14px; border-bottom:1px solid var(--border); color:var(--ink-2); vertical-align:top;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--surface-2);}
+  td.strong{color:var(--ink); font-weight:600;}
+
+  /* ---------- chips ---------- */
+  .chip{display:inline-flex; align-items:center; gap:5px; font-size:.7rem; font-weight:600; padding:3px 8px; border-radius:99px; white-space:nowrap; font-family:"IBM Plex Sans",sans-serif;}
+  .chip.sev-high{background:color-mix(in srgb, var(--critical) 16%, var(--surface)); color:var(--critical); border:1px solid color-mix(in srgb, var(--critical) 35%, var(--surface));}
+  .chip.sev-medium{background:color-mix(in srgb, var(--warning) 20%, var(--surface)); color:color-mix(in srgb, var(--warning) 70%, var(--ink)); border:1px solid color-mix(in srgb, var(--warning) 45%, var(--surface));}
+  .chip.build-yes{background:color-mix(in srgb, var(--accent) 16%, var(--surface)); color:var(--accent-ink); border:1px solid var(--accent-soft-border);}
+  .chip.build-no{background:transparent; color:var(--notbuilt); border:1px dashed var(--notbuilt);}
+  .status-pill{display:inline-flex; align-items:center; gap:5px; font-size:.72rem; font-weight:600; padding:3px 8px; border-radius:6px;}
+  .status-pill.PASS{background:color-mix(in srgb, var(--good) 16%, var(--surface)); color:color-mix(in srgb, var(--good) 65%, var(--ink));}
+  .status-pill.FAIL{background:color-mix(in srgb, var(--critical) 16%, var(--surface)); color:var(--critical);}
+  .status-pill.UNABLE_TO_ASSESS{background:color-mix(in srgb, var(--warning) 22%, var(--surface)); color:color-mix(in srgb, var(--warning) 68%, var(--ink));}
+  .status-pill.NOT_APPLICABLE{background:var(--surface-2); color:var(--muted); border:1px solid var(--border);}
+
+  /* ---------- rules ledger ---------- */
+  .filterbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .filterbar input[type=search]{
+    flex:1 1 220px; min-width:180px; background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:8px 12px; font-size:.85rem; color:var(--ink); font-family:inherit;
+  }
+  .filterbar input[type=search]:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+  .segbtns{display:flex; gap:4px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:3px;}
+  .segbtns button{all:unset; cursor:pointer; font-size:.76rem; padding:5px 10px; border-radius:6px; color:var(--muted); font-weight:500;}
+  .segbtns button[aria-pressed="true"]{background:var(--surface); color:var(--ink); box-shadow:var(--shadow);}
+  .resultcount{font-size:.78rem; color:var(--muted); white-space:nowrap;}
+
+  .rulecard{background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden;}
+  .rulecard + .rulecard{margin-top:10px;}
+  .rulehead{all:unset; box-sizing:border-box; width:100%; display:grid; grid-template-columns:64px 1fr auto auto 20px; align-items:center; gap:14px; padding:12px 16px; cursor:pointer;}
+  .rulehead:hover{background:var(--surface-2);}
+  .rulehead .rid{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:.86rem; color:var(--accent-ink);}
+  .rulehead .rname{font-size:.87rem; font-weight:600; color:var(--ink);}
+  .rulehead .rname small{display:block; font-weight:400; color:var(--muted); font-size:.76rem; margin-top:1px;}
+  .rulehead .caret{color:var(--muted); transition:transform .15s ease; font-size:.7rem;}
+  .rulecard[data-open="true"] .caret{transform:rotate(90deg);}
+  .ruledetail{display:none; padding:0 16px 16px; border-top:1px solid var(--border);}
+  .rulecard[data-open="true"] .ruledetail{display:block;}
+  .ruledetail .row{display:grid; grid-template-columns:120px 1fr; gap:10px; padding:9px 0; border-bottom:1px dashed var(--border); font-size:.83rem;}
+  .ruledetail .row:last-child{border-bottom:none;}
+  .ruledetail .row .k{color:var(--muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; padding-top:2px;}
+  .ruledetail .row .v{color:var(--ink-2); line-height:1.55;}
+  .ruledetail .row .v.crit{color:var(--critical);}
+  .ruledetail .row .v.warn{color:color-mix(in srgb, var(--warning) 70%, var(--ink));}
+
+  /* ---------- checklist ---------- */
+  .checkgroup{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; display:flex; flex-direction:column; gap:4px;}
+  .checkgroup .cghead{display:flex; justify-content:space-between; align-items:center; gap:10px; padding-bottom:10px; margin-bottom:6px; border-bottom:1px solid var(--border);}
+  .checkgroup .cghead h3{font-size:.95rem;}
+  .checkgroup .cgprog{display:flex; align-items:center; gap:8px; font-size:.72rem; color:var(--muted); font-family:"IBM Plex Mono",monospace;}
+  .checkgroup .cgprog .track{width:70px; height:5px; border-radius:99px; background:var(--surface-2); overflow:hidden;}
+  .checkgroup .cgprog .fill{height:100%; background:var(--accent);}
+  .citem{display:flex; align-items:flex-start; gap:10px; padding:8px 4px; border-radius:8px; cursor:pointer;}
+  .citem:hover{background:var(--surface-2);}
+  .citem input{margin-top:3px; width:15px; height:15px; accent-color:var(--accent); flex:0 0 auto; cursor:pointer;}
+  .citem .ctext{font-size:.85rem; color:var(--ink-2); line-height:1.5;}
+  .citem .ctext b{color:var(--ink); font-weight:600;}
+  .citem input:checked ~ .ctext{color:var(--muted); text-decoration:line-through; text-decoration-color:var(--border-strong);}
+  .citem .ctext .sub{display:block; font-size:.75rem; color:var(--muted); margin-top:2px;}
+  .citem input:checked ~ .ctext .sub{text-decoration:none;}
+
+  /* ---------- charts ---------- */
+  .barlist{display:flex; flex-direction:column; gap:10px;}
+  .barrow{display:grid; grid-template-columns:190px 1fr 46px; align-items:center; gap:10px; font-size:.82rem;}
+  .barrow .lbl{color:var(--ink-2);}
+  .barrow .track{height:14px; background:var(--surface-2); border-radius:5px; overflow:hidden; border:1px solid var(--border);}
+  .barrow .fill{height:100%; background:linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 65%, var(--accent-ink))); border-radius:5px 0 0 5px;}
+  .barrow .val{font-family:"IBM Plex Mono",monospace; text-align:right; color:var(--ink);}
+
+  .stackchart{display:flex; flex-direction:column; gap:16px;}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; font-size:.78rem; color:var(--ink-2);}
+  .legend .li{display:flex; align-items:center; gap:6px;}
+  .legend .sw{width:11px; height:11px; border-radius:3px; flex:0 0 auto;}
+  .stackrow{display:flex; flex-direction:column; gap:6px;}
+  .stackrow .head{display:flex; justify-content:space-between; font-size:.8rem; color:var(--ink-2);}
+  .stackrow .head b{color:var(--ink);}
+  .stackbar{display:flex; height:26px; border-radius:6px; overflow:hidden; border:1px solid var(--border); position:relative;}
+  .seg{height:100%; position:relative; border-right:2px solid var(--surface);}
+  .seg:last-child{border-right:none;}
+  .seg[data-status="PASS"]{background:var(--good);}
+  .seg[data-status="NOT_APPLICABLE"]{background:var(--na);}
+  .seg[data-status="UNABLE_TO_ASSESS"]{background:var(--warning);}
+  .seg[data-status="FAIL"]{background:var(--critical);}
+  .tooltip{
+    position:fixed; pointer-events:none; background:var(--ink); color:var(--bg); font-size:.74rem; padding:6px 9px; border-radius:7px;
+    transform:translate(-50%,-115%); white-space:nowrap; z-index:50; opacity:0; transition:opacity .1s ease; font-family:"IBM Plex Mono",monospace;
+    box-shadow:var(--shadow);
+  }
+  .tooltip.show{opacity:1;}
+
+  .glossary dl{display:grid; grid-template-columns:220px 1fr; gap:0; margin:0;}
+  .glossary dt{padding:10px 14px; border-bottom:1px solid var(--border); background:var(--surface-2); font-size:.8rem; font-weight:600; color:var(--ink);}
+  .glossary dd{padding:10px 14px; border-bottom:1px solid var(--border); margin:0; font-size:.82rem; color:var(--ink-2);}
+
+  footer.pagefoot{font-size:.72rem; color:var(--muted); padding-top:10px; border-top:1px solid var(--border);}
+
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+</style>
+
+<div class="app">
+  <nav class="rail" aria-label="Sections">
+    <div class="brand">
+      <div class="mark"><span class="dot"></span><h1>ClaimGuard</h1></div>
+      <div class="meta">Build console Β· pack v1.0.0<br>CSTAM&#8209;VELODOC</div>
+    </div>
+    <div class="navgroup" id="navgroup">
+      <button class="navbtn" data-tab="overview" aria-current="true"><span class="n">00</span>Overview</button>
+      <button class="navbtn" data-tab="rules"><span class="n">01</span>Rule ledger</button>
+      <button class="navbtn" data-tab="data"><span class="n">02</span>Data contract</button>
+      <button class="navbtn" data-tab="checklist"><span class="n">03</span>Build checklist</button>
+      <button class="navbtn" data-tab="scoring"><span class="n">04</span>Scoring &amp; baseline</button>
+    </div>
+    <div class="rail-progress">
+      <div class="label"><span>Checklist done</span><span id="railPct">0%</span></div>
+      <div class="track"><div class="fill" id="railFill" style="width:0%"></div></div>
+      <div class="figure"><span id="railCount">0</span><span style="color:var(--muted); font-size:.85rem;"> / <span id="railTotal">0</span> items</span></div>
+      <button id="resetChecklist" type="button">Reset checklist</button>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- ===================== OVERVIEW ===================== -->
+    <section class="panel active" id="panel-overview">
+      <div class="pagehead">
+        <div class="eyebrow">Challenge reference Β· CSTAM&#8209;VELODOC</div>
+        <h2>Trustworthy copilot for healthcare claim pre&#8209;validation</h2>
+        <p class="sub">Build a copilot that pre&#8209;validates synthetic healthcare claims against 15 fictional payer rules, shows a human reviewer clear evidence, adds one bounded AI explanation feature, and keeps a tamper&#8209;evident audit trail. Everything &mdash; patients, providers, policies, codes &mdash; is synthetic. This is not a real reimbursement system.</p>
+      </div>
+
+      <section class="block">
+        <div class="blockhead"><h3>What's already in the starter pack</h3><span class="note">read&#8209;only reference material</span></div>
+        <div class="grid cols-4" id="includedGrid"></div>
+      </section>
+
+      <section class="block">
+        <div class="blockhead"><h3>What we still need to build</h3><span class="note">the actual challenge work</span></div>
+        <ol class="steps" id="toBuildList"></ol>
+      </section>
+
+      <section class="block">
+        <div class="callout">
+          <h3>Non&#8209;negotiables &mdash; read before writing a rule</h3>
+          <ul id="nonNegList"></ul>
+        </div>
+      </section>
+    </section>
+
+    <!-- ===================== RULES ===================== -->
+    <section class="panel" id="panel-rules">
+      <div class="pagehead">
+        <div class="eyebrow">docs/04_Rulebook.md Β· rules/rules.json</div>
+        <h2>The 15&#8209;rule ledger</h2>
+        <p class="sub">One result per (claim, rule) &mdash; 15 rows per claim, always. Precedence: a proven violation is <b>FAIL</b>; otherwise missing necessary evidence is <b>UNABLE_TO_ASSESS</b>; otherwise <b>PASS</b> or <b>NOT_APPLICABLE</b>. Click a rule to expand its full evaluation logic.</p>
+      </div>
+
+      <section class="block">
+        <div class="filterbar">
+          <input type="search" id="ruleSearch" placeholder="Search rule id, name or logic&hellip;" aria-label="Search rules">
+          <div class="segbtns" id="sevFilter" role="group" aria-label="Filter by severity">
+            <button aria-pressed="true" data-sev="all">All severity</button>
+            <button aria-pressed="false" data-sev="high">High</button>
+            <button aria-pressed="false" data-sev="medium">Medium</button>
+          </div>
+          <div class="segbtns" id="buildFilter" role="group" aria-label="Filter by build status">
+            <button aria-pressed="true" data-build="all">All</button>
+            <button aria-pressed="false" data-build="yes">Implemented</button>
+            <button aria-pressed="false" data-build="no">To build</button>
+          </div>
+          <span class="resultcount" id="ruleResultCount"></span>
+        </div>
+        <div id="ruleList"></div>
+      </section>
+
+      <section class="block">
+        <div class="blockhead"><h3>Policy profiles</h3><span class="note">rules/policies.json</span></div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Parameter</th><th>EDU&#8209;BASIC</th><th>EDU&#8209;PLUS</th></tr></thead>
+            <tbody>
+              <tr><td class="strong">Submission window</td><td>30 days from latest service</td><td>60 days from latest service</td></tr>
+              <tr><td class="strong">Currency</td><td class="mono">SAR</td><td class="mono">SAR</td></tr>
+              <tr><td class="strong">Allowed network</td><td class="mono">EDU-PROV-01/02/03</td><td>same</td></tr>
+              <tr><td class="strong">Authorization required for</td><td class="mono">SVC-IMAGE, SVC-THERAPY</td><td>same</td></tr>
+              <tr><td class="strong">Required documents</td><td class="mono">SVC-IMAGE&rarr;imaging-report<br>SVC-DENTAL&rarr;service-note</td><td>same</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="blockhead"><h3>Service catalogue limits</h3><span class="note">rules/services.json &mdash; identical across both profiles</span></div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Code</th><th>Description</th><th>Max unit price</th><th>Max qty / line</th></tr></thead>
+            <tbody id="serviceTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <!-- ===================== DATA ===================== -->
+    <section class="panel" id="panel-data">
+      <div class="pagehead">
+        <div class="eyebrow">docs/03_Data_Dictionary.md Β· schemas/</div>
+        <h2>Data &amp; result contract</h2>
+        <p class="sub">Normalized JSONL is authoritative &mdash; one complete claim envelope per line, never a JSON array. CSV exports and FHIR bundles are derived views of the same records.</p>
+      </div>
+
+      <section class="block">
+        <div class="blockhead"><h3>Splits</h3><span class="note">disjoint patient / claim / invoice / authorization IDs across all four</span></div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Split</th><th>Claims</th><th>Rule&#8209;result rows</th><th>Purpose</th><th>Labels</th></tr></thead>
+            <tbody id="splitTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="blockhead"><h3>Claim envelope fields</h3><span class="note">click a group to expand</span></div>
+        <div id="envelopeAccordion" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </section>
+
+      <section class="block">
+        <div class="grid cols-2">
+          <div class="warnbox">
+            <h3>Ingestion rules</h3>
+            <ul>
+              <li>Malformed JSON line, wrong structural type, duplicate <code>line_id</code>, or missing transport key = <b>ingestion error</b> &mdash; quarantine and report separately.</li>
+              <li>Never silently drop a bad record; never let it become a passed claim.</li>
+              <li>Nullable business values may pass transport even though a payer rule later fails them.</li>
+              <li>The supplied transport validator is intentionally lightweight, not full JSON Schema/FHIR validation.</li>
+            </ul>
+          </div>
+          <div class="warnbox">
+            <h3>Evidence path vs. affected lines</h3>
+            <ul>
+              <li><code>evidence[].path</code> uses <b>zero&#8209;based array indices</b>, e.g. <code>/lines/0/service_date</code>.</li>
+              <li><code>affected_line_ids</code> uses the <b>stable id</b> instead, e.g. <code>L1</code>, <code>L2</code> &mdash; never an offset.</li>
+              <li>Evidence must point into the <b>original</b> normalized claim &mdash; never a label file.</li>
+              <li>Attachment <code>text</code> and claim <code>notes</code> are untrusted data, never instructions.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="blockhead"><h3>Result record</h3><span class="note">schemas/result.schema.json &mdash; exactly 15 per claim</span></div>
+        <div class="tablewrap glossary">
+          <dl id="resultGlossary"></dl>
+        </div>
+      </section>
+    </section>
+
+    <!-- ===================== CHECKLIST ===================== -->
+    <section class="panel" id="panel-checklist">
+      <div class="pagehead">
+        <div class="eyebrow">docs/01, 09, 15 Β· state saved in this browser</div>
+        <h2>Build checklist</h2>
+        <p class="sub">Tick items off as your team completes them. Progress is saved locally in this browser tab so it's here next time you open the console.</p>
+      </div>
+      <div class="grid cols-2" id="checklistGrid"></div>
+
+      <section class="block">
+        <div class="warnbox">
+          <h3>Scope boundaries &mdash; do not build these</h3>
+          <ul id="scopeList"></ul>
+        </div>
+      </section>
+    </section>
+
+    <!-- ===================== SCORING ===================== -->
+    <section class="panel" id="panel-scoring">
+      <div class="pagehead">
+        <div class="eyebrow">docs/07_Evaluation_and_Acceptance.md Β· QA_REPORT.md</div>
+        <h2>Scoring &amp; current baseline</h2>
+        <p class="sub">Develop on the 400 development claims, freeze a commit, then run against validation. The mentor privately holds 200 more claims for final assessment.</p>
+      </div>
+
+      <section class="block">
+        <div class="blockhead"><h3>Baseline you must beat</h3><span class="note">R001 / R003 / R006 only, measured on development</span></div>
+        <div class="grid cols-4">
+          <div class="stat"><div class="figure bad">3 / 15</div><div class="label">rules implemented</div></div>
+          <div class="stat"><div class="figure bad">~20%</div><div class="label">exact status accuracy</div></div>
+          <div class="stat"><div class="figure bad">88 / 319</div><div class="label">expected issues caught</div></div>
+          <div class="stat"><div class="figure good">0</div><div class="label">false alarms</div></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="blockhead"><h3>Proposed mentor grading weights</h3><span class="note">confirm actual weights at kickoff &mdash; these are proposals</span></div>
+        <div class="barlist" id="weightChart"></div>
+      </section>
+
+      <section class="block">
+        <div class="blockhead"><h3>Expected label distribution by split</h3><span class="note">dataset_manifest.json &mdash; hover a segment for the exact count</span></div>
+        <div class="stackchart">
+          <div class="legend">
+            <span class="li"><span class="sw" style="background:var(--good)"></span>PASS</span>
+            <span class="li"><span class="sw" style="background:var(--na)"></span>NOT_APPLICABLE</span>
+            <span class="li"><span class="sw" style="background:var(--warning)"></span>UNABLE_TO_ASSESS</span>
+            <span class="li"><span class="sw" style="background:var(--critical)"></span>FAIL</span>
+          </div>
+          <div id="stackChart" style="display:flex; flex-direction:column; gap:14px;"></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="blockhead"><h3>Metrics glossary</h3></div>
+        <div class="tablewrap glossary">
+          <dl id="metricsGlossary"></dl>
+        </div>
+      </section>
+
+      <footer class="pagefoot">Reference only &mdash; all data, rules and figures are synthetic teaching material for CSTAM&#8209;VELODOC. Not a real payer, medical, or fraud&#8209;detection system.</footer>
+    </section>
+
+  </main>
+</div>
+<div class="tooltip" id="tooltip" role="tooltip"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- data ---------------- */
+
+  var RULES = [
+    {id:"R001", name:"Required claim information", sev:"high", built:true,
+      logic:"invoice_number, member_id, diagnosis_code, and every line's service_date/service_code/quantity/unit_price/net_amount must be present and non-empty.",
+      fail:"Any required field is known missing or empty on the claim or a line.",
+      unable:"Never &mdash; a known absence is always FAIL for this rule, not uncertain.",
+      action:"Request the missing source information; never invent identifiers or diagnosis codes.",
+      source:"fictional-rulebook/R001@1.0.0"},
+    {id:"R002", name:"Service / submission chronology", sev:"high", built:false,
+      logic:"Every service_date must be on or before submission_date. Equality passes.",
+      fail:"A service_date falls after the submission_date.",
+      unable:"Dates are missing or invalid, and no other line proves a violation.",
+      action:"Verify and correct dates against the original record.",
+      source:"fictional-rulebook/R002@1.0.0"},
+    {id:"R003", name:"Coverage active on service date", sev:"high", built:true,
+      logic:"coverage.status must equal active; every service_date must fall within [start_date, end_date], inclusive.",
+      fail:"Known inactive status, or a service date outside the coverage period.",
+      unable:"Status, dates, or service date are unknown.",
+      action:"Verify coverage applicable on the service date with the source records.",
+      source:"fictional-rulebook/R003@1.0.0"},
+    {id:"R004", name:"Member / beneficiary consistency", sev:"high", built:false,
+      logic:"patient_id must equal coverage.beneficiary_patient_id and member_id must equal coverage.member_id &mdash; exact, case-sensitive.",
+      fail:"A known mismatch between claim and coverage identifiers.",
+      unable:"A comparison input is missing.",
+      action:"Resolve the patient/member mismatch using the authoritative records.",
+      source:"fictional-rulebook/R004@1.0.0"},
+    {id:"R005", name:"Provider in the supplied network", sev:"high", built:false,
+      logic:"provider_id must appear in policy.allowed_providers. The supplied list is treated as complete for this fictional challenge.",
+      fail:"Provider explicitly not listed in the network.",
+      unable:"Provider missing or policy unavailable.",
+      action:"Verify provider identity and the applicable fictional network list.",
+      source:"fictional-rulebook/R005@1.0.0"},
+    {id:"R006", name:"Possible duplicate service lines", sev:"medium", built:true,
+      logic:"Flags repeated (service_code, service_date, modifier) within one claim. Null modifier normalizes to empty string for comparison only.",
+      fail:"A duplicate combination is found &mdash; a review task, never a fraud claim.",
+      unable:"service_code/date missing, and no other complete pair proves a duplicate.",
+      action:"Ask the reviewer whether repeated lines represent separate documented services.",
+      source:"fictional-rulebook/R006@1.0.0"},
+    {id:"R007", name:"Line arithmetic", sev:"high", built:false,
+      logic:"net_amount must equal quantity &times; unit_price (Decimal math, ROUND_HALF_UP, &pm;0.01 SAR tolerance inclusive).",
+      fail:"Difference beyond the 0.01 SAR tolerance.",
+      unable:"A required numeric input is missing.",
+      action:"Check quantity, unit price and line amount; preserve the original values in the audit record.",
+      source:"fictional-rulebook/R007@1.0.0"},
+    {id:"R008", name:"Required authorization reference", sev:"high", built:false,
+      logic:"For services in policy.auth_required_services, the line's authorization_id must be non-empty. This checks presence only &mdash; R009 checks the record.",
+      fail:"Required and the reference is known empty.",
+      unable:"Unknown service code, or policy unavailable.",
+      action:"Request the authorization reference or escalate its absence.",
+      source:"fictional-rulebook/R008@1.0.0"},
+    {id:"R009", name:"Authorization record matches service", sev:"high", built:false,
+      logic:"Resolve authorization_id in authorizations: match patient_id + service_code, status approved, service date within valid_from/valid_to, and aggregate quantity across lines sharing that id &le; max_quantity.",
+      fail:"Referenced id absent from the supplied list, or a known mismatch on any matched field.",
+      unable:"R008 already found the id missing (cascades to UNABLE_TO_ASSESS here), or a comparison input is missing.",
+      action:"Obtain or verify the applicable approval and its dates, service and quantity.",
+      source:"fictional-rulebook/R009@1.0.0"},
+    {id:"R010", name:"Required supporting document", sev:"medium", built:false,
+      logic:"policy.required_documents maps service_code to a required type; at least one attachment must match type + patient_id + service_code + service_date, with document_status final.",
+      fail:"Absent or mismatched required documentation.",
+      unable:"A matching attachment exists but is draft/unknown status, or service/policy/date is unknown.",
+      action:"Request the correct final supporting document or send the draft for human review.",
+      source:"fictional-rulebook/R010@1.0.0"},
+    {id:"R011", name:"Service code in fictional catalogue", sev:"high", built:false,
+      logic:"Each non-empty service_code must occur in rules/services.json. No real CPT/ICD decision is implied.",
+      fail:"An unknown code is used.",
+      unable:"service_code is missing.",
+      action:"Verify the intended code against the supplied teaching catalogue.",
+      source:"fictional-rulebook/R011@1.0.0"},
+    {id:"R012", name:"Claim total equals line amounts", sev:"high", built:false,
+      logic:"total_amount must equal the sum of submitted line net_amount values (ROUND_HALF_UP, &pm;0.01 SAR). R007 separately checks the line amounts themselves.",
+      fail:"Difference beyond the 0.01 SAR tolerance.",
+      unable:"An amount input is missing.",
+      action:"Reconcile the claim total with the submitted line amounts.",
+      source:"fictional-rulebook/R012@1.0.0"},
+    {id:"R013", name:"Quantity and price limits", sev:"medium", built:false,
+      logic:"quantity must be a positive integer &le; policy.max_quantity_per_line[code]; 0 &lt; unit_price &le; policy.max_unit_price[code]. Equality at the maximum passes.",
+      fail:"A known violation of either limit.",
+      unable:"Missing values, unknown code, or policy unavailable &mdash; unless another line already proves a violation.",
+      action:"Verify the billed quantity and price against the fictional limits.",
+      source:"fictional-rulebook/R013@1.0.0"},
+    {id:"R014", name:"Submission window", sev:"medium", built:false,
+      logic:"submission_date minus the latest service_date must be &le; policy.submission_window_days. Equality passes. Negative lag is NOT_APPLICABLE here (handled by R002 instead).",
+      fail:"The submission window is exceeded.",
+      unable:"Dates or policy are missing.",
+      action:"Review the submission dates and any exception with a human reviewer.",
+      source:"fictional-rulebook/R014@1.0.0"},
+    {id:"R015", name:"Currency matches policy", sev:"high", built:false,
+      logic:"currency must equal policy.currency (SAR). No exchange-rate conversion is performed.",
+      fail:"A known different currency is declared.",
+      unable:"Currency or policy is missing.",
+      action:"Verify and correct the declared currency against the source bill.",
+      source:"fictional-rulebook/R015@1.0.0"}
+  ];
+
+  var SERVICES = [
+    ["SVC-CONSULT","Synthetic outpatient consultation","350 SAR","1"],
+    ["SVC-LAB","Synthetic laboratory panel","260 SAR","3"],
+    ["SVC-IMAGE","Synthetic imaging service","2,200 SAR","1"],
+    ["SVC-THERAPY","Synthetic therapy session","450 SAR","4"],
+    ["SVC-DENTAL","Synthetic dental service","800 SAR","2"],
+    ["SVC-PHARM","Synthetic pharmacy item","200 SAR","10"]
+  ];
+
+  var SPLITS = [
+    ["development","400","6,000","Coding, learning, debugging","Public"],
+    ["validation","150","2,250","Freeze a version, evaluate, inspect errors","Public"],
+    ["stress","50","750","Boundaries, uncertainty, untrusted text","Public"],
+    ["mentor&#8209;held","200","3,000","Final private assessment","Never shared"]
+  ];
+
+  var INCLUDED = [
+    {n:"600", t:"Public synthetic claims", d:"400 development, 150 validation, 50 stress &mdash; JSONL, CSV and educational FHIR views of the same records."},
+    {n:"15", t:"Fictional payer rules", d:"Full logic in docs/04_Rulebook.md, machine-readable in rules/*.json, with 2 policy profiles and 6 service codes."},
+    {n:"3 / 15", t:"Baseline engine", d:"src/engine_core.py implements R001, R003, R006 only. The rest return NOT_IMPLEMENTED until you build them."},
+    {n:"6", t:"CLI tools", d:"run_baseline, evaluate, csv_to_jsonl, make_review, audit, validate_pack &mdash; standard library only, no installs needed."},
+    {n:"3", t:"JSON schemas", d:"claim.schema.json, result.schema.json, review_event.schema.json define the exact input/output contracts."},
+    {n:"15", t:"Handbook chapters", d:"Domain primer, rulebook, architecture/AI guidance, evaluation, security, FHIR orientation, worked examples and more."},
+    {n:"35", t:"Worked + AI cases", d:"10 hand-walked worked examples plus 25 bounded-AI explanation exercises with a manual scorecard."},
+    {n:"4", t:"Submission templates", d:"Architecture decisions, evaluation report, weekly update and final submission checklist &mdash; ready to fill in."}
+  ];
+
+  var TO_BUILD = [
+    "Implement the remaining 12 rules (R002, R004, R005, R007&ndash;R015) in engine_core.py so every claim always returns exactly 15 results.",
+    "Ground every FAIL / UNABLE_TO_ASSESS in real evidence &mdash; a JSON pointer into the original claim plus the exact observed value, never invented text.",
+    "Build the human review queue: filter by status, show original values, and support confirm / dismiss&#8209;with&#8209;reason / request&#8209;information / corrected&#8209;for&#8209;recheck.",
+    "Implement a real ExplanationProvider in src/llm_adapter.py &mdash; strict JSON output, schema-validated, safe fallback to deterministic findings on any model failure.",
+    "Extend the audit trail to record run metadata: input hash, rule/model/prompt versions, tool errors, plus every human review decision.",
+    "Support JSONL (authoritative) and CSV ingestion, demonstrate one FHIR mapping, and quarantine malformed input as an explicit ingestion error.",
+    "Run the strict evaluator on development, freeze a version, then run on validation &mdash; report precision/recall/F1/false-alarm rate/status accuracy per rule.",
+    "Produce the submission deliverables: architecture diagram, technical report, evaluation report, privacy/security note, contribution log, and a 7&#8209;minute demo."
+  ];
+
+  var NON_NEG = [
+    "Never show <b>NOT_IMPLEMENTED</b> as PASS &mdash; an incomplete check must stay visibly incomplete.",
+    "The AI can never change a deterministic result &mdash; explanation only, with a fallback on model failure.",
+    "Never invent data &mdash; missing fields become UNABLE_TO_ASSESS or FAIL, never a guessed value.",
+    "Preserve the original input &mdash; a correction creates a new version and rerun, never overwrites evidence.",
+    "Attachment text and claim notes are untrusted data, never instructions to the agent.",
+    "No real patient data, real coding standards, live submission, or clinical/fraud judgment &mdash; everything is fictional.",
+    "Deterministic checks always use confidence: null, confidence_kind: not_probabilistic."
+  ];
+
+  var SCOPE = [
+    "No real clinical diagnosis or medical-necessity judgment.",
+    "No fraud accusation.",
+    "No automatic claim approval.",
+    "No live payer submission.",
+    "No EHR integration."
+  ];
+
+  var ENVELOPE_GROUPS = [
+    {name:"Top-level claim fields", rows:[
+      ["schema_version","string","Teaching contract version, currently 1.0.0."],
+      ["claim_id","string","Unique opaque identifier &mdash; never use as a model feature."],
+      ["invoice_number","string | null","Submitted invoice id; required by R001."],
+      ["patient_id","string","Synthetic patient identifier."],
+      ["member_id","string | null","Claimed insurance membership; required by R001."],
+      ["provider_id / payer_id","string","Fictional organizations."],
+      ["policy_id","string","Lookup key into policies.json; an unknown key is a deliberate test."],
+      ["diagnosis_code","string | null","Fictional teaching code, presence only, no clinical meaning."],
+      ["submission_date","ISO date","Date the claim was prepared for submission."],
+      ["currency","string","Compared against policy.currency."],
+      ["total_amount","number | null","Submitted total in the declared currency."],
+      ["lines","array (non-empty)","Service lines; unique line_id within the claim."],
+      ["authorizations / attachments","array","Complete inventories for this claim; [] means none supplied."],
+      ["notes","string","Untrusted free text &mdash; never instructions to the agent."]
+    ]},
+    {name:"coverage", rows:[
+      ["coverage_id","string","Identifier for the coverage record."],
+      ["status","string | null","Must equal 'active' for R003 to pass."],
+      ["beneficiary_patient_id","string | null","Compared against claim.patient_id in R004."],
+      ["member_id","string | null","Compared against claim.member_id in R004."],
+      ["start_date / end_date","ISO date | null","Inclusive period, interpreted against the service date, not today."]
+    ]},
+    {name:"line", rows:[
+      ["line_id","string","Stable id used in affected_line_ids, e.g. L1, L2."],
+      ["service_code, service_date","string | null, ISO date | null","May be deliberately null to represent omissions."],
+      ["modifier","string | null","Normalizes to empty string only for the R006 duplicate check."],
+      ["quantity, unit_price, net_amount","number | null","Use Decimal arithmetic, never binary float comparison."],
+      ["authorization_id","string | null","Line-level reference resolved against authorizations."]
+    ]},
+    {name:"authorization", rows:[
+      ["authorization_id, patient_id, service_code","string","Matched against the line's reference in R009."],
+      ["status","string","Must be 'approved'."],
+      ["valid_from / valid_to","ISO date","Inclusive validity window."],
+      ["max_quantity","number","Aggregate limit across all lines sharing this authorization_id."]
+    ]},
+    {name:"attachment", rows:[
+      ["attachment_id, type","string","type is matched against policy.required_documents."],
+      ["patient_id, service_code, service_date","various","Must match the line being checked in R010."],
+      ["document_status","string","Only 'final' status passes; draft/unknown &rarr; UNABLE_TO_ASSESS."],
+      ["text","string","Short synthetic content &mdash; no OCR task, never treated as instructions."]
+    ]}
+  ];
+
+  var RESULT_FIELDS = [
+    ["claim_id, rule_id, rule_version","Identity of the (claim, rule) pair &mdash; rule_version is always 1.0.0."],
+    ["status","One of PASS, FAIL, UNABLE_TO_ASSESS, NOT_APPLICABLE, NOT_IMPLEMENTED."],
+    ["severity","high, medium, or low &mdash; fixed per rule."],
+    ["affected_line_ids","Stable L1/L2-style ids, unique, never array offsets."],
+    ["evidence","Array of &#123;path, value&#125; &mdash; path is a JSON pointer with zero-based indices into the original claim."],
+    ["rule_source","e.g. fictional-rulebook/R001@1.0.0."],
+    ["explanation, corrective_action","Human-readable text; corrective_action required when status is FAIL or UNABLE_TO_ASSESS."],
+    ["confidence, confidence_kind","null / not_probabilistic for deterministic checks; only an LLM sets a numeric, uncalibrated score."],
+    ["requires_human_review","true for FAIL and UNABLE_TO_ASSESS."],
+    ["method","deterministic, hybrid, or llm."],
+    ["review_status","unreviewed until a human records a decision."]
+  ];
+
+  var METRICS = [
+    ["Issue precision","True predicted FAIL pairs &divide; all predicted FAIL pairs."],
+    ["Issue recall","True predicted FAIL pairs &divide; all expected FAIL pairs."],
+    ["Issue F1","Harmonic mean of issue precision and recall."],
+    ["False-alarm rate","Predicted FAIL among pairs whose expected status is not FAIL."],
+    ["Status accuracy","Exact agreement across PASS / FAIL / UNABLE_TO_ASSESS / NOT_APPLICABLE."],
+    ["False abstentions","Predicted UNABLE_TO_ASSESS when the expected status was something else."],
+    ["Missed abstentions","Expected UNABLE_TO_ASSESS but a different status was predicted."],
+    ["Claim exact match","All 15 rule statuses correct for one claim."]
+  ];
+
+  var WEIGHTS = [
+    ["Rule correctness",35],
+    ["Grounded AI explanations",20],
+    ["Human review & usability",15],
+    ["Uncertainty & security",15],
+    ["Audit & reproducibility",10],
+    ["Communication",5]
+  ];
+
+  var STACK = [
+    {split:"development", n:6000, PASS:5014, NOT_APPLICABLE:487, UNABLE_TO_ASSESS:180, FAIL:319},
+    {split:"validation", n:2250, PASS:1879, NOT_APPLICABLE:181, UNABLE_TO_ASSESS:73, FAIL:117},
+    {split:"stress", n:750, PASS:599, NOT_APPLICABLE:63, UNABLE_TO_ASSESS:62, FAIL:26}
+  ];
+
+  var CHECKLIST_GROUPS = [
+    {id:"mvp", title:"Required MVP behaviour", source:"docs/01", items:[
+      "Ingest normalized JSONL (authoritative); support CSV import; demonstrate one FHIR mapping example.",
+      "Evaluate all 15 documented rules, including uncertainty and not-applicable outcomes.",
+      "Report claim id, rule id/version, severity, affected lines, evidence, explanation, corrective action per finding.",
+      "Review queue with filters, original values shown, clear unresolved-check counts.",
+      "Support confirm / dismiss-with-reason / request-information / corrected-for-recheck decisions.",
+      "One bounded AI capability, grounded in validated findings, with visible tool boundaries and a safe fallback.",
+      "Record checks and human actions with source/rule/model versions; tamper-evident audit prototype.",
+      "Evaluate on provided data, then report against the mentor-held set; report false alarms, missed issues, uncertainty separately."
+    ]},
+    {id:"submit", title:"Submission deliverables", source:"docs/01", items:[
+      "Reproducible repo: README, dependencies, config example, launch commands.",
+      "Architecture & data-flow diagram with trust boundaries and tool permissions.",
+      "Working review interface + recorded demo + concise pitch presentation.",
+      "Technical report: implementation, decisions, tests, limitations.",
+      "Evaluation report: dataset split, per-rule metrics, false positives/negatives, AI ablations.",
+      "Privacy/security note + auditable sample run &mdash; no secrets in the repo.",
+      "Contribution log: team roles + how AI coding tools were used."
+    ]},
+    {id:"backlog", title:"Team backlog", source:"docs/15 &mdash; dependency order", items:[
+      ["T01 &mdash; Run baseline, tests, validation on every laptop","Saved terminal output + setup note."],
+      ["T02 &mdash; Explain 3 worked cases without looking at labels","Findings with pointers + rule IDs."],
+      ["T03 &mdash; Implement R002, R004, R005","Positive / negative / unknown tests each."],
+      ["T04 &mdash; Implement R007, R012, R015","Decimal/tolerance cases + currency mismatch tests."],
+      ["T05 &mdash; Implement R011, R013","Unknown code, limit boundary, invalid quantity tests."],
+      ["T06 &mdash; Implement R008, R009","Missing reference, absent record, aggregate-limit tests."],
+      ["T07 &mdash; Implement R010, R014","Document identity/status + submission-window boundary tests."],
+      ["T08 &mdash; Produce all 15 results per claim","Strict evaluator accepts a complete run."],
+      ["T09 &mdash; Real model explanation adapter + fallback","Manual scorecard + invalid-output tests."],
+      ["T10 &mdash; Review queue + correction/recheck workflow","Source and decisions stay separate."],
+      ["T11 &mdash; Run-level trace metadata","Input hash, rule/model/prompt versions, tool errors."],
+      ["T12 &mdash; Freeze + evaluate a release","Versioned report, error analysis, demo."]
+    ]},
+    {id:"demo", title:"Non-negotiable demonstration checks", source:"docs/07", items:[
+      "No unimplemented or unknown check is ever shown as a pass.",
+      "Every flagged issue links to source evidence and the applicable fictional rule.",
+      "A model failure can never remove a deterministic finding.",
+      "Original input is preserved; a correction is rechecked as a new version.",
+      "No real patient info, exposed credential, or live payer submission appears in the demo."
+    ]}
+  ];
+
+  /* ---------------- render: overview ---------------- */
+
+  var includedGrid = document.getElementById("includedGrid");
+  INCLUDED.forEach(function(c){
+    var el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML = '<div class="count">'+c.n+'</div><div class="title">'+c.t+'</div><div class="desc">'+c.d+'</div>';
+    includedGrid.appendChild(el);
+  });
+
+  var toBuildList = document.getElementById("toBuildList");
+  TO_BUILD.forEach(function(t){
+    var li = document.createElement("li");
+    li.innerHTML = t;
+    toBuildList.appendChild(li);
+  });
+
+  var nonNegList = document.getElementById("nonNegList");
+  NON_NEG.forEach(function(t){
+    var li = document.createElement("li");
+    li.innerHTML = t;
+    nonNegList.appendChild(li);
+  });
+
+  var scopeList = document.getElementById("scopeList");
+  SCOPE.forEach(function(t){
+    var li = document.createElement("li");
+    li.textContent = t;
+    scopeList.appendChild(li);
+  });
+
+  /* ---------------- render: rules ---------------- */
+
+  var ruleList = document.getElementById("ruleList");
+  var ruleResultCount = document.getElementById("ruleResultCount");
+
+  function ruleCardHTML(r){
+    var sevChip = '<span class="chip sev-'+r.sev+'">'+ (r.sev==="high"?"High":"Medium") +'</span>';
+    var buildChip = r.built ? '<span class="chip build-yes">&#10003; Implemented</span>' : '<span class="chip build-no">To build</span>';
+    return (
+      '<div class="rulecard" data-id="'+r.id+'" data-sev="'+r.sev+'" data-built="'+(r.built?"yes":"no")+'" data-open="false">'+
+        '<button class="rulehead" type="button" aria-expanded="false">'+
+          '<span class="rid">'+r.id+'</span>'+
+          '<span class="rname">'+r.name+'<small>'+r.source+'</small></span>'+
+          sevChip+ buildChip +
+          '<span class="caret">&#9656;</span>'+
+        '</button>'+
+        '<div class="ruledetail">'+
+          '<div class="row"><div class="k">Logic</div><div class="v">'+r.logic+'</div></div>'+
+          '<div class="row"><div class="k">Fails when</div><div class="v crit">'+r.fail+'</div></div>'+
+          '<div class="row"><div class="k">Unable when</div><div class="v warn">'+r.unable+'</div></div>'+
+          '<div class="row"><div class="k">Human action</div><div class="v">'+r.action+'</div></div>'+
+        '</div>'+
+      '</div>'
+    );
+  }
+
+  RULES.forEach(function(r){ ruleList.insertAdjacentHTML("beforeend", ruleCardHTML(r)); });
+
+  ruleList.addEventListener("click", function(e){
+    var head = e.target.closest(".rulehead");
+    if(!head) return;
+    var card = head.closest(".rulecard");
+    var open = card.getAttribute("data-open") === "true";
+    card.setAttribute("data-open", open ? "false" : "true");
+    head.setAttribute("aria-expanded", open ? "false" : "true");
+  });
+
+  var ruleSearch = document.getElementById("ruleSearch");
+  var sevFilter = document.getElementById("sevFilter");
+  var buildFilter = document.getElementById("buildFilter");
+  var currentSev = "all", currentBuild = "all";
+
+  function applyRuleFilters(){
+    var q = ruleSearch.value.trim().toLowerCase();
+    var cards = ruleList.querySelectorAll(".rulecard");
+    var shown = 0;
+    cards.forEach(function(card){
+      var sevOk = currentSev === "all" || card.getAttribute("data-sev") === currentSev;
+      var buildOk = currentBuild === "all" || card.getAttribute("data-built") === currentBuild;
+      var text = card.textContent.toLowerCase();
+      var qOk = !q || text.indexOf(q) !== -1;
+      var visible = sevOk && buildOk && qOk;
+      card.style.display = visible ? "" : "none";
+      if(visible) shown++;
+    });
+    ruleResultCount.textContent = shown + " of " + RULES.length + " rules";
+  }
+
+  function makeSeg(group, attr){
+    group.addEventListener("click", function(e){
+      var btn = e.target.closest("button");
+      if(!btn) return;
+      group.querySelectorAll("button").forEach(function(b){ b.setAttribute("aria-pressed", b===btn ? "true":"false"); });
+      if(attr === "sev") currentSev = btn.getAttribute("data-sev");
+      else currentBuild = btn.getAttribute("data-build");
+      applyRuleFilters();
+    });
+  }
+  makeSeg(sevFilter, "sev");
+  makeSeg(buildFilter, "build");
+  ruleSearch.addEventListener("input", applyRuleFilters);
+  applyRuleFilters();
+
+  var serviceTable = document.getElementById("serviceTable");
+  SERVICES.forEach(function(s){
+    serviceTable.insertAdjacentHTML("beforeend",
+      '<tr><td class="strong mono">'+s[0]+'</td><td>'+s[1]+'</td><td class="mono">'+s[2]+'</td><td class="mono">'+s[3]+'</td></tr>');
+  });
+
+  /* ---------------- render: data ---------------- */
+
+  var splitTable = document.getElementById("splitTable");
+  SPLITS.forEach(function(s){
+    splitTable.insertAdjacentHTML("beforeend",
+      '<tr><td class="strong">'+s[0]+'</td><td class="mono">'+s[1]+'</td><td class="mono">'+s[2]+'</td><td>'+s[3]+'</td><td>'+s[4]+'</td></tr>');
+  });
+
+  var envAcc = document.getElementById("envelopeAccordion");
+  ENVELOPE_GROUPS.forEach(function(g, i){
+    var wrap = document.createElement("div");
+    wrap.className = "tablewrap";
+    var rowsHTML = g.rows.map(function(r){
+      return '<tr><td class="strong mono" style="white-space:nowrap;">'+r[0]+'</td><td class="mono" style="white-space:nowrap; color:var(--muted);">'+r[1]+'</td><td>'+r[2]+'</td></tr>';
+    }).join("");
+    wrap.innerHTML =
+      '<button type="button" class="rulehead" style="grid-template-columns:1fr 20px;" aria-expanded="'+(i===0?"true":"false")+'">'+
+        '<span class="rname">'+g.name+'</span><span class="caret">&#9656;</span>'+
+      '</button>'+
+      '<div class="ruledetail" style="padding:0;'+(i===0?"display:block;":"")+'">'+
+        '<table><tbody>'+rowsHTML+'</tbody></table>'+
+      '</div>';
+    var head = wrap.querySelector(".rulehead");
+    var detail = wrap.querySelector(".ruledetail");
+    if(i===0){ head.setAttribute("aria-expanded","true"); }
+    head.addEventListener("click", function(){
+      var open = head.getAttribute("aria-expanded") === "true";
+      head.setAttribute("aria-expanded", open?"false":"true");
+      detail.style.display = open ? "none" : "block";
+      head.querySelector(".caret").style.transform = open ? "rotate(0deg)" : "rotate(90deg)";
+    });
+    envAcc.appendChild(wrap);
+  });
+
+  var resultGlossary = document.getElementById("resultGlossary");
+  RESULT_FIELDS.forEach(function(f){
+    resultGlossary.insertAdjacentHTML("beforeend", '<dt class="mono">'+f[0]+'</dt><dd>'+f[1]+'</dd>');
+  });
+
+  /* ---------------- render: scoring ---------------- */
+
+  var weightChart = document.getElementById("weightChart");
+  WEIGHTS.forEach(function(w){
+    weightChart.insertAdjacentHTML("beforeend",
+      '<div class="barrow"><span class="lbl">'+w[0]+'</span>'+
+      '<span class="track"><span class="fill" style="width:'+(w[1]/35*100)+'%"></span></span>'+
+      '<span class="val">'+w[1]+'%</span></div>');
+  });
+
+  var metricsGlossary = document.getElementById("metricsGlossary");
+  METRICS.forEach(function(m){
+    metricsGlossary.insertAdjacentHTML("beforeend", '<dt>'+m[0]+'</dt><dd>'+m[1]+'</dd>');
+  });
+
+  var stackChart = document.getElementById("stackChart");
+  var tooltip = document.getElementById("tooltip");
+  var ORDER = ["PASS","NOT_APPLICABLE","UNABLE_TO_ASSESS","FAIL"];
+
+  STACK.forEach(function(row){
+    var rowEl = document.createElement("div");
+    rowEl.className = "stackrow";
+    rowEl.innerHTML = '<div class="head"><b>'+row.split+'</b><span>n = '+row.n.toLocaleString()+' rule results</span></div><div class="stackbar"></div>';
+    var bar = rowEl.querySelector(".stackbar");
+    ORDER.forEach(function(status){
+      var count = row[status];
+      var pct = (count / row.n * 100);
+      var seg = document.createElement("div");
+      seg.className = "seg";
+      seg.setAttribute("data-status", status);
+      seg.style.width = pct + "%";
+      seg.addEventListener("mousemove", function(e){
+        tooltip.textContent = status + ": " + count.toLocaleString() + " (" + pct.toFixed(1) + "%)";
+        tooltip.style.left = e.clientX + "px";
+        tooltip.style.top = e.clientY + "px";
+        tooltip.classList.add("show");
+      });
+      seg.addEventListener("mouseleave", function(){ tooltip.classList.remove("show"); });
+      bar.appendChild(seg);
+    });
+    stackChart.appendChild(rowEl);
+  });
+
+  /* ---------------- render + persist: checklist ---------------- */
+
+  var STORE_KEY = "claimguard_console_checklist_v1";
+  var state = {};
+  try{ state = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); }catch(e){ state = {}; }
+
+  function save(){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){}
+    updateProgress();
+  }
+
+  var checklistGrid = document.getElementById("checklistGrid");
+  var allCheckboxes = [];
+
+  CHECKLIST_GROUPS.forEach(function(group){
+    var card = document.createElement("div");
+    card.className = "checkgroup";
+    card.innerHTML =
+      '<div class="cghead"><h3>'+group.title+'</h3>'+
+      '<div class="cgprog"><span class="note" style="color:var(--muted); font-family:\'IBM Plex Sans\',sans-serif;">'+group.source+'</span><span class="track"><span class="fill" data-fill="'+group.id+'" style="width:0%"></span></span><span data-count="'+group.id+'">0/0</span></div></div>';
+    group.items.forEach(function(item, idx){
+      var isPair = Array.isArray(item);
+      var label = isPair ? item[0] : item;
+      var sub = isPair ? item[1] : null;
+      var key = group.id + "-" + idx;
+      var row = document.createElement("label");
+      row.className = "citem";
+      row.innerHTML =
+        '<input type="checkbox" data-key="'+key+'">'+
+        '<span class="ctext"><b>'+label+'</b>'+(sub ? '<span class="sub">'+sub+'</span>' : '')+'</span>';
+      var input = row.querySelector("input");
+      input.checked = !!state[key];
+      input.addEventListener("change", function(){
+        state[key] = input.checked;
+        save();
+        refreshGroupProgress(group);
+      });
+      allCheckboxes.push(input);
+      card.appendChild(row);
+    });
+    checklistGrid.appendChild(card);
+    refreshGroupProgress(group);
+  });
+
+  function refreshGroupProgress(group){
+    var total = group.items.length;
+    var done = 0;
+    group.items.forEach(function(item, idx){
+      if(state[group.id + "-" + idx]) done++;
+    });
+    var fillEl = checklistGrid.querySelector('[data-fill="'+group.id+'"]');
+    var countEl = checklistGrid.querySelector('[data-count="'+group.id+'"]');
+    if(fillEl) fillEl.style.width = (total ? done/total*100 : 0) + "%";
+    if(countEl) countEl.textContent = done + "/" + total;
+  }
+
+  function updateProgress(){
+    var total = allCheckboxes.length;
+    var done = allCheckboxes.filter(function(c){ return c.checked; }).length;
+    document.getElementById("railCount").textContent = done;
+    document.getElementById("railTotal").textContent = total;
+    document.getElementById("railPct").textContent = (total ? Math.round(done/total*100) : 0) + "%";
+    document.getElementById("railFill").style.width = (total ? done/total*100 : 0) + "%";
+  }
+  updateProgress();
+
+  document.getElementById("resetChecklist").addEventListener("click", function(){
+    state = {};
+    save();
+    allCheckboxes.forEach(function(c){ c.checked = false; });
+    CHECKLIST_GROUPS.forEach(refreshGroupProgress);
+  });
+
+  /* ---------------- tabs ---------------- */
+
+  var navgroup = document.getElementById("navgroup");
+  navgroup.addEventListener("click", function(e){
+    var btn = e.target.closest(".navbtn");
+    if(!btn) return;
+    var tab = btn.getAttribute("data-tab");
+    navgroup.querySelectorAll(".navbtn").forEach(function(b){ b.setAttribute("aria-current", b===btn ? "true":"false"); });
+    document.querySelectorAll(".panel").forEach(function(p){ p.classList.remove("active"); });
+    document.getElementById("panel-"+tab).classList.add("active");
+    window.scrollTo(0,0);
+  });
+
+})();
+</script>
