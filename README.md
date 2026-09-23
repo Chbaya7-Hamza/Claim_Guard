@@ -160,7 +160,7 @@ authorization rule R009 then returns `UNABLE_TO_ASSESS` instead of guessing.
 ## Audit log and review workflow
 
 `src/audit_log.py`, `src/review_workflow.py`, `docs/16_Audit_Log_Design.md`.
-`python scripts/run_audited_review.py` runs ingest -> 15 rules -> explanations ->
+The AI's question is logged before the model is called (`ai_request`) and every AI action is classified `human_escalation`; `scripts/verify_audit.py` re-checks that ordering. `python scripts/run_audited_review.py` runs ingest -> 15 rules -> explanations ->
 audit chain -> validated reviewer decisions -> a corrected-claim recheck (new run,
 original untouched) and verifies the chain (`python src/audit.py --log outputs/audit_demo/audit.jsonl --verify`).
 The log is tamper-evident, not immutable; the design note says what real
@@ -174,7 +174,7 @@ python src/run_yara.py --input data/development/claims.jsonl --output outputs/ya
 python scripts/verify_audit.py --log outputs/audit_dev/audit.jsonl --results outputs/yara_dev_predictions.jsonl
 ```
 
-`outputs/audit_dev/` (committed) holds 8,099 events for the 400 development claims: all
+`outputs/audit_dev/` (committed) holds 8,598 events for the 400 development claims: all
 6,000 rule checks with result hashes, the AI-recommendation and routing events, and the
 anchor. `outputs/audit_demo/` is the smaller workflow demo (decisions + recheck).
 

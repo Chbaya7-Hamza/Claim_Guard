@@ -21,8 +21,10 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from audit_log import AuditLog, events_for_run
-from claim_review import review_package
+import uuid
+
+from audit_log import AuditLog, audited_review
+from claim_review import IngestionError, input_hash, validate_input
 from schema_subset import validate as validate_schema
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -145,21 +147,26 @@ def recheck(log, original_claim, corrected_claim, prior_results, prior_trace, cf
     for d in decisions:
         validate_decision(d, findings)
 
-    new_results, new_ai, new_trace = review_package(copy.deepcopy(corrected_claim), cfg,
-                                                    provider=provider, fallback=fallback)
-    if new_results is None:
-        raise DecisionError(f"Corrected claim failed ingestion: {new_trace.get('ingestion_error')}")
-    if new_trace['input_hash'] == prior_trace['input_hash']:
+    try:
+        validate_input(copy.deepcopy(corrected_claim))
+    except IngestionError as e:
+        raise DecisionError(f'Corrected claim failed ingestion: {e}') from e
+    new_hash = input_hash(corrected_claim)
+    if new_hash == prior_trace['input_hash']:
         raise DecisionError('Corrected claim hashes identically to the original')
+    new_run_id = str(uuid.uuid4())
 
+    # Write-ahead: the decisions and the run link are recorded BEFORE the new run starts.
     log.append_review_decisions(decisions)
     log.append_system_events([{
         'event_type': 'recheck_run', 'claim_id': original_claim['claim_id'],
-        'prior_run_id': prior_trace['run_id'], 'new_run_id': new_trace['run_id'],
-        'prior_input_hash': prior_trace['input_hash'], 'new_input_hash': new_trace['input_hash'],
+        'prior_run_id': prior_trace['run_id'], 'new_run_id': new_run_id,
+        'prior_input_hash': prior_trace['input_hash'], 'new_input_hash': new_hash,
         'rechecked_rule_ids': list(rule_ids), 'requested_by': actor,
     }])
-    log.append_system_events(events_for_run(corrected_claim, new_results, new_ai, new_trace))
+    new_results, new_ai, new_trace = audited_review(
+        log, copy.deepcopy(corrected_claim), cfg, provider=provider, fallback=fallback,
+        source_format='reviewer_correction', run_id=new_run_id)
     new_by_rule = index_findings(new_results)
     changes = {rid: (findings[(original_claim['claim_id'], rid)]['status'],
                      new_by_rule[(original_claim['claim_id'], rid)]['status']) for rid in rule_ids}

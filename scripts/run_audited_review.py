@@ -19,8 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
-from audit_log import AuditLog, events_for_quarantined_record, events_for_run, verify_with_anchor
-from claim_review import review_package
+from audit_log import AuditLog, audited_review, events_for_quarantined_record, verify_ai_ordering, verify_with_anchor
 from engine_core import config
 from ingest import ingest
 from llm_adapter import MockExplanationProvider, default_provider
@@ -64,9 +63,9 @@ def main():
     runs = {}
     all_results = []
     for claim in sample:
-        rr, ai, trace = review_package(copy.deepcopy(claim), cfg, provider=provider)
         fmt, report = reports[claim['claim_id']]
-        log.append_system_events(events_for_run(claim, rr, ai, trace, source_format=fmt, ingestion_report=report))
+        rr, ai, trace = audited_review(log, copy.deepcopy(claim), cfg, provider=provider,
+                                       source_format=fmt, ingestion_report=report)
         runs[claim['claim_id']] = (claim, rr, trace)
         all_results.extend(rr or [])
     with (out / 'results.jsonl').open('w', encoding='utf-8') as f:
@@ -77,6 +76,7 @@ def main():
     if a.no_demo:
         head, count = verify_with_anchor(out / 'audit.jsonl')
         print(f'Audit chain valid: {count} events; head {head}')
+        print('AI ordering:', json.dumps(verify_ai_ordering(out / 'audit.jsonl')))
         return
 
     # Three demonstration decisions, one per kind that is not a recheck.
@@ -110,6 +110,7 @@ def main():
 
     head, count = verify_with_anchor(out / 'audit.jsonl')
     print(f'Audit chain valid: {count} events; head {head}')
+    print('AI ordering:', json.dumps(verify_ai_ordering(out / 'audit.jsonl')))
 
 
 if __name__ == '__main__':

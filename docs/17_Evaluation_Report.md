@@ -10,7 +10,7 @@ Synthetic teaching benchmark only. Nothing here is a claim about real denial red
 Python 3.10.11 (`.venv` via uv), `yara-x==1.20.0`, `openai==3.19.0` (`requirements.txt`). Secrets live in an untracked `.env` (`.env.example` is committed).
 
 ```bash
-python -m unittest discover -s tests                     # 186 tests, all offline, no API key needed
+python -m unittest discover -s tests                     # 212 tests, all offline, no API key needed
 python src/run_yara.py --input data/development/claims.jsonl --output outputs/yara_dev_predictions.jsonl
 python src/evaluate.py --gold data/development/expected_results.jsonl \
     --pred outputs/yara_dev_predictions.jsonl --claims data/development/claims.jsonl \
@@ -75,7 +75,7 @@ All of these passed `validate_explanation` and kept `needs_human_review: true`. 
 
 ## AI evaluation
 
-Model `mistralai/mistral-nemotron` via NVIDIA NIM, `temperature=0`, `top_p=1`, `max_tokens=500`, 25 s timeout, no retries. Prompt v1.0.0 for all recorded runs (`outputs/llm_explanations_run1.jsonl`, `..._run2.jsonl`, `llm_injection_variants*.jsonl`); prompt v1.1.0 is current. Baseline = the deterministic template provider (the rule engine's own message), also the fallback. Automatic checks are in `outputs/ai_eval.json`; the manual 0/1 scorecard has **not** been scored by a human.
+Model `mistralai/mistral-nemotron` via NVIDIA NIM, `temperature=0`, `top_p=1`, `max_tokens=500`, 25 s timeout, no retries. Prompt v1.0.0 for all recorded runs (v1.2.0 now also embeds the per-finding pydantic JSON Schema; not yet run live) (`outputs/llm_explanations_run1.jsonl`, `..._run2.jsonl`, `llm_injection_variants*.jsonl`); prompt v1.2.0 is current (v1.1.0 added the currency/date instructions). Baseline = the deterministic template provider (the rule engine's own message), also the fallback. Automatic checks are in `outputs/ai_eval.json`; the manual 0/1 scorecard has **not** been scored by a human.
 
 | Set | Live model answers | Fallbacks (reason) | Median / max latency (live) | Live answers that re-pass `validate_explanation` | Answers the new grounding guard would reject |
 |---|---|---|---|---|---|
@@ -95,7 +95,7 @@ Model `mistralai/mistral-nemotron` via NVIDIA NIM, `temperature=0`, `top_p=1`, `
 Evidence is in the tests (183 passing) and the frozen runs:
 
 - **Review workflow** (`tests/test_review_workflow.py`, 12 tests): decisions must match the finding's real status, only FAIL / UNABLE_TO_ASSESS findings are reviewable, reason and actor are required, one bad decision rejects the whole batch, decisions never modify rule results. A recheck creates a new run with a new input hash and links it to the prior run; the original claim and results are untouched; a rechecked finding that still fails returns to "unreviewed".
-- **Audit log** (`tests/test_audit_log.py`, 19 tests; systematic record `outputs/audit_dev/` = 8,099 events for all 400 development claims, cross-checked against the results file by `scripts/verify_audit.py`, which also fails on a tampered result; workflow demo `outputs/audit_demo/`): an edited event, a truncated log and a fully replaced log are each detected; the system cannot log an approval; a fabricated confidence on a deterministic event is rejected. Tamper-evident only, not immutable (`docs/16_Audit_Log_Design.md`).
+- **Audit log** (`tests/test_audit_log.py`, 35 tests incl. write-ahead ordering and the verifier; systematic record `outputs/audit_dev/` = 8,598 events, 499 AI requests each logged before its answer and all `human_escalation` (offline template provider, so no live-model events in this log) for all 400 development claims, cross-checked against the results file by `scripts/verify_audit.py`, which also fails on a tampered result; workflow demo `outputs/audit_demo/`): an edited event, a truncated log and a fully replaced log are each detected; the system cannot log an approval; a fabricated confidence on a deterministic event is rejected. Tamper-evident only, not immutable (`docs/16_Audit_Log_Design.md`).
 - **Ingestion** (`tests/test_ingest.py`, 15 tests): malformed, unmappable and transport-invalid records are quarantined with a reason; attachment text stays data.
 - **Prompt injection**: 25 supplied + 11 own cases, above. Live coverage is incomplete for the reasons above.
 - **Secrets**: `.env` is git-ignored; no key is in tracked files.

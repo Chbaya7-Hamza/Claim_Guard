@@ -4,7 +4,10 @@
         [--results outputs/yara_dev_predictions.jsonl]
 
 1. Hash chain intact and consistent with the anchor file (truncation / replacement).
-2. With --results: every rule_check event's result_hash equals the digest of the
+2. AI ordering: every AI action was registered (ai_request: the question, the deterministic
+   verdict, finding + prompt hashes, action type) BEFORE the model was called, answered once, and
+   classified human_escalation; auto_correct never appears.
+3. With --results: every rule_check event's result_hash equals the digest of the
    corresponding result record, and every result has exactly one rule_check in the
    log's latest run for that claim. The log therefore cannot silently disagree with the
    results file it claims to describe.
@@ -17,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from audit import digest
-from audit_log import verify_with_anchor
+from audit_log import verify_ai_ordering, verify_with_anchor
 
 
 def main():
@@ -27,6 +30,8 @@ def main():
     a = p.parse_args()
     head, count = verify_with_anchor(a.log)
     print(f'Chain OK: {count} events, matches anchor; head {head}')
+    stats = verify_ai_ordering(a.log)
+    print('AI ordering OK:', json.dumps(stats))
     if not a.results:
         return
     results = {}

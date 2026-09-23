@@ -4,8 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from engine_core import config
 from audit import verify
-from audit_log import AuditLog, events_for_run, verify_with_anchor
-from claim_review import review_package
+from audit_log import AuditLog, audited_review, verify_ai_ordering, verify_with_anchor
 from llm_adapter import MockExplanationProvider
 from review_workflow import (DecisionError, apply_decisions, load_decisions, recheck,
                              review_state, unresolved_counts, validate_decision, index_findings)
@@ -23,9 +22,8 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.log = AuditLog(self.path)
         self.claim = copy.deepcopy(self.clean)
         self.claim['invoice_number'] = None  # -> R001 FAIL
-        self.results, ai, self.trace = review_package(copy.deepcopy(self.claim), self.cfg,
-                                                      provider=MockExplanationProvider())
-        self.log.append_system_events(events_for_run(self.claim, self.results, ai, self.trace))
+        self.results, _, self.trace = audited_review(self.log, copy.deepcopy(self.claim), self.cfg,
+                                                     provider=MockExplanationProvider())
         self.findings = index_findings(self.results)
 
     def tearDown(self):
@@ -112,6 +110,7 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual((link[0]['prior_run_id'], link[0]['new_run_id']),
                          (self.trace['run_id'], new_trace['run_id']))
         self.assertEqual(verify_with_anchor(self.path)[1], self.log.count)
+        verify_ai_ordering(self.path)
         actions = [json.loads(l)['event'].get('action') for l in self.path.read_text().splitlines()]
         self.assertIn('mark_corrected_for_recheck', actions)
 
