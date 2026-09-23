@@ -60,10 +60,10 @@ def resolve_policy(claim: dict, cfg: dict) -> dict | None:
     return cfg['policies'].get(claim['policy_id'])
 
 
-def run_checks(claim: dict, cfg: dict) -> list[dict]:
+def run_checks(claim: dict, cfg: dict, tool_errors: list = None) -> list[dict]:
     """Step 3 (named tool, typed input: claim + cfg). The 15 structured
     rule-engine results, including UNABLE_TO_ASSESS and NOT_APPLICABLE."""
-    return run_rule_checks(claim, cfg)
+    return run_rule_checks(claim, cfg, tool_errors)
 
 
 def retrieve_evidence(finding: dict, path: str):
@@ -173,7 +173,7 @@ def review_package(claim: dict, cfg: dict, provider=None, fallback=None,
     _hook(hooks, 'on_start', run_id, claim, in_hash, started_at)
 
     policy = resolve_policy(claim, cfg)
-    rule_results = run_checks(claim, cfg)
+    rule_results = run_checks(claim, cfg, tool_errors)
     rule_defs = {r['rule_id']: r for r in cfg['rules']}
     _hook(hooks, 'on_checks', run_id, claim, rule_results)
 

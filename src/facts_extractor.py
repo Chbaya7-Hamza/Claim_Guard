@@ -463,7 +463,7 @@ def r014_details(c, cfg):
     sub = valid_date(c['submission_date'])
     service_dates = [valid_date(l['service_date']) for l in c['lines']]
     paths = ['/submission_date', '/policy_id'] + [f'/lines/{i}/service_date' for i in range(len(c['lines']))]
-    if policy is None or sub is None or any(d is None for d in service_dates):
+    if policy is None or sub is None or not service_dates or any(d is None for d in service_dates):
         facts = ['R014:UNKNOWN']
         message = 'Missing dates or unavailable policy prevent checking the submission window.'
     else:
@@ -495,3 +495,60 @@ def r015_details(c, cfg):
         facts = ['R015:OK']
         message = 'Currency matches the policy currency.'
     return {'facts': facts, 'evidence_paths': paths, 'line_ids': [], 'message': message}
+
+
+# --- input sanitizing for rule computation ---------------------------------------------------
+# Rules treat None as "unknown" (-> UNABLE_TO_ASSESS). A value of the WRONG TYPE (a string where
+# a number belongs, a number where a string belongs, a bool, NaN) is unusable in exactly the same
+# way, so rule_view() turns it into None for rule computation only. Evidence is still read from
+# the ORIGINAL claim, so what a reviewer sees is what was submitted. Schema-valid claims pass
+# through unchanged; only malformed ones are affected, and they degrade to "unknown", never to
+# a crash and never to a silent PASS.
+import math
+
+_TOP_NUM = ('total_amount',)
+_TOP_STR = ('invoice_number', 'member_id', 'diagnosis_code', 'patient_id', 'provider_id', 'payer_id',
+            'policy_id', 'submission_date', 'currency')
+_COVERAGE_STR = ('coverage_id', 'status', 'beneficiary_patient_id', 'member_id', 'start_date', 'end_date')
+_LINE_NUM = ('quantity', 'unit_price', 'net_amount')
+_LINE_STR = ('service_code', 'service_date', 'modifier', 'authorization_id')
+_AUTH_NUM = ('max_quantity',)
+_AUTH_STR = ('authorization_id', 'patient_id', 'service_code', 'status', 'valid_from', 'valid_to')
+_ATT_STR = ('attachment_id', 'type', 'patient_id', 'service_code', 'service_date', 'document_status', 'text')
+
+
+def _clean_num(v):
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    if isinstance(v, float) and not math.isfinite(v):
+        return None
+    return v
+
+
+def _clean_str(v):
+    return v if isinstance(v, str) else None
+
+
+def _clean_row(row, nums, strs):
+    if not isinstance(row, dict):
+        return row
+    out = dict(row)
+    for k in nums:
+        if k in out:
+            out[k] = _clean_num(out[k])
+    for k in strs:
+        if k in out and out[k] is not None:
+            out[k] = _clean_str(out[k])
+    return out
+
+
+def rule_view(c):
+    """A copy of the claim with wrong-typed values replaced by None (see above)."""
+    v = _clean_row(c, _TOP_NUM, _TOP_STR)
+    if isinstance(c.get('coverage'), dict):
+        v['coverage'] = _clean_row(c['coverage'], (), _COVERAGE_STR)
+    for key, nums, strs in (('lines', _LINE_NUM, _LINE_STR), ('authorizations', _AUTH_NUM, _AUTH_STR),
+                            ('attachments', (), _ATT_STR)):
+        if isinstance(c.get(key), list):
+            v[key] = [_clean_row(r, nums, strs) for r in c[key]]
+    return v
