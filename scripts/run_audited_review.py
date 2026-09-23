@@ -15,11 +15,12 @@ import argparse
 import copy
 import json
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
-from audit_log import AuditLog, audited_review, events_for_quarantined_record, verify_ai_ordering, verify_with_anchor
+from audit_log import AuditLog, audited_review, audited_review_many, events_for_quarantined_record, verify_ai_ordering, verify_with_anchor
 from engine_core import config
 from ingest import ingest
 from llm_adapter import MockExplanationProvider, default_provider
@@ -33,6 +34,7 @@ def main():
     p.add_argument('--input', default='data/development/claims.jsonl',
                    help='normalized JSONL, FHIR Bundle JSONL, or a CSV folder (auto-detected)')
     p.add_argument('--limit', type=int, default=12, help='0 = every claim in the input')
+    p.add_argument('--workers', type=int, default=1, help='claims reviewed concurrently (useful with --live)')
     p.add_argument('--no-demo', action='store_true',
                    help='systematic mode: audit every check for the claims, with NO scripted decisions or recheck')
     p.add_argument('--out-dir', default='outputs/audit_demo')
@@ -62,10 +64,12 @@ def main():
 
     runs = {}
     all_results = []
-    for claim in sample:
-        fmt, report = reports[claim['claim_id']]
-        rr, ai, trace = audited_review(log, copy.deepcopy(claim), cfg, provider=provider,
-                                       source_format=fmt, ingestion_report=report)
+    items = [{'claim': copy.deepcopy(c), 'source_format': reports[c['claim_id']][0],
+              'ingestion_report': reports[c['claim_id']][1]} for c in sample]
+    t0 = time.monotonic()
+    outcomes = audited_review_many(log, items, cfg, provider=provider, workers=a.workers)
+    print(f'Reviewed with {a.workers} worker(s) in {time.monotonic() - t0:.1f}s')
+    for claim, (rr, ai, trace) in zip(sample, outcomes):
         runs[claim['claim_id']] = (claim, rr, trace)
         all_results.extend(rr or [])
     with (out / 'results.jsonl').open('w', encoding='utf-8') as f:

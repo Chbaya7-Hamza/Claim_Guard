@@ -1,6 +1,7 @@
 """Compile rules/core.yar, scan a claim's facts blob, resolve precedence, assemble results."""
 import hashlib
 import logging
+import threading
 from pathlib import Path
 
 import yara_x
@@ -36,6 +37,7 @@ DETAIL_FUNCS = {
 }
 
 _compiled = None
+_ENGINE_LOCK = threading.Lock()  # yara-x thread-safety is not assumed: compile and scan are serialized (~1 ms each)
 
 
 class EngineError(Exception):
@@ -44,9 +46,10 @@ class EngineError(Exception):
 
 def compiled_rules():
     global _compiled
-    if _compiled is None:
-        _compiled = yara_x.compile(PACK_PATH.read_text(encoding='utf-8'))
-    return _compiled
+    with _ENGINE_LOCK:
+        if _compiled is None:
+            _compiled = yara_x.compile(PACK_PATH.read_text(encoding='utf-8'))
+        return _compiled
 
 
 def pack_hash():
@@ -84,11 +87,13 @@ def evaluate(c, cfg, tool_errors=None):
             if tool_errors is not None:
                 tool_errors.append(f'{rid}: engine exception {crashed[rid]}')
     blob = '\n'.join(fact for d in details.values() for fact in d['facts']) + '\n'
-    scan = compiled_rules().scan(blob.encode('utf-8'))
+    rules = compiled_rules()
+    with _ENGINE_LOCK:
+        scan = rules.scan(blob.encode('utf-8'))
+        matched = [(dict(rule.metadata)['rule_id'], dict(rule.metadata)['outcome']) for rule in scan.matching_rules]
     by_rule = {}
-    for rule in scan.matching_rules:
-        meta = dict(rule.metadata)
-        by_rule.setdefault(meta['rule_id'], set()).add(meta['outcome'])
+    for rid, outcome in matched:
+        by_rule.setdefault(rid, set()).add(outcome)
     rule_defs = {r['rule_id']: r for r in cfg['rules']}
     results = []
     for rule_id in detail_funcs:

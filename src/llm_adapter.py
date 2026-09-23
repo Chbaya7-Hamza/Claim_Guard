@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Annotated, Literal, Protocol
@@ -183,10 +184,29 @@ class OpenAICompatibleProvider:
         self.max_tokens = max_tokens
         self.client = OpenAI(base_url=base_url or self.BASE_URL, api_key=api_key,
                              timeout=timeout or self.TIMEOUT, max_retries=0)
-        self.last_usage = None  # {prompt_tokens, completion_tokens, total_tokens} of the last call
-        self.last_attempts = 0  # HTTP attempts used by the last explain() (1, or 2 after a transient failure)
+        self._tl = threading.local()  # per-thread call metadata, so parallel explain() calls do not mix
+        self.last_usage = None
+        self.last_attempts = 0
 
     MAX_ATTEMPTS = 2  # one retry, transient failures only
+
+    @property
+    def last_usage(self):
+        """{prompt_tokens, completion_tokens, total_tokens} of THIS thread's last call."""
+        return getattr(self._tl, 'usage', None)
+
+    @last_usage.setter
+    def last_usage(self, v):
+        self._tl.usage = v
+
+    @property
+    def last_attempts(self):
+        """HTTP attempts used by THIS thread's last explain() (1, or 2 after a transient failure)."""
+        return getattr(self._tl, 'attempts', 0)
+
+    @last_attempts.setter
+    def last_attempts(self, v):
+        self._tl.attempts = v
 
     def _complete(self, prompt):
         """One HTTP call. Raises TransientProviderError for an empty/garbled envelope."""

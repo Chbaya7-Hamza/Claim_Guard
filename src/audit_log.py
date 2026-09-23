@@ -359,6 +359,32 @@ def audited_review(log, claim, cfg, provider=None, fallback=None, untrusted_note
     return rule_results, ai, trace
 
 
+def audited_review_many(log, items, cfg, provider=None, fallback=None, workers=8, on_done=None):
+    """Review many claims concurrently, each with write-ahead auditing.
+
+    `items` is a list of dicts: {'claim', optional 'source_format', 'ingestion_report',
+    'untrusted_note'}. Returns [(rule_results, ai, trace)] in INPUT order. Claims are independent,
+    so each runs its own bounded sequence in a worker thread; every audit write is serialized by the
+    log's lock and each ai_request is still written before its own model call. Events of different
+    claims interleave in the log, which verify_ai_ordering() tolerates because it keys on run/request
+    ids. A claim whose worker raises (for example a log write failure) re-raises here after the other
+    workers finish, so a failure is never silent."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(item):
+        out = audited_review(log, item['claim'], cfg, provider=provider, fallback=fallback,
+                             untrusted_note=item.get('untrusted_note'),
+                             source_format=item.get('source_format', 'normalized_json'),
+                             ingestion_report=item.get('ingestion_report'))
+        if on_done:
+            on_done(item, out)
+        return out
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        futures = [pool.submit(one, it) for it in items]
+        return [f.result() for f in futures]
+
+
 def verify_ai_ordering(log_path):
     """Check, from the log alone, that every AI action was registered before it happened and
     classified. Raises ValueError listing violations; returns summary statistics.

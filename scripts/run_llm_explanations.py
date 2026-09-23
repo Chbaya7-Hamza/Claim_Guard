@@ -16,6 +16,8 @@ import csv
 import json
 import logging
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +32,7 @@ def main():
     ap.add_argument('--cases', default='exercises/llm_explanation_cases.jsonl')
     ap.add_argument('--output', default='outputs/llm_explanations.jsonl')
     ap.add_argument('--no-scorecard', action='store_true', help='skip the manual scorecard (only valid for the 25 supplied cases)')
+    ap.add_argument('--workers', type=int, default=1, help='cases explained concurrently')
     args = ap.parse_args()
     cases = [json.loads(l) for l in (ROOT / args.cases).read_text(encoding='utf-8').splitlines() if l.strip()]
 
@@ -41,22 +44,29 @@ def main():
         print(f'No live provider available ({e}); every case will use the mock fallback.')
 
     fallback = MockExplanationProvider()
-    results = []
-    for case in cases:
+    def one(case):
         finding, rule = case['finding'], case['rule']
-        note = case.get('untrusted_note')
         active_primary = primary or fallback
-        output, used_fallback, error, latency_ms = explain_with_fallback(active_primary, fallback, finding, rule, note)
-        results.append({
+        output, used_fallback, error, latency_ms = explain_with_fallback(
+            active_primary, fallback, finding, rule, case.get('untrusted_note'))
+        live = not (used_fallback or primary is None)
+        # usage/attempts are per-thread on the provider: read them here, in the worker
+        return {
             'case_id': case['case_id'], 'task': case['task'],
-            'output': output, 'used_fallback': used_fallback or primary is None,
+            'output': output, 'used_fallback': not live,
             'error': error, 'latency_ms': round(latency_ms, 1),
             'model': getattr(primary, 'model', None),
-            'attempts': getattr(primary, 'last_attempts', None) if not (used_fallback or primary is None) else None,
-            'usage': getattr(primary, 'last_usage', None) if not (used_fallback or primary is None) else None,
-        })
-        status = 'FALLBACK' if (used_fallback or primary is None) else 'MODEL'
-        print(f"{case['case_id']} [{status}] {round(latency_ms)}ms" + (f' -- {error}' if error else ''))
+            'attempts': getattr(primary, 'last_attempts', None) if live else None,
+            'usage': getattr(primary, 'last_usage', None) if live else None,
+        }
+
+    t0 = time.monotonic()
+    with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
+        results = list(pool.map(one, cases))
+    for r in results:
+        print(f"{r['case_id']} [{'FALLBACK' if r['used_fallback'] else 'MODEL'}] {round(r['latency_ms'])}ms"
+              + (f" -- {r['error']}" if r['error'] else ''))
+    print(f'Wall time {time.monotonic() - t0:.1f}s with {args.workers} worker(s)')
 
     out_path = ROOT / args.output
     out_path.parent.mkdir(parents=True, exist_ok=True)
