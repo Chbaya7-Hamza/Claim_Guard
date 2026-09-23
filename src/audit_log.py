@@ -76,11 +76,18 @@ class AuditLog:
         self.path = Path(path)
         self.anchor_path = self.path.with_name(self.path.name + '.head.json')
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.head, self.count = verify(self.path)
+        # If an anchor exists, check against it BEFORE anything is appended. Otherwise the
+        # next write would re-anchor the truncated state and erase the evidence.
+        if self.anchor_path.exists():
+            self.head, self.count = verify_with_anchor(self.path, self.anchor_path)
+        else:
+            self.head, self.count = verify(self.path)
 
     def append_system_events(self, events):
         for e in events:
             _validate_system_event(e)
+        if not events:
+            return self.head, self.count
         return self._write(events)
 
     def append_review_decisions(self, events):
@@ -123,6 +130,8 @@ def verify_with_anchor(log_path, anchor_path=None):
     anchor = json.loads(anchor_path.read_text(encoding='utf-8'))
     if count < anchor['count']:
         raise ValueError(f"Log truncated: {count} events, anchor recorded {anchor['count']}")
+    if anchor['count'] == 0:
+        return head, count
     rows = [json.loads(l) for l in log_path.read_text(encoding='utf-8').splitlines() if l.strip()]
     if rows[anchor['count'] - 1]['hash'] != anchor['head']:
         raise ValueError('Log replaced: hash at anchored position differs from the anchor')

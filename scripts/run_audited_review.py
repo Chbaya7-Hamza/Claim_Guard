@@ -33,7 +33,9 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--input', default='data/development/claims.jsonl',
                    help='normalized JSONL, FHIR Bundle JSONL, or a CSV folder (auto-detected)')
-    p.add_argument('--limit', type=int, default=12)
+    p.add_argument('--limit', type=int, default=12, help='0 = every claim in the input')
+    p.add_argument('--no-demo', action='store_true',
+                   help='systematic mode: audit every check for the claims, with NO scripted decisions or recheck')
     p.add_argument('--out-dir', default='outputs/audit_demo')
     p.add_argument('--live', action='store_true', help='use the NVIDIA-backed explanation provider')
     a = p.parse_args()
@@ -54,8 +56,8 @@ def main():
     provider = default_provider() if a.live else MockExplanationProvider()
 
     # Pick the sample: first `limit` claims, plus one known invoice_number failure so the recheck has something to fix.
-    sample = claims[:a.limit]
-    demo_claim = next((c for c in claims if not (c.get('invoice_number') or '').strip()), None)
+    sample = claims if a.limit == 0 else claims[:a.limit]
+    demo_claim = None if a.no_demo else next((c for c in claims if not (c.get('invoice_number') or '').strip()), None)
     if demo_claim and all(c['claim_id'] != demo_claim['claim_id'] for c in sample):
         sample.append(demo_claim)
 
@@ -71,6 +73,11 @@ def main():
         for r in all_results:
             f.write(json.dumps(r, ensure_ascii=False) + '\n')
     print(f'Reviewed {len(sample)} claims -> {len(all_results)} rule results; audit chain has {log.count} events.')
+
+    if a.no_demo:
+        head, count = verify_with_anchor(out / 'audit.jsonl')
+        print(f'Audit chain valid: {count} events; head {head}')
+        return
 
     # Three demonstration decisions, one per kind that is not a recheck.
     reviewable = [r for r in all_results if r['status'] in REVIEWABLE]

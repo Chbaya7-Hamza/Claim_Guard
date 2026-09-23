@@ -2,7 +2,7 @@
 
 Code: `src/audit_log.py` (system events, anchor), `src/audit.py` (supplied; reviewer
 decisions, chain verifier), `src/review_workflow.py` (decision validation, recheck).
-Sample run: `python scripts/run_audited_review.py` writes `outputs/audit_demo/`.
+Sample run: `python scripts/run_audited_review.py` writes `outputs/audit_demo/` (workflow demo). Systematic record over a whole split: `--limit 0 --no-demo` (see README), committed as `outputs/audit_dev/` (8,099 events, 400 claims). `python scripts/verify_audit.py --log ... --results ...` checks the chain, the anchor and that every result's hash is in the log.
 
 ## What is recorded
 
@@ -46,6 +46,8 @@ Guaranteed:
 - The head hash and event count are written to `<log>.head.json`. Comparing the log
   with a separately held copy of that file detects **truncation** and **whole-log
   replacement** (tested in `tests/test_audit_log.py`).
+
+Opening an existing log with an anchor re-checks it against the anchor first, so a truncated log is rejected instead of being silently re-anchored (`tests/test_audit_log.py`).
 
 Not guaranteed - this is tamper-*evident*, not immutable:
 - Anyone with write access to both the log and the anchor can rewrite history and

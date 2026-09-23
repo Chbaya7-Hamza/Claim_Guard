@@ -166,6 +166,18 @@ original untouched) and verifies the chain (`python src/audit.py --log outputs/a
 The log is tamper-evident, not immutable; the design note says what real
 immutability would need.
 
+Systematic record (every check for a whole split, no scripted decisions):
+
+```bash
+python scripts/run_audited_review.py --input data/development/claims.jsonl --limit 0 --no-demo --out-dir outputs/audit_dev
+python src/run_yara.py --input data/development/claims.jsonl --output outputs/yara_dev_predictions.jsonl
+python scripts/verify_audit.py --log outputs/audit_dev/audit.jsonl --results outputs/yara_dev_predictions.jsonl
+```
+
+`outputs/audit_dev/` (committed) holds 8,099 events for the 400 development claims: all
+6,000 rule checks with result hashes, the AI-recommendation and routing events, and the
+anchor. `outputs/audit_demo/` is the smaller workflow demo (decisions + recheck).
+
 ## Read in this order
 
 01 brief; 02 domain; 03 data contract; 04 rulebook; 06 setup; 13 examples; 05 architecture/AI; 07 evaluation; 08 workshop; 09 work plan; 10 security; 11 FHIR; 12 troubleshooting; 14 sources.

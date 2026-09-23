@@ -171,6 +171,30 @@ class AuditLogTests(unittest.TestCase):
         self.assertEqual(events[0]['warnings'], ['unresolved_reference: x'])
         self.assertEqual(events[0]['not_carried_by_source'], ['notes'])
 
+    def test_reopening_a_truncated_log_fails_instead_of_reanchoring_it(self):
+        log = AuditLog(self.path)
+        log.append_system_events(run_events(self.failing_claim(), self.cfg)[0])
+        anchor_before = self.path.with_name('audit.jsonl.head.json').read_text()
+        lines = self.path.read_text().splitlines()
+        self.path.write_text('\n'.join(lines[:-3]) + '\n')
+        with self.assertRaisesRegex(ValueError, 'truncated'):
+            AuditLog(self.path)  # opening must not silently accept the shorter log
+        self.assertEqual(self.path.with_name('audit.jsonl.head.json').read_text(), anchor_before)
+
+    def test_reopening_a_deleted_log_with_a_surviving_anchor_fails(self):
+        log = AuditLog(self.path)
+        log.append_system_events(run_events(self.clean, self.cfg)[0])
+        self.path.unlink()
+        with self.assertRaisesRegex(ValueError, 'truncated'):
+            AuditLog(self.path)
+
+    def test_empty_batch_is_a_noop_and_leaves_a_verifiable_log(self):
+        log = AuditLog(self.path)
+        log.append_system_events([])
+        self.assertEqual(log.count, 0)
+        AuditLog(self.path).append_system_events(run_events(self.clean, self.cfg)[0])
+        verify_with_anchor(self.path)
+
 
 if __name__ == '__main__':
     unittest.main()
