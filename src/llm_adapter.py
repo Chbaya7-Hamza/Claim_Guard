@@ -107,8 +107,10 @@ class NvidiaExplanationProvider:
         self.model = model or os.environ.get('NVIDIA_MODEL') or 'mistralai/mistral-nemotron'
         self.max_tokens = max_tokens
         self.client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout, max_retries=0)
+        self.last_usage = None  # {prompt_tokens, completion_tokens, total_tokens} of the last call
 
     def explain(self, finding, rule, untrusted_note=None):
+        self.last_usage = None
         prompt = build_prompt(finding, rule, untrusted_note)
         completion = self.client.chat.completions.create(
             model=self.model,
@@ -118,6 +120,12 @@ class NvidiaExplanationProvider:
             max_tokens=self.max_tokens,
             stream=False,
         )
+        if completion.usage is not None:
+            self.last_usage = {
+                'prompt_tokens': completion.usage.prompt_tokens,
+                'completion_tokens': completion.usage.completion_tokens,
+                'total_tokens': completion.usage.total_tokens,
+            }
         text = completion.choices[0].message.content.strip()
         if text.startswith('```'):
             text = text.strip('`')
