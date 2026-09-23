@@ -32,3 +32,45 @@ def r001_details(c):
         'line_ids': [],
         'message': 'Required information is present.',
     }
+
+
+def r003_details(c):
+    cv = c['coverage']
+    start = valid_date(cv['start_date'])
+    end = valid_date(cv['end_date'])
+    paths = ['/coverage/status', '/coverage/start_date', '/coverage/end_date']
+    failed = []
+    unknown = []
+    facts = []
+    ids = []
+    if empty(cv['status']):
+        unknown.append('coverage status')
+    elif cv['status'] != 'active':
+        failed.append('coverage status is not active')
+        facts.append(f'R003:INACTIVE:status={cv["status"]}')
+    if not start or not end:
+        unknown.append('coverage period')
+    for i, l in enumerate(c['lines']):
+        paths.append(f'/lines/{i}/service_date')
+        d = valid_date(l['service_date'])
+        if not d:
+            unknown.append('service date')
+            continue
+        if (start and d < start) or (end and d > end):
+            failed.append('service outside coverage period')
+            ids.append(l['line_id'])
+            facts.append(
+                f'R003:OUT_OF_PERIOD:/lines/{i}/service_date:service={d.isoformat()}:'
+                f'start={start.isoformat() if start else ""}:end={end.isoformat() if end else ""}'
+            )
+    if failed:
+        message = '; '.join(sorted(set(failed))) + (
+            '; Additional unknown inputs: ' + ', '.join(sorted(set(unknown))) if unknown else ''
+        )
+    elif unknown:
+        facts = ['R003:UNKNOWN']
+        message = '; '.join(sorted(set(unknown)))
+    else:
+        facts = ['R003:OK']
+        message = 'All service dates are within active coverage, including boundaries.'
+    return {'facts': facts, 'evidence_paths': paths, 'line_ids': ids, 'message': message}
