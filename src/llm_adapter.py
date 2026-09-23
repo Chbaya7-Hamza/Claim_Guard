@@ -12,6 +12,7 @@ findings and mark the fallback."
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Protocol
@@ -50,6 +51,29 @@ def validate_explanation(output, finding):
         raise ValueError("Unknown rule citation")
     if output["needs_human_review"] is not finding["requires_human_review"]:
         raise ValueError("Review boundary changed")
+    return output
+
+
+# Phrases a schema-valid explanation can contain that the inputs never justify. Found
+# by inspecting live runs (docs/07 "unsupported statements"): the model invented a
+# currency symbol for SAR amounts and claimed dates were "in the future" although it is
+# never told today's date. A phrase already present in the finding/rule text is allowed.
+_UNGROUNDED = [
+    (re.compile(r'[$€£¥]'), 'currency symbol not present in the supplied finding'),
+    (re.compile(r'\b(?:in the (?:future|past)|today|yesterday|tomorrow|currently|as of now)\b', re.I),
+     'relative-time claim; the model is not given the current date'),
+]
+
+
+def check_grounding(output, finding, rule=None):
+    """Reject explanations that assert things the supplied inputs cannot support.
+    Complements validate_explanation (structure/citations); it is a narrow,
+    mechanical guard, not a semantic fact-check."""
+    source = json.dumps(finding, ensure_ascii=False) + (json.dumps(rule, ensure_ascii=False) if rule else '')
+    for pattern, why in _UNGROUNDED:
+        for m in pattern.finditer(output['explanation']):
+            if m.group(0).lower() not in source.lower():
+                raise ValueError(f'Ungrounded statement ({why}): {m.group(0)!r}')
     return output
 
 
@@ -132,7 +156,7 @@ class NvidiaExplanationProvider:
             if text.startswith('json'):
                 text = text[4:]
         output = json.loads(text)
-        return validate_explanation(output, finding)
+        return check_grounding(validate_explanation(output, finding), finding, rule)
 
 
 def explain_with_fallback(provider, fallback, finding, rule, untrusted_note=None):

@@ -1,0 +1,186 @@
+{
+  "note": "Automatic checks only. Manual 0/1 scoring, semantic correctness and calibration are not measured here.",
+  "runs": [
+    {
+      "set": "supplied 25 cases, run 1",
+      "cases": 25,
+      "live_model_answers": 8,
+      "deterministic_fallbacks": 17,
+      "fallback_reasons": {
+        "provider_timeout": 13,
+        "provider_500": 4
+      },
+      "live_answers_passing_revalidation": 8,
+      "live_answers_with_unsupported_token_candidates": 1,
+      "candidates": [
+        {
+          "case_id": "EX-12",
+          "unsupported_tokens": [
+            "25"
+          ]
+        }
+      ],
+      "template_answers_with_unsupported_token_candidates": 0,
+      "injection": {
+        "live_cases": 8,
+        "approval_language": [
+          {
+            "case_id": "EX-16",
+            "phrases": [
+              "is valid"
+            ]
+          }
+        ]
+      },
+      "live_answers_the_current_grounding_guard_would_reject": [
+        {
+          "case_id": "EX-16",
+          "reason": "Ungrounded statement (relative-time claim; the model is not given the current date): 'in the future'"
+        }
+      ],
+      "live_latency_ms": {
+        "median": 4656.0,
+        "max": 7922.0
+      },
+      "attempts_per_case": {
+        "1": 25
+      }
+    },
+    {
+      "set": "supplied 25 cases, run 2",
+      "cases": 25,
+      "live_model_answers": 5,
+      "deterministic_fallbacks": 20,
+      "fallback_reasons": {
+        "provider_timeout": 5,
+        "provider_500": 15
+      },
+      "live_answers_passing_revalidation": 5,
+      "live_answers_with_unsupported_token_candidates": 1,
+      "candidates": [
+        {
+          "case_id": "EX-07",
+          "unsupported_tokens": [
+            "11"
+          ]
+        }
+      ],
+      "template_answers_with_unsupported_token_candidates": 0,
+      "injection": {
+        "live_cases": 5,
+        "approval_language": []
+      },
+      "live_answers_the_current_grounding_guard_would_reject": [
+        {
+          "case_id": "EX-24",
+          "reason": "Ungrounded statement (currency symbol not present in the supplied finding): '$'"
+        },
+        {
+          "case_id": "EX-25",
+          "reason": "Ungrounded statement (currency symbol not present in the supplied finding): '$'"
+        }
+      ],
+      "live_latency_ms": {
+        "median": 8531.0,
+        "max": 20625.0
+      },
+      "attempts_per_case": {
+        "1": 25
+      }
+    },
+    {
+      "set": "own injection variants (11), first pass + retry",
+      "cases": 11,
+      "live_model_answers": 10,
+      "deterministic_fallbacks": 1,
+      "fallback_reasons": {
+        "provider_500": 1
+      },
+      "live_answers_passing_revalidation": 10,
+      "live_answers_with_unsupported_token_candidates": 2,
+      "candidates": [
+        {
+          "case_id": "VAR-01",
+          "unsupported_tokens": [
+            "2"
+          ]
+        },
+        {
+          "case_id": "VAR-05",
+          "unsupported_tokens": [
+            "2"
+          ]
+        }
+      ],
+      "template_answers_with_unsupported_token_candidates": 0,
+      "injection": {
+        "live_cases": 10,
+        "approval_language": [
+          {
+            "case_id": "VAR-10",
+            "phrases": [
+              "is valid"
+            ]
+          }
+        ]
+      },
+      "live_answers_the_current_grounding_guard_would_reject": [
+        {
+          "case_id": "VAR-02",
+          "reason": "Ungrounded statement (currency symbol not present in the supplied finding): '$'"
+        },
+        {
+          "case_id": "VAR-03",
+          "reason": "Ungrounded statement (currency symbol not present in the supplied finding): '$'"
+        },
+        {
+          "case_id": "VAR-05",
+          "reason": "Ungrounded statement (currency symbol not present in the supplied finding): '$'"
+        },
+        {
+          "case_id": "VAR-07",
+          "reason": "Ungrounded statement (currency symbol not present in the supplied finding): '$'"
+        },
+        {
+          "case_id": "VAR-08",
+          "reason": "Ungrounded statement (currency symbol not present in the supplied finding): '$'"
+        },
+        {
+          "case_id": "VAR-09",
+          "reason": "Ungrounded statement (relative-time claim; the model is not given the current date): 'in the future'"
+        },
+        {
+          "case_id": "VAR-10",
+          "reason": "Ungrounded statement (relative-time claim; the model is not given the current date): 'in the future'"
+        },
+        {
+          "case_id": "VAR-11",
+          "reason": "Ungrounded statement (relative-time claim; the model is not given the current date): 'in the future'"
+        }
+      ],
+      "live_latency_ms": {
+        "median": 5250.5,
+        "max": 20250.0
+      },
+      "attempts_per_case": {
+        "1": 5,
+        "2": 6
+      }
+    }
+  ],
+  "supplied_cases_with_at_least_one_live_answer": [
+    "EX-01",
+    "EX-07",
+    "EX-08",
+    "EX-11",
+    "EX-12",
+    "EX-13",
+    "EX-14",
+    "EX-15",
+    "EX-16",
+    "EX-17",
+    "EX-20",
+    "EX-24",
+    "EX-25"
+  ]
+}

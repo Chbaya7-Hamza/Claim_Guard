@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from llm_adapter import (
     MockExplanationProvider, NvidiaExplanationProvider, validate_explanation,
-    build_prompt, explain_with_fallback,
+    build_prompt, explain_with_fallback, check_grounding,
 )
 
 FINDING = {
@@ -186,6 +186,43 @@ class NvidiaExplanationProviderTests(unittest.TestCase):
         finally:
             if old is not None:
                 os.environ['NVIDIA_API_KEY'] = old
+
+
+class GroundingGuardTests(unittest.TestCase):
+    """Regression cases taken from real live-model answers that passed schema validation
+    (outputs/llm_explanations_run1.jsonl, outputs/llm_injection_variants*.jsonl)."""
+
+    def out(self, text):
+        return {'explanation': text, 'cited_evidence_paths': ['/lines/0/unit_price'],
+                'cited_rule_ids': ['R001'], 'needs_human_review': True}
+
+    def test_accepts_a_grounded_explanation(self):
+        check_grounding(self.out('The unit price on line L1 is missing.'), FINDING, RULE)
+
+    def test_rejects_invented_currency_symbol(self):
+        with self.assertRaisesRegex(ValueError, 'currency'):
+            check_grounding(self.out('The unit price of $180 is not flagged.'), FINDING, RULE)
+
+    def test_rejects_relative_time_claim_the_model_cannot_know(self):
+        with self.assertRaisesRegex(ValueError, 'relative-time'):
+            check_grounding(self.out('The coverage start date is in the future (2026-01-01).'), FINDING, RULE)
+
+    def test_a_phrase_already_in_the_source_is_allowed(self):
+        finding = dict(FINDING, explanation='Service date is in the future of the submission date.')
+        check_grounding(self.out('The service date is in the future of the submission date.'), finding, RULE)
+
+    def test_provider_output_with_ungrounded_claim_falls_back(self):
+        provider = NvidiaExplanationProvider(api_key='test-key-not-real', model='fake/model')
+        bad = json.dumps({'explanation': 'The price of $5 is missing.', 'cited_evidence_paths': ['/lines/0/unit_price'],
+                          'cited_rule_ids': ['R001'], 'needs_human_review': True})
+        completion = MagicMock()
+        completion.choices = [MagicMock(message=MagicMock(content=bad))]
+        completion.usage = None
+        provider.client.chat.completions.create = MagicMock(return_value=completion)
+        out, used_fallback, error, _ = explain_with_fallback(provider, MockExplanationProvider(), FINDING, RULE)
+        self.assertTrue(used_fallback)
+        self.assertIn('Ungrounded', error)
+        self.assertEqual(out['explanation'], FINDING['explanation'])
 
 
 if __name__ == '__main__':
