@@ -54,9 +54,12 @@ class YaraEngineTests(unittest.TestCase):
         self.assertEqual(self.result('R006')['status'], 'PASS')
 
     def test_missing_rule_in_pack_raises(self):
-        cfg = {'rules': [r for r in self.cfg['rules'] if r['rule_id'] != 'R001'] + [
-            {**next(r for r in self.cfg['rules'] if r['rule_id'] == 'R001'), 'rule_id': 'R999', 'version': '1.0.0'}
-        ]}
+        cfg = {
+            **self.cfg,
+            'rules': [r for r in self.cfg['rules'] if r['rule_id'] != 'R001'] + [
+                {**next(r for r in self.cfg['rules'] if r['rule_id'] == 'R001'), 'rule_id': 'R999', 'version': '1.0.0'}
+            ],
+        }
         # R999 has no facts and no YARA rule at all -> must raise, never silently pass.
         import yara_engine
         yara_engine.DETAIL_FUNCS['R999'] = yara_engine.DETAIL_FUNCS.pop('R001')
