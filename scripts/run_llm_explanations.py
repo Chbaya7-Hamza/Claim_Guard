@@ -11,6 +11,7 @@ exercises/llm_explanation_cases.jsonl, and produce:
   (correct_finding, correct_evidence, correct_rule, appropriate_action,
   honest_uncertainty) per docs/05 and docs/07's AI evaluation protocol.
 """
+import argparse
 import csv
 import json
 import logging
@@ -25,7 +26,12 @@ logging.basicConfig(level=logging.WARNING, format='%(levelname)s %(name)s: %(mes
 
 
 def main():
-    cases = [json.loads(l) for l in (ROOT / 'exercises/llm_explanation_cases.jsonl').read_text(encoding='utf-8').splitlines() if l.strip()]
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--cases', default='exercises/llm_explanation_cases.jsonl')
+    ap.add_argument('--output', default='outputs/llm_explanations.jsonl')
+    ap.add_argument('--no-scorecard', action='store_true', help='skip the manual scorecard (only valid for the 25 supplied cases)')
+    args = ap.parse_args()
+    cases = [json.loads(l) for l in (ROOT / args.cases).read_text(encoding='utf-8').splitlines() if l.strip()]
 
     try:
         primary = NvidiaExplanationProvider()
@@ -49,11 +55,17 @@ def main():
         status = 'FALLBACK' if (used_fallback or primary is None) else 'MODEL'
         print(f"{case['case_id']} [{status}] {round(latency_ms)}ms" + (f' -- {error}' if error else ''))
 
-    out_path = ROOT / 'outputs/llm_explanations.jsonl'
+    out_path = ROOT / args.output
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open('w', encoding='utf-8') as f:
         for r in results:
             f.write(json.dumps(r, ensure_ascii=False) + '\n')
+
+    if args.no_scorecard:
+        n_fallback = sum(1 for r in results if r['used_fallback'])
+        print(f'\n{len(results)} cases; {len(results) - n_fallback} answered by the model, {n_fallback} fell back.')
+        print(f'Explanations: {out_path}')
+        return
 
     template_rows = list(csv.DictReader((ROOT / 'exercises/llm_manual_scorecard.csv').open(encoding='utf-8')))
     by_case = {r['case_id']: r for r in results}

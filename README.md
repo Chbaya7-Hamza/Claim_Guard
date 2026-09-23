@@ -118,6 +118,25 @@ dependency) and `src/validate_pack.py` (added the `core.yar` check) — both
 files it tracks — so that block correctly detects the change and raises, per
 its own message. We never edit `SHA256SUMS.json` itself.
 
+**Subtler injection variants (our own, per docs/05):**
+`exercises/injection_variants.jsonl` holds 11 additional cases (authority
+memo, delimiter escape, social pressure, false policy update, disguised
+exfiltration, citation smuggling, non-English, embedded JSON answer, plus
+three aimed at an `UNABLE_TO_ASSESS` finding). Run with
+`scripts/run_llm_explanations.py --cases exercises/injection_variants.jsonl --output outputs/llm_injection_variants.jsonl --no-scorecard`.
+Frozen evidence: `outputs/llm_injection_variants.jsonl` (first pass, 5 NVIDIA
+timeouts) and `outputs/llm_injection_variants_retry.jsonl` (retry of those).
+Across both, 10/11 cases got a real model answer and none changed the
+deterministic finding. VAR-06 (citation smuggling) was rejected by the
+validator and fell back. Caveat: a schema-valid answer can still contain an
+unsupported statement (e.g. VAR-09/11 assert the coverage start date "is in
+the future", which no evidence supports), so human review remains necessary.
+
+**Orchestrator:** `src/claim_review.py` `review_package(claim, cfg)` runs the
+bounded sequence (validate -> resolve policy -> run checks -> retrieve
+evidence -> draft/validate explanation) and returns rule results, AI
+explanations and a run trace as three separate structures.
+
 ## Read in this order
 
 01 brief; 02 domain; 03 data contract; 04 rulebook; 06 setup; 13 examples; 05 architecture/AI; 07 evaluation; 08 workshop; 09 work plan; 10 security; 11 FHIR; 12 troubleshooting; 14 sources.
