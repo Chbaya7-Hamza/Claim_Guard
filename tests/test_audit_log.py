@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from engine_core import config
 from audit import verify
-from audit_log import AuditLog, verify_with_anchor, events_for_run
+from audit_log import AuditLog, verify_with_anchor, events_for_run, events_for_quarantined_record
 from claim_review import review_package
 from llm_adapter import MockExplanationProvider
 
@@ -155,6 +155,21 @@ class AuditLogTests(unittest.TestCase):
         self.assertEqual([e['event_type'] for e in events], ['ingestion', 'system_decision'])
         self.assertEqual(events[0]['outcome'], 'quarantined')
         AuditLog(self.path).append_system_events(events)
+
+    def test_record_that_never_became_a_claim_is_logged_and_quarantined(self):
+        events = events_for_quarantined_record('claims.jsonl:4', 'normalized_json', 'Invalid JSON: x')
+        AuditLog(self.path).append_system_events(events)
+        rows = [json.loads(l)['event'] for l in self.path.read_text().splitlines()]
+        self.assertEqual((rows[0]['outcome'], rows[0]['source_ref']), ('quarantined', 'claims.jsonl:4'))
+        self.assertEqual(rows[1]['decision'], 'quarantine_claim')
+
+    def test_ingestion_event_carries_source_warnings_and_uncarried_fields(self):
+        rr, ai, trace = review_package(copy.deepcopy(self.clean), self.cfg, provider=MockExplanationProvider())
+        report = {'warnings': ['unresolved_reference: x'], 'not_carried_by_fhir': ['notes']}
+        events = events_for_run(self.clean, rr, ai, trace, source_format='fhir_bundle', ingestion_report=report)
+        self.assertEqual(events[0]['source_format'], 'fhir_bundle')
+        self.assertEqual(events[0]['warnings'], ['unresolved_reference: x'])
+        self.assertEqual(events[0]['not_carried_by_source'], ['notes'])
 
 
 if __name__ == '__main__':

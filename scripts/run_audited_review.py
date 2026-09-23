@@ -19,9 +19,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
-from audit_log import AuditLog, events_for_run, verify_with_anchor
+from audit_log import AuditLog, events_for_quarantined_record, events_for_run, verify_with_anchor
 from claim_review import review_package
-from engine_core import config, load_jsonl
+from engine_core import config
+from ingest import ingest
 from llm_adapter import MockExplanationProvider, default_provider
 from review_workflow import apply_decisions, load_decisions, recheck, unresolved_counts
 
@@ -30,7 +31,8 @@ REVIEWABLE = ('FAIL', 'UNABLE_TO_ASSESS')
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--input', default='data/development/claims.jsonl')
+    p.add_argument('--input', default='data/development/claims.jsonl',
+                   help='normalized JSONL, FHIR Bundle JSONL, or a CSV folder (auto-detected)')
     p.add_argument('--limit', type=int, default=12)
     p.add_argument('--out-dir', default='outputs/audit_demo')
     p.add_argument('--live', action='store_true', help='use the NVIDIA-backed explanation provider')
@@ -42,9 +44,14 @@ def main():
         (out / f).unlink(missing_ok=True)
 
     cfg = config(ROOT)
-    claims = load_jsonl(ROOT / a.input)
-    provider = default_provider() if a.live else MockExplanationProvider()
     log = AuditLog(out / 'audit.jsonl')
+    ingested = list(ingest(ROOT / a.input))
+    for it in ingested:
+        if not it.accepted:
+            log.append_system_events(events_for_quarantined_record(it.source_ref, it.source_format, it.error))
+    claims = [it.claim for it in ingested if it.accepted]
+    reports = {it.claim['claim_id']: (it.source_format, it.report) for it in ingested if it.accepted}
+    provider = default_provider() if a.live else MockExplanationProvider()
 
     # Pick the sample: first `limit` claims, plus one known invoice_number failure so the recheck has something to fix.
     sample = claims[:a.limit]
@@ -56,7 +63,8 @@ def main():
     all_results = []
     for claim in sample:
         rr, ai, trace = review_package(copy.deepcopy(claim), cfg, provider=provider)
-        log.append_system_events(events_for_run(claim, rr, ai, trace))
+        fmt, report = reports[claim['claim_id']]
+        log.append_system_events(events_for_run(claim, rr, ai, trace, source_format=fmt, ingestion_report=report))
         runs[claim['claim_id']] = (claim, rr, trace)
         all_results.extend(rr or [])
     with (out / 'results.jsonl').open('w', encoding='utf-8') as f:

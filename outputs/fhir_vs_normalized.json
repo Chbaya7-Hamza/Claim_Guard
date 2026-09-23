@@ -1,0 +1,43 @@
+{
+  "claims": 600,
+  "results": 9000,
+  "rules_with_identical_status_on_every_claim": [
+    "R001",
+    "R002",
+    "R003",
+    "R004",
+    "R005",
+    "R006",
+    "R007",
+    "R008",
+    "R010",
+    "R011",
+    "R012",
+    "R013",
+    "R014",
+    "R015"
+  ],
+  "status_agreement_per_rule": {
+    "R001": 600,
+    "R002": 600,
+    "R003": 600,
+    "R004": 600,
+    "R005": 600,
+    "R006": 600,
+    "R007": 600,
+    "R008": 600,
+    "R009": 290,
+    "R010": 600,
+    "R011": 600,
+    "R012": 600,
+    "R013": 600,
+    "R014": 600,
+    "R015": 600
+  },
+  "differences": {
+    "R009: FAIL -> UNABLE_TO_ASSESS": 23,
+    "R009: PASS -> UNABLE_TO_ASSESS": 287
+  },
+  "silent_passes_where_full_data_is_not_pass": [],
+  "interpretation": "FHIR bundles do not carry authorization details (docs/11); rules that need them must degrade to UNABLE_TO_ASSESS, never PASS."
+}

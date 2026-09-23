@@ -1,0 +1,10 @@
+{
+  "source_format": "normalized_json",
+  "records": 400,
+  "accepted": 400,
+  "quarantined": 0,
+  "quarantine_reasons": {},
+  "warnings": {},
+  "not_carried_by_source": [],
+  "inferred_fields": []
+}

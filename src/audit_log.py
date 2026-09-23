@@ -129,7 +129,8 @@ def verify_with_anchor(log_path, anchor_path=None):
     return head, count
 
 
-def events_for_run(claim, rule_results, ai_explanations, run_trace, source_format='normalized_jsonl'):
+def events_for_run(claim, rule_results, ai_explanations, run_trace, source_format='normalized_json',
+                   ingestion_report=None):
     """Translate one review_package() outcome into audit events. Rule results
     are recorded by content hash plus the fields a reviewer needs to see; the
     full records remain in the results file the hash refers to."""
@@ -142,8 +143,10 @@ def events_for_run(claim, rule_results, ai_explanations, run_trace, source_forma
             {'event_type': 'system_decision', 'run_id': run_id, 'claim_id': claim_id,
              'decision': 'quarantine_claim', 'reason': run_trace.get('ingestion_error', 'ingestion failed')},
         ]
+    report = ingestion_report or {}
     events = [
-        {'event_type': 'ingestion', 'claim_id': claim_id, 'source_format': source_format, 'outcome': 'accepted'},
+        {'event_type': 'ingestion', 'claim_id': claim_id, 'source_format': source_format, 'outcome': 'accepted',
+         'warnings': report.get('warnings', []), 'not_carried_by_source': report.get('not_carried_by_fhir', [])},
         {'event_type': 'run_started', 'run_id': run_id, 'claim_id': claim_id,
          'input_hash': run_trace['input_hash'], 'started_at': run_trace['started_at']},
     ]
@@ -180,3 +183,14 @@ def events_for_run(claim, rule_results, ai_explanations, run_trace, source_forma
         'tool_errors': run_trace['tool_errors'], 'finished_at': run_trace['finished_at'],
     })
     return events
+
+
+def events_for_quarantined_record(source_ref, source_format, error, claim_id='UNKNOWN'):
+    """A record that never became a claim (bad JSON, unmappable bundle, failed
+    transport contract). It is logged and routed to quarantine, never dropped."""
+    return [
+        {'event_type': 'ingestion', 'claim_id': claim_id, 'source_format': source_format,
+         'outcome': 'quarantined', 'source_ref': source_ref, 'error': error},
+        {'event_type': 'system_decision', 'run_id': None, 'claim_id': claim_id,
+         'decision': 'quarantine_claim', 'reason': error},
+    ]

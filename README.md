@@ -137,6 +137,35 @@ bounded sequence (validate -> resolve policy -> run checks -> retrieve
 evidence -> draft/validate explanation) and returns rule results, AI
 explanations and a run trace as three separate structures.
 
+## Ingestion and normalization
+
+`src/ingest.py` is the single entry point. It detects and normalizes three
+input shapes into the one internal envelope (`schemas/claim.schema.json`,
+checked by `validate_transport`):
+
+```bash
+python src/ingest.py --input data/development/claims.jsonl        --output outputs/ingested.jsonl   # normalized JSONL
+python src/ingest.py --input data/development/fhir_bundles.jsonl  --output outputs/ingested.jsonl   # FHIR R4 Bundles
+python src/ingest.py --input data/development/csv                 --output outputs/ingested.jsonl   # relational CSV folder
+# optional: --quarantine outputs/quarantined.jsonl --report outputs/ingest_report.json
+```
+
+Bad records are quarantined with a reason and a source reference; they never
+abort the batch and never become a passed claim. FHIR mapping (`src/fhir_adapter.py`)
+reads only what the bundle carries. It cannot carry authorization details or
+notes (docs/11), so those stay null and the ingestion report lists them; the
+authorization rule R009 then returns `UNABLE_TO_ASSESS` instead of guessing.
+`python scripts/compare_fhir_vs_normalized.py` measures this over all public splits.
+
+## Audit log and review workflow
+
+`src/audit_log.py`, `src/review_workflow.py`, `docs/16_Audit_Log_Design.md`.
+`python scripts/run_audited_review.py` runs ingest -> 15 rules -> explanations ->
+audit chain -> validated reviewer decisions -> a corrected-claim recheck (new run,
+original untouched) and verifies the chain (`python src/audit.py --log outputs/audit_demo/audit.jsonl --verify`).
+The log is tamper-evident, not immutable; the design note says what real
+immutability would need.
+
 ## Read in this order
 
 01 brief; 02 domain; 03 data contract; 04 rulebook; 06 setup; 13 examples; 05 architecture/AI; 07 evaluation; 08 workshop; 09 work plan; 10 security; 11 FHIR; 12 troubleshooting; 14 sources.

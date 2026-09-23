@@ -1,0 +1,27 @@
+{
+  "source_format": "fhir_bundle",
+  "records": 400,
+  "accepted": 400,
+  "quarantined": 0,
+  "quarantine_reasons": {},
+  "warnings": {
+    "unresolved_reference": 4
+  },
+  "not_carried_by_source": [
+    "authorizations[].max_quantity",
+    "authorizations[].patient_id",
+    "authorizations[].service_code",
+    "authorizations[].status",
+    "authorizations[].valid_from",
+    "authorizations[].valid_to",
+    "notes"
+  ],
+  "inferred_fields": [
+    "attachments[].document_status",
+    "attachments[].service_code",
+    "attachments[].service_date",
+    "coverage.member_id",
+    "lines[].line_id",
+    "policy_id"
+  ]
+}
