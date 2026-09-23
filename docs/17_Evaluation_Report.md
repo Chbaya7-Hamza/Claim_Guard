@@ -10,7 +10,7 @@ Synthetic teaching benchmark only. Nothing here is a claim about real denial red
 Python 3.10.11 (`.venv` via uv), `yara-x==1.20.0`, `openai==3.19.0` (`requirements.txt`). Secrets live in an untracked `.env` (`.env.example` is committed).
 
 ```bash
-python -m unittest discover -s tests                     # 222 tests, all offline, no API key needed
+python -m unittest discover -s tests                     # 272 tests, all offline, no API key needed
 python src/run_yara.py --input data/development/claims.jsonl --output outputs/yara_dev_predictions.jsonl
 python src/evaluate.py --gold data/development/expected_results.jsonl \
     --pred outputs/yara_dev_predictions.jsonl --claims data/development/claims.jsonl \
@@ -101,6 +101,7 @@ Evidence is in the tests (183 passing) and the frozen runs:
 - **Review workflow** (`tests/test_review_workflow.py`, 12 tests): decisions must match the finding's real status, only FAIL / UNABLE_TO_ASSESS findings are reviewable, reason and actor are required, one bad decision rejects the whole batch, decisions never modify rule results. A recheck creates a new run with a new input hash and links it to the prior run; the original claim and results are untouched; a rechecked finding that still fails returns to "unreviewed".
 - **Audit log** (`tests/test_audit_log.py`, 35 tests incl. write-ahead ordering and the verifier; systematic record `outputs/audit_dev/` = 8,598 events, 499 AI requests each logged before its answer and all `human_escalation` (offline template provider, so no live-model events in this log) for all 400 development claims, cross-checked against the results file by `scripts/verify_audit.py`, which also fails on a tampered result; workflow demo `outputs/audit_demo/`): an edited event, a truncated log and a fully replaced log are each detected; the system cannot log an approval; a fabricated confidence on a deterministic event is rejected. Tamper-evident only, not immutable (`docs/16_Audit_Log_Design.md`).
 - **Ingestion** (`tests/test_ingest.py`, 15 tests): malformed, unmappable and transport-invalid records are quarantined with a reason; attachment text stays data.
+- **Phase 1 rubric checks** (`tests/test_phase1_rubric.py`, 10 tests): all 9,000 results on the three public splits validate against `schemas/result.schema.json`, each claim gets exactly 15 results, the rubric's named fields are present, confidence is `null` / `not_probabilistic` as in the supplied answer key, and an Encounter in a hand-built bundle is ingested and reported (with warnings for a patient mismatch or dangling reference).
 - **Prompt injection**: 25 supplied + 11 own cases, above. Live coverage is incomplete for the reasons above.
 - **Secrets**: `.env` is git-ignored; no key is in tracked files.
 - The demo review decisions and correction in `outputs/audit_demo/` are demonstration data from `demo-reviewer`, not real human judgement.
@@ -109,7 +110,7 @@ Evidence is in the tests (183 passing) and the frozen runs:
 
 - Synthetic, invented codes (EDU-*, SVC-*, SAR). No claim about real payer rules, clinical necessity or reimbursement.
 - Perfect public-split scores are not evidence of generalization (see Data discipline). The mentor-held result is still to come.
-- FHIR ingestion is a teaching subset: one Claim per Bundle, no Encounter resource exists in the pack, no terminology or profile validation, authorization details unavailable.
+- FHIR ingestion is a teaching subset: one Claim per Bundle, no Encounter resource exists in the pack (the adapter reports any Encounter a bundle does carry, in `report['encounters']`, but the closed claim schema has no slot for it and no rule uses it), no terminology or profile validation, authorization details unavailable.
 - Audit log is tamper-evident, not immutable; reviewer identity is self-declared; no authentication.
 - The review page is an offline HTML file: decisions move through a downloaded JSONL, not a server.
 - AI explanation: unreliable provider, no human scoring yet, three known classes of unsupported statement (one unguarded), prompt v1.1.0 unverified live.

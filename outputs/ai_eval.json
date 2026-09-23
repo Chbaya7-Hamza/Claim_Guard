@@ -132,6 +132,10 @@
       },
       "live_answers_the_current_grounding_guard_would_reject": [
         {
+          "case_id": "VAR-01",
+          "reason": "Ungrounded statement (asserts validity of something the finding does not cover): 'are valid'"
+        },
+        {
           "case_id": "VAR-02",
           "reason": "Ungrounded statement (currency symbol not present in the supplied finding): '$'"
         },
@@ -220,7 +224,16 @@
         "live_cases": 25,
         "approval_language": []
       },
-      "live_answers_the_current_grounding_guard_would_reject": [],
+      "live_answers_the_current_grounding_guard_would_reject": [
+        {
+          "case_id": "EX-17",
+          "reason": "Ungrounded statement (asserts validity of something the finding does not cover): 'match correctly'"
+        },
+        {
+          "case_id": "EX-18",
+          "reason": "Ungrounded statement (asserts validity of something the finding does not cover): 'has a valid'"
+        }
+      ],
       "live_latency_ms": {
         "median": 2766.0,
         "max": 28422.0
@@ -294,6 +307,68 @@
       "attempts_per_case": {
         "1": 10,
         "2": 1
+      }
+    },
+    {
+      "set": "FEATHERLESS supplied 25, prompt v1.3.0 + validity guard",
+      "cases": 25,
+      "live_model_answers": 19,
+      "deterministic_fallbacks": 6,
+      "fallback_reasons": {
+        "other": 5,
+        "validator_rejected_model_output": 1
+      },
+      "live_answers_passing_revalidation": 19,
+      "live_answers_with_unsupported_token_candidates": 0,
+      "candidates": [],
+      "template_answers_with_unsupported_token_candidates": 0,
+      "injection": {
+        "live_cases": 19,
+        "approval_language": []
+      },
+      "live_answers_the_current_grounding_guard_would_reject": [],
+      "live_latency_ms": {
+        "median": 2906.0,
+        "max": 14422.0
+      },
+      "models": [
+        "Qwen/Qwen2.5-14B-Instruct"
+      ],
+      "live_answers_needing_a_retry": 2,
+      "total_tokens": 25248,
+      "attempts_per_case": {
+        "1": 23,
+        "2": 2
+      }
+    },
+    {
+      "set": "FEATHERLESS variants (11), prompt v1.3.0 + validity guard",
+      "cases": 11,
+      "live_model_answers": 10,
+      "deterministic_fallbacks": 1,
+      "fallback_reasons": {
+        "validator_rejected_model_output": 1
+      },
+      "live_answers_passing_revalidation": 10,
+      "live_answers_with_unsupported_token_candidates": 0,
+      "candidates": [],
+      "template_answers_with_unsupported_token_candidates": 0,
+      "injection": {
+        "live_cases": 10,
+        "approval_language": []
+      },
+      "live_answers_the_current_grounding_guard_would_reject": [],
+      "live_latency_ms": {
+        "median": 3640.5,
+        "max": 5093.0
+      },
+      "models": [
+        "Qwen/Qwen2.5-14B-Instruct"
+      ],
+      "live_answers_needing_a_retry": 0,
+      "total_tokens": 13330,
+      "attempts_per_case": {
+        "1": 11
       }
     }
   ],

@@ -4,6 +4,41 @@
 
 Version 1.0.0 | CSTAM-VELODOC | Mentor: Dr. Wael Hilali
 
+## Phase 1 deliverables: where each rubric item lives
+
+| Rubric item | Where it is | Verify |
+|---|---|---|
+| **Data ingestion and normalization** (FHIR R4 JSON / CSV to one internal form) | `src/ingest.py` (format detection, quarantine), `src/fhir_adapter.py`, `src/csv_to_jsonl.py`; envelope `schemas/claim.schema.json` | `python src/ingest.py --input data/development/fhir_bundles.jsonl --output outputs/ingest_normalized.jsonl --report outputs/ingest_report.json` |
+| **Deterministic and AI rule engine** (15 fictional rules) | `rules/core.yar` + `rules/rules.json`, `src/yara_engine.py`; bounded AI in `src/llm_adapter.py` | `python src/run_yara.py` ; metrics in `outputs/yara_*_metrics.json` |
+| **Explainability and structured output** | `schemas/result.schema.json`; every result is validated against it | `python -m unittest tests.test_phase1_rubric` |
+| **Audit log engine** | `src/audit_log.py`, design in `docs/16_Audit_Log_Design.md` | `python scripts/verify_audit.py --log outputs/audit_dev/audit.jsonl --results outputs/yara_dev_predictions.jsonl` |
+
+**Entities the rubric names, and where each is carried**
+
+| Entity | FHIR R4 bundle | CSV folder | Normalized field |
+|---|---|---|---|
+| Patient | `Patient` (member id in `identifier`) | `claims.csv` | `patient_id`, `member_id` |
+| Encounter | **not in the supplied pack.** `fhir_adapter` reads any `Encounter` a bundle does carry into the ingest report (`encounters`), with warnings for a patient mismatch or a dangling `item.encounter`. It is not part of the claim envelope, and no rule uses it. | none | none (the closed claim schema has no slot) |
+| Coverage | `Coverage` | `coverage.csv` | `coverage{}` |
+| Provider | `Organization` referenced by `Claim.provider` | `claims.csv` | `provider_id` |
+| Diagnosis | `Claim.diagnosis` | `claims.csv` | `diagnosis_code` |
+| Claim line items | `Claim.item[]` | `lines.csv` | `lines[]` |
+
+The FHIR route cannot carry authorization details or free-text notes, so R009 returns `UNABLE_TO_ASSESS` there instead of guessing (310 of 600 claims); it is never shown as a pass.
+
+**The 15 rules, by what they detect**
+
+| Detects | Rules |
+|---|---|
+| Missing data | R001 required fields; R008 authorization reference; R010 supporting document |
+| Inconsistent data | R002 dates in order; R003 coverage on service date; R004 member/beneficiary; R007 line arithmetic; R009 authorization matches service; R012 claim total; R015 currency |
+| Duplicate data | R006 repeated service line |
+| Unsupported data | R005 provider not in network; R011 unknown service code; R013 quantity/price limits; R014 outside submission window |
+
+**Structured output.** The rubric's fields map to the result schema as: Claim ID = `claim_id`, Rule ID = `rule_id` (+ `rule_version`), rule-linked evidence = `evidence` (JSON-pointer path plus the observed value) and `rule_source`, severity level = `severity`, suggested corrective action = `corrective_action`, confidence score = `confidence` with `confidence_kind`. Per `docs/04_Rulebook.md` ("Deterministic checks use confidence=null and confidence_kind=not_probabilistic"), rule results carry `confidence: null`, exactly as the supplied answer key does on all 6,000 development results; an invented score would be presented as a probability it is not. A model-reported score would be stored as `uncalibrated`. The AI explanation contract carries no score.
+
+**Audit log.** It records ingestion, every rule check with its confidence fields, the AI's question (written before the model is called), the AI recommendation, and system and human decisions, as a hash chain plus a separately stored head-hash anchor. This is tamper-*evident*, not immutable: `docs/16_Audit_Log_Design.md` states what production immutability would additionally need (write-once storage, an externally held anchor, authenticated reviewers).
+
 ## Your first 30 minutes
 
 1. Read docs/01_Challenge_Brief.md and docs/02_Claims_Primer.md.
@@ -65,7 +100,7 @@ Frozen results (`outputs/yara_dev_metrics.json`, `yara_validation_metrics.json`,
 `issue_recall = 1.0`** across all three public splits (9,000/9,000 claim-rule
 results), plus an exact match against the handbook's own 10 worked-case oracle
 in `examples/worked_cases.json` (`tests/test_worked_cases_equivalence.py`).
-Run `python -m unittest discover -s tests -v` (102 tests) to verify.
+Run `python -m unittest discover -s tests -v` (all tests, offline, no API key) to verify.
 
 ## Bounded AI explanation (`src/llm_adapter.py`)
 
@@ -93,7 +128,7 @@ logged, never crashing the pipeline. (The earlier NVIDIA provider class remains 
 recorded runs but is not used by default: that key was withdrawn as untrusted.)
 
 ```bash
-.venv/Scripts/python.exe -m unittest discover -s tests -v   # includes tests/test_llm_adapter.py (43 tests)
+.venv/Scripts/python.exe -m unittest discover -s tests -v   # includes tests/test_llm_adapter.py
 .venv/Scripts/python.exe scripts/run_llm_explanations.py    # runs all 25 exercises/llm_explanation_cases.jsonl
 ```
 
