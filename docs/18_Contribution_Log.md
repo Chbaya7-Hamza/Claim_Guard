@@ -1,0 +1,59 @@
+# 18 | Contribution log
+
+## Team roles  (TO BE FILLED IN BY THE TEAM)
+
+The repository history and session records do not identify who the team members are or
+what each did, so nothing is invented here. Complete this table before submission.
+
+| Team member | Role | What they did (files, decisions, testing, demo) | Evidence (commits, PRs, notes) |
+|---|---|---|---|
+| _TODO_ | _TODO_ | _TODO_ | _TODO_ |
+| _TODO_ | _TODO_ | _TODO_ | _TODO_ |
+
+The git author configured on this machine is a single account; commits do not show who
+directed which part. `docs/09_Work_Plan_and_Templates.md` asks that every rule was
+"reviewed by a teammate": record below which rules and modules a human actually reviewed.
+
+| Module / rule group | Human reviewer | Date | Notes |
+|---|---|---|---|
+| _TODO_ | _TODO_ | _TODO_ | _TODO_ |
+
+## How AI coding tools were used
+
+**Tool:** Claude Code (Anthropic CLI). The latest sessions ran on Claude Sonnet 5; earlier
+session models are not recorded in the repository. A separate "advisor" reviewer model was
+consulted at planning time and before large design choices, and the `superpowers` workflow
+skills (brainstorm -> written spec -> written plan -> execute) were used.
+
+**What the AI wrote, under the team lead's direction (2026-09-21 to 2026-09-23):**
+
+| Area | AI-authored | Team-lead decisions that steered it |
+|---|---|---|
+| Rule engine (`facts_extractor.py`, `rules/core.yar`, `yara_engine.py`, 15 rules, ~120 unit tests) | all code and tests, from `docs/04_Rulebook.md` | chose YARA-X facts-blob architecture; asked for all 15 rules and that "the exact rule he violated must show"; chose linear execution ("no subagents") |
+| Rulebook/PDF gap review | read the handbook and produced `SUMMARY/03_REQUIREMENTS_CHECKLIST.md` | asked for the review against organizer requirements |
+| Bounded AI adapter (`llm_adapter.py`, `claim_review.py`) | all code, tests, prompt v1.0.0 -> v1.1.0 | chose NVIDIA mistral-nemotron and supplied the key; asked for "what the AI must do" per the rulebook |
+| Audit log, review workflow (`audit_log.py`, `review_workflow.py`) | all code, tests, design note | asked to finish review workflow, audit trail and reports |
+| Ingestion (`ingest.py`, `fhir_adapter.py`) | all code, tests, comparison script | supplied the four graded deliverables that ingestion must meet |
+| Evaluation report, this log | drafted | to be reviewed and completed by the team |
+
+**How AI output was checked:** every module has offline unit tests; the engine is compared
+with the organizers' labels on all three public splits and with the handbook's worked
+cases; live model output was read by the AI and the failures it found (invented currency
+symbol, "in the future" claims) were turned into a guard and regression tests. **These are
+AI self-checks.** Human review of the code is not recorded anywhere in the repository;
+the team must state in the table above what a person actually reviewed.
+
+**AI at run time (a product component, not a coding tool):** `mistralai/mistral-nemotron`
+via NVIDIA NIM explains findings only. It cannot change a status, rule id or review flag
+(validator), has no tools beyond read-only evidence lookup, and falls back to a
+deterministic template on any failure. See `docs/17_Evaluation_Report.md`.
+
+## Disclosures
+
+- The NVIDIA API key was pasted into chat sessions to configure the adapter. It is not in
+  the repository or its history (`git grep nvapi-` is empty; `.env` is ignored), but it
+  exists in local session transcripts and should be **rotated** before submission.
+- The demo reviewer decisions and correction in `outputs/audit_demo/` are demonstration data
+  written by a script under the actor `demo-reviewer`. They are not real human judgements.
+- The perfect metrics on the public splits were measured on data the AI and team could see;
+  see "Data discipline" in the evaluation report.

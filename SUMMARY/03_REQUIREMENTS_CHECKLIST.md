@@ -29,9 +29,9 @@ Reminder: the schedule/weights here are **mentor proposals**, not an official or
 - [ ] Architecture & data-flow diagram showing trust boundaries and tool permissions.
 - [ ] Working review interface + recorded demo + concise pitch presentation.
 - [ ] Technical report: implementation, decisions, tests, limitations.
-- [ ] Evaluation report: dataset split, per-rule metrics, false positives/negatives, AI ablations.
-- [ ] Privacy/security note + auditable sample run. No secrets in the repo.
-- [ ] Contribution log: team roles + how AI coding tools were used.
+- [x] Evaluation report: dataset split, per-rule metrics, false positives/negatives, AI ablations. `docs/17_Evaluation_Report.md` (draft; states that no split was held out from us, that public-split 1.0 is weak evidence, error analysis from FHIR-path abstentions and real AI defects, AI runs incl. provider failures). Needs a team read-through and the human-scored scorecard.
+- [~] Privacy/security note + auditable sample run. No secrets in the repo (verified: `git grep nvapi-` empty, `.env` ignored). Auditable sample run: `outputs/audit_demo/`. Standalone privacy/security note: not written yet (content spread across docs/10, docs/16, docs/17).
+- [~] Contribution log: team roles + how AI coding tools were used. `docs/18_Contribution_Log.md`: AI-tool usage written; **team roles/reviewers are placeholders the team must fill in**.
 
 Use the ready-made templates for these: `templates/Architecture_Decisions.md`, `templates/Evaluation_Report.md`, `templates/Weekly_Update.md`, `templates/Final_Submission_Checklist.md`.
 
