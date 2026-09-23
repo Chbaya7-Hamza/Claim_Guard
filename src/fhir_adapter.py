@@ -13,6 +13,11 @@ Attachment text is decoded and kept as untrusted data.
 
 Educational subset, not a conformant HL7 FHIR implementation: no terminology
 validation, no profile checks, one Claim per Bundle.
+
+Encounter: the supplied pack contains no Encounter resource and the claim envelope
+(schemas/claim.schema.json, additionalProperties: false) has no encounter slot. If a bundle
+DOES carry Encounter resources they are read into report['encounters'] (carried, and used by
+no rule), so an encounter is ingested and visible instead of silently dropped.
 """
 import base64
 import re
@@ -61,6 +66,28 @@ def _ident(resource, suffix):
         if (i.get('system') or '').endswith(suffix):
             return i.get('value')
     return None
+
+
+def _read_encounters(b, cl, patient_id):
+    """Encounter resources in the bundle, plus Claim.item.encounter references. Reported only;
+    never merged into the claim envelope. A patient mismatch or dangling reference is a warning."""
+    out = []
+    for enc in b.by_type.get('Encounter', []):
+        _, enc_patient = b.resolve(enc.get('subject'), 'Encounter.subject')
+        _, enc_provider = b.resolve(enc.get('serviceProvider'), 'Encounter.serviceProvider')
+        period = enc.get('period') or {}
+        if enc_patient and patient_id and enc_patient != patient_id:
+            b.warnings.append(f"encounter_patient_mismatch: {enc.get('id')} is for {enc_patient}, claim is for {patient_id}")
+        out.append({'encounter_id': enc.get('id'), 'status': enc.get('status'),
+                    'class': (enc.get('class') or {}).get('code'),
+                    'patient_id': enc_patient, 'provider_id': enc_provider,
+                    'period_start': period.get('start'), 'period_end': period.get('end')})
+    known = {e['encounter_id'] for e in out}
+    for it in cl.get('item', []):
+        for ref in it.get('encounter') or []:
+            if _last_segment(ref.get('reference') or '') not in known:
+                b.warnings.append(f"unresolved_reference: Claim.item.encounter -> {ref.get('reference')}")
+    return out
 
 
 class _Bundle:
@@ -189,6 +216,7 @@ def bundle_to_claim(bundle):
     report = {
         'source_format': 'fhir_bundle', 'claim_id': cl['id'],
         'not_carried_by_fhir': list(NOT_CARRIED_BY_FHIR), 'inferred': dict(INFERRED),
+        'encounters': _read_encounters(b, cl, patient_id),
         'warnings': b.warnings,
     }
     return claim, report

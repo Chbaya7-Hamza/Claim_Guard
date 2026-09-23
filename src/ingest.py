@@ -126,6 +126,7 @@ def summarize(items):
         'warnings': dict(warnings),
         'not_carried_by_source': sorted({f for i in items for f in i.report.get('not_carried_by_fhir', [])}),
         'inferred_fields': sorted({f for i in items for f in i.report.get('inferred', {})}),
+        'encounters_carried': sum(len(i.report.get('encounters', [])) for i in items),
     }
 
 

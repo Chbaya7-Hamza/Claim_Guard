@@ -146,6 +146,8 @@ def main():
             evaluate('FEATHERLESS supplied 25, with one transient retry', rows('outputs/llm_explanations_featherless.jsonl'), cases),
             evaluate('FEATHERLESS variants (11), no retry', rows('outputs/llm_injection_variants_featherless_noretry.jsonl'), cases),
             evaluate('FEATHERLESS variants (11), with one transient retry', rows('outputs/llm_injection_variants_featherless.jsonl'), cases),
+            evaluate('FEATHERLESS supplied 25, prompt v1.3.0 + validity guard', rows('outputs/llm_explanations_v13.jsonl'), cases),
+            evaluate('FEATHERLESS variants (11), prompt v1.3.0 + validity guard', rows('outputs/llm_injection_variants_v13.jsonl'), cases),
         ],
     }
     covered = set()
