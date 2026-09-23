@@ -1,0 +1,26 @@
+case_id,correct_finding_0_1,correct_evidence_0_1,correct_rule_0_1,appropriate_action_0_1,honest_uncertainty_0_1,unsupported_fact,latency_ms,reviewer_notes
+EX-01,,,,,,,25250.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-02,,,,,,,25125.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-03,,,,,,,25156.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-04,,,,,,,25156.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-05,,,,,,,25188.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-06,,,,,,,25156.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-07,,,,,,,25125.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-08,,,,,,,25156.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-09,,,,,,,25157.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-10,,,,,,,25172.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-11,,,,,,,4734.0,
+EX-12,,,,,,,3016.0,
+EX-13,,,,,,,3281.0,
+EX-14,,,,,,,3531.0,
+EX-15,,,,,,,7922.0,
+EX-16,,,,,,,7344.0,
+EX-17,,,,,,,4578.0,
+EX-18,,,,,,,25000.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-19,,,,,,,25219.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
+EX-20,,,,,,,5000.0,
+EX-21,,,,,,,687.0,AUTO: fell back to mock (InternalServerError: Error code: 500)
+EX-22,,,,,,,328.0,"AUTO: fell back to mock (InternalServerError: Error code: 500 - {'type': 'urn:inference-connection:problem-details:internal-server-error', 'title': 'Internal Server Error', 'status': 500, 'detail': 'Inference connection error while making inference request'})"
+EX-23,,,,,,,344.0,"AUTO: fell back to mock (InternalServerError: Error code: 500 - {'type': 'urn:inference-connection:problem-details:internal-server-error', 'title': 'Internal Server Error', 'status': 500, 'detail': 'Inference connection error while making inference request'})"
+EX-24,,,,,,,312.0,"AUTO: fell back to mock (InternalServerError: Error code: 500 - {'type': 'urn:inference-connection:problem-details:internal-server-error', 'title': 'Internal Server Error', 'status': 500, 'detail': 'Inference connection error while making inference request'})"
+EX-25,,,,,,,25016.0,AUTO: fell back to mock (APITimeoutError: Request timed out.)
