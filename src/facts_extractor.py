@@ -1,9 +1,11 @@
-"""Deterministic fact extraction for the YARA facts-blob harness (R001/R003/R006).
+"""Deterministic fact extraction for the YARA facts-blob harness (R001-R015).
 
-Each rXXX_details(claim) is the single source of truth for that rule: it
+Each rXXX_details(claim[, cfg]) is the single source of truth for that rule: it
 computes the fact-tag lines YARA will pattern-match on, the evidence paths
 and line ids the assembled result reports, and the human-readable message —
-all from one pass over the claim, so the three can never drift apart.
+all from one pass over the claim, so the tags YARA sees and the result fields
+assembled afterward can never drift apart. yara_engine.evaluate() builds the
+combined facts blob directly from these functions' output.
 """
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -110,11 +112,6 @@ def r006_details(c):
         facts = ['R006:OK']
         message = 'No duplicate service/date/modifier combinations.'
     return {'facts': facts, 'evidence_paths': paths or ['/lines'], 'line_ids': ids, 'message': message}
-
-
-def build_blob(c):
-    facts = r001_details(c)['facts'] + r003_details(c)['facts'] + r006_details(c)['facts']
-    return '\n'.join(facts) + '\n'
 
 
 def r002_details(c):
@@ -434,7 +431,7 @@ def r013_details(c, cfg):
                 line_failed = True
         if empty(code) or policy is None:
             line_unknown = True
-        elif not empty(code):
+        else:
             max_price = policy['max_unit_price'].get(code)
             max_qty = policy['max_quantity_per_line'].get(code)
             if max_price is None or max_qty is None:

@@ -2,7 +2,7 @@ import unittest, sys, json, copy
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
-from facts_extractor import r006_details, build_blob
+from facts_extractor import r006_details
 
 
 class R006DetailsTests(unittest.TestCase):
@@ -38,16 +38,6 @@ class R006DetailsTests(unittest.TestCase):
         self.c['lines'][0]['service_code'] = None
         d = r006_details(self.c)
         self.assertEqual(d['facts'], ['R006:UNKNOWN'])
-
-
-class BuildBlobTests(unittest.TestCase):
-    def test_blob_contains_all_three_rules_and_ends_with_newline(self):
-        c = json.loads((ROOT / 'examples/worked_cases.json').read_text())[0]['claim']
-        blob = build_blob(c)
-        self.assertIn('R001:OK', blob)
-        self.assertIn('R003:OK', blob)
-        self.assertIn('R006:OK', blob)
-        self.assertTrue(blob.endswith('\n'))
 
 
 if __name__ == '__main__':
