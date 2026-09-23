@@ -1,5 +1,8 @@
 # yara-x: facts-blob rule pack harness (R001-R015 deterministic rule engine).
 yara-x==1.20.0
 # openai: NvidiaExplanationProvider in src/llm_adapter.py talks to NVIDIA NIM's
-# OpenAI-compatible chat-completions API. Everything else remains standard library.
+# OpenAI-compatible chat-completions API.
 openai==3.19.0
+# pydantic: strict per-finding output schema for model replies (src/llm_adapter.py).
+# Everything else remains standard library.
+pydantic==2.13.5

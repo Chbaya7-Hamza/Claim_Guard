@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from llm_adapter import (
     MockExplanationProvider, NvidiaExplanationProvider, validate_explanation,
-    build_prompt, explain_with_fallback, check_grounding,
+    build_prompt, explain_with_fallback, check_grounding, explanation_model_for, ExplanationOutput,
 )
 
 FINDING = {
@@ -186,6 +186,77 @@ class NvidiaExplanationProviderTests(unittest.TestCase):
         finally:
             if old is not None:
                 os.environ['NVIDIA_API_KEY'] = old
+
+
+class PydanticSchemaTests(unittest.TestCase):
+    def good(self, **over):
+        d = {'explanation': 'The unit price on L1 is missing.', 'cited_evidence_paths': ['/lines/0/unit_price'],
+             'cited_rule_ids': ['R001'], 'needs_human_review': True}
+        d.update(over)
+        return d
+
+    def rejected(self, payload, expected_fragment=None):
+        with self.assertRaises(ValueError) as cm:
+            validate_explanation(payload, FINDING)
+        if expected_fragment:
+            self.assertIn(expected_fragment, str(cm.exception))
+
+    def test_accepts_and_returns_a_plain_dict(self):
+        out = validate_explanation(self.good(), FINDING)
+        self.assertIs(type(out), dict)
+        self.assertEqual(set(out), {'explanation', 'cited_evidence_paths', 'cited_rule_ids', 'needs_human_review'})
+
+    def test_extra_keys_are_forbidden(self):
+        self.rejected(self.good(approved=True), 'Invalid explanation keys')
+        self.rejected(self.good(new_status='PASS'), 'Invalid explanation keys')
+
+    def test_missing_keys_and_non_objects_are_rejected(self):
+        bad = self.good(); del bad['needs_human_review']
+        self.rejected(bad, 'Invalid explanation keys')
+        self.rejected(['not', 'an', 'object'], 'Invalid explanation keys')
+        self.rejected(None, 'Invalid explanation keys')
+
+    def test_types_are_strict_no_coercion(self):
+        self.rejected(self.good(needs_human_review='true'))
+        self.rejected(self.good(needs_human_review=1))
+        self.rejected(self.good(explanation=123))
+        self.rejected(self.good(cited_rule_ids='R001'))
+
+    def test_citations_are_limited_to_this_findings_values(self):
+        self.rejected(self.good(cited_evidence_paths=['/lines/0/discount_override']), 'evidence citation')
+        self.rejected(self.good(cited_evidence_paths=[]), 'evidence citation')
+        self.rejected(self.good(cited_rule_ids=['R014']), 'Unknown rule citation')
+        self.rejected(self.good(cited_rule_ids=['R001', 'R014']), 'Unknown rule citation')
+        self.rejected(self.good(cited_rule_ids=[]), 'Unknown rule citation')
+
+    def test_review_boundary_is_pinned_by_the_finding_in_both_directions(self):
+        self.rejected(self.good(needs_human_review=False), 'Review boundary changed')
+        not_review = dict(FINDING, requires_human_review=False)
+        validate_explanation(self.good(needs_human_review=False), not_review)
+        with self.assertRaises(ValueError):
+            validate_explanation(self.good(needs_human_review=True), not_review)
+
+    def test_explanation_length_and_blank_are_bounded(self):
+        self.rejected(self.good(explanation='   '), 'Explanation required')
+        self.rejected(self.good(explanation='x' * 1501), 'Explanation required')
+        validate_explanation(self.good(explanation='x' * 1500), FINDING)
+
+    def test_a_finding_with_no_evidence_cannot_be_explained_by_a_model(self):
+        with self.assertRaises(ValueError):
+            explanation_model_for(dict(FINDING, evidence=[]))
+
+    def test_schema_offered_to_the_model_lists_only_legal_values(self):
+        schema = explanation_model_for(FINDING).model_json_schema()
+        self.assertFalse(schema.get('additionalProperties', True))
+        self.assertEqual(schema['properties']['cited_rule_ids']['items']['const'], 'R001')
+        self.assertIn('/lines/0/unit_price', json.dumps(schema['properties']['cited_evidence_paths']))
+        prompt = build_prompt(FINDING, RULE)
+        self.assertIn('Required output schema', prompt)
+        self.assertIn('"additionalProperties": false', prompt)
+
+    def test_base_model_itself_forbids_extras(self):
+        with self.assertRaises(ValueError):
+            ExplanationOutput.model_validate(self.good(extra=1))
 
 
 class GroundingGuardTests(unittest.TestCase):
