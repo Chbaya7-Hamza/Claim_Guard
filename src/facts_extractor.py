@@ -74,3 +74,42 @@ def r003_details(c):
         facts = ['R003:OK']
         message = 'All service dates are within active coverage, including boundaries.'
     return {'facts': facts, 'evidence_paths': paths, 'line_ids': ids, 'message': message}
+
+
+def r006_details(c):
+    seen = {}
+    dups = []
+    missing = False
+    facts = []
+    for i, l in enumerate(c['lines']):
+        if empty(l['service_code']) or not valid_date(l['service_date']):
+            missing = True
+            continue
+        key = (l['service_code'], l['service_date'], l['modifier'] or '')
+        if key in seen:
+            a = seen[key]
+            dups.extend([a, i])
+            facts.append(f'R006:DUPLICATE:{a},{i}:key={"|".join(key)}')
+        else:
+            seen[key] = i
+    ids = []
+    paths = []
+    for i in sorted(set(dups)):
+        ids.append(c['lines'][i]['line_id'])
+        paths.extend(f'/lines/{i}/{k}' for k in ('service_code', 'service_date', 'modifier'))
+    if dups:
+        message = 'Possible duplicate lines require review.' + (
+            ' Additional lines have missing inputs.' if missing else ''
+        )
+    elif missing:
+        facts = ['R006:UNKNOWN']
+        message = 'Missing inputs prevent a complete duplicate check.'
+    else:
+        facts = ['R006:OK']
+        message = 'No duplicate service/date/modifier combinations.'
+    return {'facts': facts, 'evidence_paths': paths or ['/lines'], 'line_ids': ids, 'message': message}
+
+
+def build_blob(c):
+    facts = r001_details(c)['facts'] + r003_details(c)['facts'] + r006_details(c)['facts']
+    return '\n'.join(facts) + '\n'
