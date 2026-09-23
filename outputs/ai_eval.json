@@ -42,6 +42,9 @@
         "median": 4656.0,
         "max": 7922.0
       },
+      "models": [],
+      "live_answers_needing_a_retry": 0,
+      "total_tokens": null,
       "attempts_per_case": {
         "1": 25
       }
@@ -84,6 +87,9 @@
         "median": 8531.0,
         "max": 20625.0
       },
+      "models": [],
+      "live_answers_needing_a_retry": 0,
+      "total_tokens": null,
       "attempts_per_case": {
         "1": 25
       }
@@ -162,13 +168,136 @@
         "median": 5250.5,
         "max": 20250.0
       },
+      "models": [],
+      "live_answers_needing_a_retry": 5,
+      "total_tokens": null,
       "attempts_per_case": {
         "1": 5,
         "2": 6
       }
+    },
+    {
+      "set": "FEATHERLESS supplied 25, no retry",
+      "cases": 25,
+      "live_model_answers": 22,
+      "deterministic_fallbacks": 3,
+      "fallback_reasons": {
+        "other": 3
+      },
+      "live_answers_passing_revalidation": 22,
+      "live_answers_with_unsupported_token_candidates": 0,
+      "candidates": [],
+      "template_answers_with_unsupported_token_candidates": 0,
+      "injection": {
+        "live_cases": 22,
+        "approval_language": []
+      },
+      "live_answers_the_current_grounding_guard_would_reject": [],
+      "live_latency_ms": {
+        "median": 3172.0,
+        "max": 5282.0
+      },
+      "models": [
+        "Qwen/Qwen2.5-14B-Instruct"
+      ],
+      "live_answers_needing_a_retry": 0,
+      "total_tokens": 26959,
+      "attempts_per_case": {
+        "1": 25
+      }
+    },
+    {
+      "set": "FEATHERLESS supplied 25, with one transient retry",
+      "cases": 25,
+      "live_model_answers": 25,
+      "deterministic_fallbacks": 0,
+      "fallback_reasons": {},
+      "live_answers_passing_revalidation": 25,
+      "live_answers_with_unsupported_token_candidates": 0,
+      "candidates": [],
+      "template_answers_with_unsupported_token_candidates": 0,
+      "injection": {
+        "live_cases": 25,
+        "approval_language": []
+      },
+      "live_answers_the_current_grounding_guard_would_reject": [],
+      "live_latency_ms": {
+        "median": 2766.0,
+        "max": 28422.0
+      },
+      "models": [
+        "Qwen/Qwen2.5-14B-Instruct"
+      ],
+      "live_answers_needing_a_retry": 1,
+      "total_tokens": 31084,
+      "attempts_per_case": {
+        "1": 24,
+        "2": 1
+      }
+    },
+    {
+      "set": "FEATHERLESS variants (11), no retry",
+      "cases": 11,
+      "live_model_answers": 10,
+      "deterministic_fallbacks": 1,
+      "fallback_reasons": {
+        "validator_rejected_model_output": 1
+      },
+      "live_answers_passing_revalidation": 10,
+      "live_answers_with_unsupported_token_candidates": 0,
+      "candidates": [],
+      "template_answers_with_unsupported_token_candidates": 0,
+      "injection": {
+        "live_cases": 10,
+        "approval_language": []
+      },
+      "live_answers_the_current_grounding_guard_would_reject": [],
+      "live_latency_ms": {
+        "median": 3101.5,
+        "max": 8219.0
+      },
+      "models": [
+        "Qwen/Qwen2.5-14B-Instruct"
+      ],
+      "live_answers_needing_a_retry": 0,
+      "total_tokens": 12526,
+      "attempts_per_case": {
+        "1": 11
+      }
+    },
+    {
+      "set": "FEATHERLESS variants (11), with one transient retry",
+      "cases": 11,
+      "live_model_answers": 10,
+      "deterministic_fallbacks": 1,
+      "fallback_reasons": {
+        "validator_rejected_model_output": 1
+      },
+      "live_answers_passing_revalidation": 10,
+      "live_answers_with_unsupported_token_candidates": 0,
+      "candidates": [],
+      "template_answers_with_unsupported_token_candidates": 0,
+      "injection": {
+        "live_cases": 10,
+        "approval_language": []
+      },
+      "live_answers_the_current_grounding_guard_would_reject": [],
+      "live_latency_ms": {
+        "median": 3141.0,
+        "max": 26734.0
+      },
+      "models": [
+        "Qwen/Qwen2.5-14B-Instruct"
+      ],
+      "live_answers_needing_a_retry": 1,
+      "total_tokens": 12545,
+      "attempts_per_case": {
+        "1": 10,
+        "2": 1
+      }
     }
   ],
-  "supplied_cases_with_at_least_one_live_answer": [
+  "nvidia_supplied_cases_with_at_least_one_live_answer": [
     "EX-01",
     "EX-07",
     "EX-08",

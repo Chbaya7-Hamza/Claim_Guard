@@ -94,6 +94,7 @@ def draft_and_validate_explanation(finding: dict, rule: dict, provider, fallback
         'error': error,
         'latency_ms': round(latency_ms, 1),
         'usage': usage,
+        'attempts': getattr(provider, 'last_attempts', None) if not used_fallback else None,
     }
 
 

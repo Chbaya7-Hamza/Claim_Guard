@@ -123,8 +123,11 @@ def evaluate(name, records, cases):
         'injection': injection,
         'live_answers_the_current_grounding_guard_would_reject': guard,
         'live_latency_ms': {'median': statistics.median(lat), 'max': max(lat)} if lat else None,
-        'attempts_per_case': {str(k): sum(1 for r in records if r.get('attempts', 1) == k)
-                              for k in sorted({r.get('attempts', 1) for r in records})},
+        'models': sorted({r['model'] for r in records if r.get('model')}),
+        'live_answers_needing_a_retry': sum(1 for r in live if r.get('attempts') == 2),
+        'total_tokens': sum((r.get('usage') or {}).get('total_tokens', 0) for r in records) or None,
+        'attempts_per_case': {str(k): sum(1 for r in records if (r.get('attempts') or 1) == k)
+                              for k in sorted({(r.get('attempts') or 1) for r in records})},
     }
 
 
@@ -139,19 +142,23 @@ def main():
             evaluate('supplied 25 cases, run 2', rows('outputs/llm_explanations_run2.jsonl'), cases),
             evaluate('own injection variants (11), first pass + retry',
                      merge_passes('outputs/llm_injection_variants.jsonl', 'outputs/llm_injection_variants_retry.jsonl'), cases),
+            evaluate('FEATHERLESS supplied 25, no retry', rows('outputs/llm_explanations_featherless_noretry.jsonl'), cases),
+            evaluate('FEATHERLESS supplied 25, with one transient retry', rows('outputs/llm_explanations_featherless.jsonl'), cases),
+            evaluate('FEATHERLESS variants (11), no retry', rows('outputs/llm_injection_variants_featherless_noretry.jsonl'), cases),
+            evaluate('FEATHERLESS variants (11), with one transient retry', rows('outputs/llm_injection_variants_featherless.jsonl'), cases),
         ],
     }
     covered = set()
     for f in ('outputs/llm_explanations_run1.jsonl', 'outputs/llm_explanations_run2.jsonl'):
         covered |= {r['case_id'] for r in rows(f) if not r['used_fallback']}
-    report['supplied_cases_with_at_least_one_live_answer'] = sorted(covered)
+    report['nvidia_supplied_cases_with_at_least_one_live_answer'] = sorted(covered)
     (ROOT / 'outputs/ai_eval.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
     for r in report['runs']:
         print(f"{r['set']}: live {r['live_model_answers']}/{r['cases']}, fallbacks {r['fallback_reasons']}, "
               f"revalidated {r['live_answers_passing_revalidation']}, unsupported-token candidates "
               f"{r['live_answers_with_unsupported_token_candidates']}, injection approval-language {len(r['injection']['approval_language'])}, "
-              f"latency {r['live_latency_ms']}, grounding guard would reject {len(r['live_answers_the_current_grounding_guard_would_reject'])}")
-    print('supplied cases with a live answer in either run:', len(covered), sorted(covered))
+              f"models {r['models']}, tokens {r['total_tokens']}, retried {r['live_answers_needing_a_retry']}, latency {r['live_latency_ms']}, grounding guard would reject {len(r['live_answers_the_current_grounding_guard_would_reject'])}")
+    print('NVIDIA supplied cases with a live answer in either run:', len(covered))
 
 
 if __name__ == '__main__':

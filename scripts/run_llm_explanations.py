@@ -1,4 +1,4 @@
-"""Run the NVIDIA-backed ExplanationProvider (with deterministic fallback)
+"""Run the Featherless-backed ExplanationProvider (with deterministic fallback)
 over the 25 supplied bounded-AI exercise cases in
 exercises/llm_explanation_cases.jsonl, and produce:
 
@@ -20,7 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
-from llm_adapter import MockExplanationProvider, NvidiaExplanationProvider, explain_with_fallback
+from llm_adapter import FeatherlessExplanationProvider, MockExplanationProvider, explain_with_fallback
 
 logging.basicConfig(level=logging.WARNING, format='%(levelname)s %(name)s: %(message)s')
 
@@ -34,11 +34,11 @@ def main():
     cases = [json.loads(l) for l in (ROOT / args.cases).read_text(encoding='utf-8').splitlines() if l.strip()]
 
     try:
-        primary = NvidiaExplanationProvider()
-        print(f'Primary provider: NVIDIA NIM ({primary.model})')
+        primary = FeatherlessExplanationProvider()
+        print(f'Primary provider: Featherless ({primary.model})')
     except Exception as e:
         primary = None
-        print(f'No NVIDIA provider available ({e}); every case will use the mock fallback.')
+        print(f'No live provider available ({e}); every case will use the mock fallback.')
 
     fallback = MockExplanationProvider()
     results = []
@@ -51,6 +51,9 @@ def main():
             'case_id': case['case_id'], 'task': case['task'],
             'output': output, 'used_fallback': used_fallback or primary is None,
             'error': error, 'latency_ms': round(latency_ms, 1),
+            'model': getattr(primary, 'model', None),
+            'attempts': getattr(primary, 'last_attempts', None) if not (used_fallback or primary is None) else None,
+            'usage': getattr(primary, 'last_usage', None) if not (used_fallback or primary is None) else None,
         })
         status = 'FALLBACK' if (used_fallback or primary is None) else 'MODEL'
         print(f"{case['case_id']} [{status}] {round(latency_ms)}ms" + (f' -- {error}' if error else ''))
@@ -77,7 +80,7 @@ def main():
         if r['error']:
             row['reviewer_notes'] = f"AUTO: fell back to mock ({r['error']})"
         elif r['used_fallback']:
-            row['reviewer_notes'] = 'AUTO: no NVIDIA provider configured; used mock'
+            row['reviewer_notes'] = 'AUTO: no live provider configured; used mock'
 
     scorecard_path = ROOT / 'outputs/llm_manual_scorecard.csv'
     with scorecard_path.open('w', newline='', encoding='utf-8') as f:

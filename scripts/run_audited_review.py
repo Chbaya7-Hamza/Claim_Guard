@@ -5,7 +5,7 @@
 
 Writes to outputs/audit_demo/ (results.jsonl, review_decisions.jsonl,
 audit.jsonl, audit.jsonl.head.json). Explanations use the deterministic
-template provider unless --live is passed (NVIDIA-backed model, needs .env).
+template provider unless --live is passed (Featherless-backed model, needs .env).
 
 The reviewer decisions and the correction in this script are DEMONSTRATION
 data under the actor 'demo-reviewer'; they show the workflow and the audit
@@ -36,7 +36,7 @@ def main():
     p.add_argument('--no-demo', action='store_true',
                    help='systematic mode: audit every check for the claims, with NO scripted decisions or recheck')
     p.add_argument('--out-dir', default='outputs/audit_demo')
-    p.add_argument('--live', action='store_true', help='use the NVIDIA-backed explanation provider')
+    p.add_argument('--live', action='store_true', help='use the live Featherless explanation provider')
     a = p.parse_args()
 
     out = ROOT / a.out_dir

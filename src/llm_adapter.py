@@ -1,7 +1,7 @@
 """Model-neutral seam. The mock is a template, not a real LLM.
 
-NvidiaExplanationProvider is the real ExplanationProvider: it calls NVIDIA
-NIM's OpenAI-compatible chat-completions API, grounded strictly in
+FeatherlessExplanationProvider is the real ExplanationProvider (default): it calls
+Featherless.ai's OpenAI-compatible chat-completions API, grounded strictly in
 prompts/explain_findings.md and the supplied validated finding/rule. It never
 raises past explain_with_fallback() -- any failure (missing key, timeout,
 malformed JSON, a citation/status violation caught by validate_explanation)
@@ -162,24 +162,34 @@ def build_prompt(finding, rule, untrusted_note=None):
     return ''.join(parts)
 
 
-class NvidiaExplanationProvider:
-    """Real ExplanationProvider backed by NVIDIA NIM (OpenAI-compatible API)."""
+class OpenAICompatibleProvider:
+    """Real ExplanationProvider for any OpenAI-compatible chat-completions endpoint. Subclasses
+    only choose the endpoint, the credential's environment variable and the default model."""
 
-    def __init__(self, api_key=None, model=None, base_url="https://integrate.api.nvidia.com/v1",
-                 timeout=25.0, max_tokens=500):
+    PROVIDER = 'openai-compatible'
+    BASE_URL = None
+    KEY_ENV = None
+    MODEL_ENV = None
+    DEFAULT_MODEL = None
+    TIMEOUT = 25.0
+
+    def __init__(self, api_key=None, model=None, base_url=None, timeout=None, max_tokens=500):
         _load_dotenv()
-        api_key = api_key or os.environ.get('NVIDIA_API_KEY')
+        api_key = api_key or os.environ.get(self.KEY_ENV)
         if not api_key:
-            raise RuntimeError('NVIDIA_API_KEY not set (env var or .env)')
+            raise RuntimeError(f'{self.KEY_ENV} not set (env var or .env)')
         from openai import OpenAI
-        self.model = model or os.environ.get('NVIDIA_MODEL') or 'mistralai/mistral-nemotron'
+        self.model = model or os.environ.get(self.MODEL_ENV) or self.DEFAULT_MODEL
         self.max_tokens = max_tokens
-        self.client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout, max_retries=0)
+        self.client = OpenAI(base_url=base_url or self.BASE_URL, api_key=api_key,
+                             timeout=timeout or self.TIMEOUT, max_retries=0)
         self.last_usage = None  # {prompt_tokens, completion_tokens, total_tokens} of the last call
+        self.last_attempts = 0  # HTTP attempts used by the last explain() (1, or 2 after a transient failure)
 
-    def explain(self, finding, rule, untrusted_note=None):
-        self.last_usage = None
-        prompt = build_prompt(finding, rule, untrusted_note)
+    MAX_ATTEMPTS = 2  # one retry, transient failures only
+
+    def _complete(self, prompt):
+        """One HTTP call. Raises TransientProviderError for an empty/garbled envelope."""
         completion = self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
@@ -188,19 +198,63 @@ class NvidiaExplanationProvider:
             max_tokens=self.max_tokens,
             stream=False,
         )
-        if completion.usage is not None:
+        usage = getattr(completion, 'usage', None)
+        if usage is not None:
             self.last_usage = {
-                'prompt_tokens': completion.usage.prompt_tokens,
-                'completion_tokens': completion.usage.completion_tokens,
-                'total_tokens': completion.usage.total_tokens,
+                'prompt_tokens': usage.prompt_tokens,
+                'completion_tokens': usage.completion_tokens,
+                'total_tokens': usage.total_tokens,
             }
+        if not getattr(completion, 'choices', None) or completion.choices[0].message.content is None:
+            raise TransientProviderError(f'Provider returned no message content: {str(completion)[:200]}')
         text = completion.choices[0].message.content.strip()
         if text.startswith('```'):
             text = text.strip('`')
             if text.startswith('json'):
                 text = text[4:]
-        output = json.loads(text)
-        return check_grounding(validate_explanation(output, finding), finding, rule)
+        return text
+
+    def explain(self, finding, rule, untrusted_note=None):
+        self.last_usage = None
+        prompt = build_prompt(finding, rule, untrusted_note)
+        from openai import InternalServerError, RateLimitError
+        transient = (TransientProviderError, json.JSONDecodeError, InternalServerError, RateLimitError)
+        error = None
+        for attempt in range(1, self.MAX_ATTEMPTS + 1):
+            self.last_attempts = attempt
+            try:
+                output = json.loads(self._complete(prompt))
+            except transient as e:  # a garbled or failed transport; the model itself did not misbehave
+                error = e
+                continue
+            # A schema/grounding violation is model misbehaviour: never retried, goes to the fallback.
+            return check_grounding(validate_explanation(output, finding), finding, rule)
+        raise error
+
+
+class TransientProviderError(RuntimeError):
+    """The provider answered with an empty or unusable envelope."""
+
+
+class FeatherlessExplanationProvider(OpenAICompatibleProvider):
+    """Featherless.ai (serverless open-weight models). Models load on demand, so the first
+    call to a model can be slow: hence the longer timeout."""
+    PROVIDER = 'featherless'
+    BASE_URL = 'https://api.featherless.ai/v1'
+    KEY_ENV = 'FEATHERLESS_API_KEY'
+    MODEL_ENV = 'FEATHERLESS_MODEL'
+    DEFAULT_MODEL = 'Qwen/Qwen2.5-14B-Instruct'
+    TIMEOUT = 90.0
+
+
+class NvidiaExplanationProvider(OpenAICompatibleProvider):
+    """NVIDIA NIM. Retained for the recorded runs; NOT selected by default_provider()
+    (the project's NVIDIA key was withdrawn as untrusted)."""
+    PROVIDER = 'nvidia-nim'
+    BASE_URL = 'https://integrate.api.nvidia.com/v1'
+    KEY_ENV = 'NVIDIA_API_KEY'
+    MODEL_ENV = 'NVIDIA_MODEL'
+    DEFAULT_MODEL = 'mistralai/mistral-nemotron'
 
 
 def explain_with_fallback(provider, fallback, finding, rule, untrusted_note=None):
@@ -219,11 +273,11 @@ def explain_with_fallback(provider, fallback, finding, rule, untrusted_note=None
 
 
 def default_provider():
-    """NvidiaExplanationProvider if a key is configured, else the mock."""
+    """FeatherlessExplanationProvider if a key is configured, else the deterministic template."""
     _load_dotenv()
-    if os.environ.get('NVIDIA_API_KEY'):
+    if os.environ.get('FEATHERLESS_API_KEY'):
         try:
-            return NvidiaExplanationProvider()
+            return FeatherlessExplanationProvider()
         except Exception as e:
-            logger.warning('Could not construct NvidiaExplanationProvider, using mock: %s', e)
+            logger.warning('Could not construct FeatherlessExplanationProvider, using template: %s', e)
     return MockExplanationProvider()

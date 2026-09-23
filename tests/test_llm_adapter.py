@@ -1,11 +1,13 @@
 import unittest, sys, json
 from pathlib import Path
+import unittest.mock
 from unittest.mock import MagicMock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from llm_adapter import (
     MockExplanationProvider, NvidiaExplanationProvider, validate_explanation,
     build_prompt, explain_with_fallback, check_grounding, explanation_model_for, ExplanationOutput,
+    FeatherlessExplanationProvider, TransientProviderError,
 )
 
 FINDING = {
@@ -186,6 +188,93 @@ class NvidiaExplanationProviderTests(unittest.TestCase):
         finally:
             if old is not None:
                 os.environ['NVIDIA_API_KEY'] = old
+
+
+class FeatherlessProviderTests(unittest.TestCase):
+    GOOD = json.dumps({'explanation': 'The unit price on L1 is missing.', 'cited_evidence_paths': ['/lines/0/unit_price'],
+                       'cited_rule_ids': ['R001'], 'needs_human_review': True})
+
+    def provider(self, *responses):
+        p = FeatherlessExplanationProvider(api_key='test-key-not-real')
+        p.client.chat.completions.create = MagicMock(side_effect=list(responses))
+        return p
+
+    def resp(self, content, usage=True):
+        c = MagicMock()
+        c.choices = [MagicMock(message=MagicMock(content=content))]
+        c.usage = MagicMock(prompt_tokens=10, completion_tokens=5, total_tokens=15) if usage else None
+        return c
+
+    def test_defaults_point_at_featherless_and_a_named_model(self):
+        p = FeatherlessExplanationProvider(api_key='k')
+        self.assertEqual(p.model, 'Qwen/Qwen2.5-14B-Instruct')
+        self.assertIn('featherless.ai', str(p.client.base_url))
+        self.assertGreaterEqual(p.client.timeout, 60)
+
+    def test_missing_key_raises_and_names_the_variable(self):
+        import os
+        old = os.environ.pop('FEATHERLESS_API_KEY', None)
+        try:
+            with unittest.mock.patch('llm_adapter._load_dotenv'):
+                with self.assertRaisesRegex(RuntimeError, 'FEATHERLESS_API_KEY'):
+                    FeatherlessExplanationProvider()
+        finally:
+            if old is not None:
+                os.environ['FEATHERLESS_API_KEY'] = old
+
+    def test_happy_path_records_usage_and_one_attempt(self):
+        p = self.provider(self.resp(self.GOOD))
+        out = p.explain(FINDING, RULE)
+        self.assertEqual(out['cited_rule_ids'], ['R001'])
+        self.assertEqual((p.last_attempts, p.last_usage['total_tokens']), (1, 15))
+
+    def test_garbled_json_is_retried_once_then_succeeds(self):
+        p = self.provider(self.resp('{"explanation": "bad \q escape"'), self.resp(self.GOOD))
+        p.explain(FINDING, RULE)
+        self.assertEqual(p.last_attempts, 2)
+
+    def test_empty_envelope_is_retried_and_reported_clearly_when_it_persists(self):
+        empty = MagicMock(); empty.choices = None; empty.usage = None
+        p = self.provider(empty, empty)
+        with self.assertRaises(TransientProviderError):
+            p.explain(FINDING, RULE)
+        self.assertEqual(p.client.chat.completions.create.call_count, 2)
+
+    def test_none_content_is_transient_not_a_typeerror(self):
+        p = self.provider(self.resp(None), self.resp(self.GOOD))
+        p.explain(FINDING, RULE)
+        self.assertEqual(p.last_attempts, 2)
+
+    def test_schema_violations_are_never_retried(self):
+        flipped = json.dumps({'explanation': 'ok', 'cited_evidence_paths': ['/lines/0/unit_price'],
+                              'cited_rule_ids': ['R001'], 'needs_human_review': False})
+        p = self.provider(self.resp(flipped), self.resp(self.GOOD))
+        with self.assertRaisesRegex(ValueError, 'Review boundary changed'):
+            p.explain(FINDING, RULE)
+        self.assertEqual(p.client.chat.completions.create.call_count, 1)
+
+    def test_ungrounded_answers_are_never_retried(self):
+        bad = json.dumps({'explanation': 'The price of $5 is missing.', 'cited_evidence_paths': ['/lines/0/unit_price'],
+                          'cited_rule_ids': ['R001'], 'needs_human_review': True})
+        p = self.provider(self.resp(bad), self.resp(self.GOOD))
+        with self.assertRaisesRegex(ValueError, 'Ungrounded'):
+            p.explain(FINDING, RULE)
+        self.assertEqual(p.client.chat.completions.create.call_count, 1)
+
+    def test_failure_after_retries_falls_back_and_is_marked(self):
+        empty = MagicMock(); empty.choices = []; empty.usage = None
+        p = self.provider(empty, empty)
+        out, used_fallback, error, _ = explain_with_fallback(p, MockExplanationProvider(), FINDING, RULE)
+        self.assertTrue(used_fallback)
+        self.assertIn('TransientProviderError', error)
+        self.assertEqual(out['explanation'], FINDING['explanation'])
+
+    def test_nvidia_is_no_longer_the_default_provider(self):
+        import os
+        from llm_adapter import default_provider
+        with unittest.mock.patch.dict(os.environ, {'NVIDIA_API_KEY': 'x'}, clear=False),                 unittest.mock.patch('llm_adapter._load_dotenv'):
+            os.environ.pop('FEATHERLESS_API_KEY', None)
+            self.assertIsInstance(default_provider(), MockExplanationProvider)
 
 
 class PydanticSchemaTests(unittest.TestCase):

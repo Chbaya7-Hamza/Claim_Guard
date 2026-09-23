@@ -31,7 +31,7 @@ skills (brainstorm -> written spec -> written plan -> execute) were used.
 |---|---|---|
 | Rule engine (`facts_extractor.py`, `rules/core.yar`, `yara_engine.py`, 15 rules, ~120 unit tests) | all code and tests, from `docs/04_Rulebook.md` | chose YARA-X facts-blob architecture; asked for all 15 rules and that "the exact rule he violated must show"; chose linear execution ("no subagents") |
 | Rulebook/PDF gap review | read the handbook and produced `SUMMARY/03_REQUIREMENTS_CHECKLIST.md` | asked for the review against organizer requirements |
-| Bounded AI adapter (`llm_adapter.py`, `claim_review.py`) | all code, tests, prompt v1.0.0 -> v1.1.0 | chose NVIDIA mistral-nemotron and supplied the key; asked for "what the AI must do" per the rulebook |
+| Bounded AI adapter (`llm_adapter.py`, `claim_review.py`) | all code, tests, prompt v1.0.0 -> v1.1.0 | chose the model provider and supplied keys (NVIDIA first; replaced by Featherless when the NVIDIA key was declared untrusted); asked for "what the AI must do" per the rulebook |
 | Audit log, review workflow (`audit_log.py`, `review_workflow.py`) | all code, tests, design note | asked to finish review workflow, audit trail and reports |
 | Ingestion (`ingest.py`, `fhir_adapter.py`) | all code, tests, comparison script | supplied the four graded deliverables that ingestion must meet |
 | Evaluation report, this log | drafted | to be reviewed and completed by the team |
@@ -43,16 +43,18 @@ symbol, "in the future" claims) were turned into a guard and regression tests. *
 AI self-checks.** Human review of the code is not recorded anywhere in the repository;
 the team must state in the table above what a person actually reviewed.
 
-**AI at run time (a product component, not a coding tool):** `mistralai/mistral-nemotron`
-via NVIDIA NIM explains findings only. It cannot change a status, rule id or review flag
-(validator), has no tools beyond read-only evidence lookup, and falls back to a
-deterministic template on any failure. See `docs/17_Evaluation_Report.md`.
+**AI at run time (a product component, not a coding tool):** `Qwen/Qwen2.5-14B-Instruct`
+via Featherless.ai explains findings only (earlier runs used `mistralai/mistral-nemotron` via NVIDIA NIM).
+It cannot change a status, rule id or review flag (pydantic schema + validator), has no tools beyond
+read-only evidence lookup, its question and action type are written to the audit log before each call,
+and it falls back to a deterministic template on any failure. See `docs/17_Evaluation_Report.md`.
 
 ## Disclosures
 
-- The NVIDIA API key was pasted into chat sessions to configure the adapter. It is not in
-  the repository or its history (`git grep nvapi-` is empty; `.env` is ignored), but it
-  exists in local session transcripts and should be **rotated** before submission.
+- API keys were pasted into chat sessions to configure the adapter (first NVIDIA, later Featherless).
+  Neither is in the repository or its history (`.env` is ignored), but both exist in local session
+  transcripts. The NVIDIA key was declared untrusted and removed from `.env`; **rotate the Featherless
+  key too** before submission.
 - The demo reviewer decisions and correction in `outputs/audit_demo/` are demonstration data
   written by a script under the actor `demo-reviewer`. They are not real human judgements.
 - The perfect metrics on the public splits were measured on data the AI and team could see;

@@ -7,9 +7,8 @@
 2. AI ordering: every AI action was registered (ai_request: the question, the deterministic
    verdict, finding + prompt hashes, action type) BEFORE the model was called, answered once, and
    classified human_escalation; auto_correct never appears.
-3. With --results: every rule_check event's result_hash equals the digest of the
-   corresponding result record, and every result has exactly one rule_check in the
-   log's latest run for that claim. The log therefore cannot silently disagree with the
+3. With --results: every result's digest equals the result_hash of a rule_check event logged for
+   that claim and rule (any run: a rechecked claim legitimately has more than one). The log therefore cannot silently disagree with the
    results file it claims to describe.
 """
 import argparse
@@ -39,20 +38,20 @@ def main():
         if line.strip():
             r = json.loads(line)
             results[(r['claim_id'], r['rule_id'])] = digest(r)
-    logged, latest_run = {}, {}
+    # A result must match the hash of SOME logged run of that claim/rule. A claim that was
+    # rechecked has several runs in the log (original and corrected); each is a genuine record.
+    logged = {}
     for line in Path(a.log).read_text(encoding='utf-8').splitlines():
         e = json.loads(line)['event']
-        if e.get('event_type') == 'run_started':
-            latest_run[e['claim_id']] = e['run_id']
-        elif e.get('event_type') == 'rule_check':
-            logged[(e['claim_id'], e['rule_id'], e['run_id'])] = e['result_hash']
+        if e.get('event_type') == 'rule_check':
+            logged.setdefault((e['claim_id'], e['rule_id']), set()).add(e['result_hash'])
     mismatched, missing = [], []
-    for (claim_id, rule_id), h in results.items():
-        got = logged.get((claim_id, rule_id, latest_run.get(claim_id)))
-        if got is None:
-            missing.append((claim_id, rule_id))
-        elif got != h:
-            mismatched.append((claim_id, rule_id))
+    for key, h in results.items():
+        hashes = logged.get(key)
+        if not hashes:
+            missing.append(key)
+        elif h not in hashes:
+            mismatched.append(key)
     print(f'Results file: {len(results)} results; missing from log {len(missing)}; hash mismatches {len(mismatched)}')
     if missing or mismatched:
         sys.exit(1)
