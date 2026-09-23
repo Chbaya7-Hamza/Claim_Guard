@@ -249,7 +249,18 @@ class AuditLog:
             'written_at': datetime.now(timezone.utc).isoformat(),
             'note': 'Keep a copy of this file somewhere the log writer cannot modify.',
         }, indent=2), encoding='utf-8')
-        os.replace(tmp, self.anchor_path)
+        # Windows refuses to replace a file another process has open for an instant (a reader, a
+        # verifier, a scanner), even though the lock serialises writers. Retry briefly; on POSIX
+        # the first attempt always succeeds.
+        for attempt in range(40):
+            try:
+                os.replace(tmp, self.anchor_path)
+                return
+            except PermissionError:
+                if attempt == 39:
+                    tmp.unlink(missing_ok=True)
+                    raise
+                time.sleep(0.005 * (attempt + 1))
 
 
 def verify_with_anchor(log_path, anchor_path=None):
