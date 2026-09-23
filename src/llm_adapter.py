@@ -108,16 +108,56 @@ _UNGROUNDED = [
 ]
 
 
+# Positive validity assertions about things the finding did not evaluate ("the second line has a
+# valid price", "the values match correctly", "no other issues"). Found by reading live answers
+# (EX-17/EX-18): valid JSON, correct citations, and still an unsupported claim. An assertion is
+# allowed only if the same phrase appears in the finding/rule text, or if it is negated/hedged
+# ("cannot determine whether the coverage is valid").
+_VALIDITY = re.compile(
+    r"\b(?:is|are|was|were|looks|seems|appears)\s+(?:valid|correct|acceptable|compliant|fine|proper|in order|"
+    r"within\s+(?:the\s+)?(?:fictional\s+|allowed\s+|policy\s+)?(?:limits?|range|window|period))\b"
+    r"|\b(?:has|have|had|with)\s+(?:a\s+|an\s+)?(?:valid|correct)\b"
+    r"|\b(?:match|matches|matched)\s+(?:correctly|properly)\b"
+    r"|\bno other (?:issues|problems)\b|\botherwise\s+(?:valid|correct|fine)\b", re.I)
+_HEDGE = re.compile(r"\b(?:whether|if|not|cannot|can't|unable|unclear|impossible|determine|verify|confirm|assess)\b", re.I)
+
+
 def check_grounding(output, finding, rule=None):
     """Reject explanations that assert things the supplied inputs cannot support.
-    Complements validate_explanation (structure/citations); it is a narrow,
-    mechanical guard, not a semantic fact-check."""
-    source = json.dumps(finding, ensure_ascii=False) + (json.dumps(rule, ensure_ascii=False) if rule else '')
+    Complements validate_explanation (structure/citations); a narrow, mechanical guard,
+    not a semantic fact-check."""
+    text = output['explanation']
+    source = (json.dumps(finding, ensure_ascii=False) + (json.dumps(rule, ensure_ascii=False) if rule else '')).lower()
     for pattern, why in _UNGROUNDED:
-        for m in pattern.finditer(output['explanation']):
-            if m.group(0).lower() not in source.lower():
+        for m in pattern.finditer(text):
+            if m.group(0).lower() not in source:
                 raise ValueError(f'Ungrounded statement ({why}): {m.group(0)!r}')
+    for m in _VALIDITY.finditer(text):
+        if m.group(0).lower() in source or _HEDGE.search(text[max(0, m.start() - 45):m.start()]):
+            continue
+        raise ValueError(f'Ungrounded statement (asserts validity of something the finding does not cover): {m.group(0)!r}')
     return output
+
+
+_STOP = {'that', 'with', 'this', 'from', 'must', 'have', 'does', 'than', 'when', 'into', 'only', 'were', 'been',
+         'each', 'every', 'their', 'there', 'which', 'while', 'about', 'other', 'such', 'also', 'both', 'more'}
+
+
+def _stems(text):
+    return {w[:6] for w in re.findall(r'[a-z]{4,}', text.lower()) if w not in _STOP}
+
+
+def omitted_reasons(engine_message, explanation, threshold=2 / 3):
+    """Engine reasons (';'-separated) that the AI text does not appear to cover. Deterministic
+    word-stem overlap, so it is a heuristic that flags CANDIDATE omissions for a human; it never
+    changes or rejects anything. The engine's own message is always shown beside the AI text."""
+    have = _stems(explanation)
+    out = []
+    for seg in (x.strip() for x in engine_message.split(';')):
+        stems = _stems(seg)
+        if stems and len(stems & have) / len(stems) < threshold:
+            out.append(seg)
+    return out
 
 
 def _load_dotenv():

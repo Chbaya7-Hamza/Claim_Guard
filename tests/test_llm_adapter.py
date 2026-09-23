@@ -7,7 +7,7 @@ sys.path.insert(0, str(ROOT / 'src'))
 from llm_adapter import (
     MockExplanationProvider, NvidiaExplanationProvider, validate_explanation,
     build_prompt, explain_with_fallback, check_grounding, explanation_model_for, ExplanationOutput,
-    FeatherlessExplanationProvider, TransientProviderError,
+    FeatherlessExplanationProvider, TransientProviderError, omitted_reasons,
 )
 
 FINDING = {
@@ -383,6 +383,47 @@ class GroundingGuardTests(unittest.TestCase):
         self.assertTrue(used_fallback)
         self.assertIn('Ungrounded', error)
         self.assertEqual(out['explanation'], FINDING['explanation'])
+
+    def test_rejects_validity_claim_about_something_the_finding_did_not_evaluate(self):
+        # EX-18 (live): "the second line has a valid quantity and unit price" - the finding never looked at line 2
+        with self.assertRaisesRegex(ValueError, 'validity'):
+            check_grounding(self.out('Line L1 has no unit price, while the second line has a valid quantity and unit price.'), FINDING, RULE)
+
+    def test_rejects_generic_all_clear_phrasing(self):
+        for text in ('The unit price is missing; there are no other issues.',
+                     'The unit price is missing and the totals match correctly.',
+                     'The unit price is missing, otherwise valid.'):
+            with self.subTest(text=text), self.assertRaisesRegex(ValueError, 'validity'):
+                check_grounding(self.out(text), FINDING, RULE)
+
+    def test_hedged_or_negated_validity_wording_is_allowed(self):
+        check_grounding(self.out('The unit price is missing, so we cannot determine whether the line is valid.'), FINDING, RULE)
+        check_grounding(self.out('The unit price is missing; it is not possible to confirm the total is correct.'), FINDING, RULE)
+
+    def test_validity_wording_already_in_the_source_is_allowed(self):
+        finding = dict(FINDING, explanation='The claim is valid only if a unit price is present.')
+        check_grounding(self.out('The claim is valid only if a unit price is present.'), finding, RULE)
+
+
+class OmittedReasonsTests(unittest.TestCase):
+    ENGINE = 'Quantity 1.5 is not a positive integer; quantity 1.5 exceeds the fictional maximum of 999'
+
+    def test_flags_the_reason_a_live_answer_dropped(self):
+        # EX-21..25 (live): the answer covered the integer rule and dropped the maximum
+        got = omitted_reasons(self.ENGINE, 'The quantity 1.5 on the line is not a positive integer.')
+        self.assertEqual(got, ['quantity 1.5 exceeds the fictional maximum of 999'])
+
+    def test_nothing_flagged_when_every_reason_is_covered(self):
+        text = 'Quantity 1.5 is not a positive integer and it also exceeds the fictional maximum allowed.'
+        self.assertEqual(omitted_reasons(self.ENGINE, text), [])
+
+    def test_single_reason_message_is_never_split_or_flagged_when_echoed(self):
+        self.assertEqual(omitted_reasons('Required information is missing.', 'Some required information is missing.'), [])
+
+    def test_it_only_reports_and_never_changes_the_explanation(self):
+        text = 'Something unrelated.'
+        omitted_reasons(self.ENGINE, text)
+        self.assertEqual(text, 'Something unrelated.')
 
 
 if __name__ == '__main__':

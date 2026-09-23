@@ -332,6 +332,8 @@ class AuditHooks:
             'source': 'deterministic_template' if from_template else 'model',
             'error': drafted['error'], 'latency_ms': drafted['latency_ms'], 'usage': drafted['usage'],
             'attempts': drafted.get('attempts'),
+            'engine_explanation': drafted.get('engine_explanation'),
+            'omitted_engine_reasons': drafted.get('omitted_engine_reasons', []),
             'output_hash': digest(drafted['output']), 'explanation': drafted['output']['explanation'],
             'auto_correct_applied': False, 'escalated_to': 'human_reviewer',
             # The explanation contract carries no score; never fabricate one.
