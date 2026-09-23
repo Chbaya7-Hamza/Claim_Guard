@@ -1,3 +1,5 @@
-# yara-x is the only third-party dependency this build adds so far (facts-blob
-# rule pack harness). Everything else remains standard library.
+# yara-x: facts-blob rule pack harness (R001-R015 deterministic rule engine).
 yara-x==1.20.0
+# openai: NvidiaExplanationProvider in src/llm_adapter.py talks to NVIDIA NIM's
+# OpenAI-compatible chat-completions API. Everything else remains standard library.
+openai==3.19.0
