@@ -44,11 +44,20 @@ docs/16_Audit_Log_Design.md.
 Confidence: deterministic checks record confidence=null /
 confidence_kind=not_probabilistic (docs/04_Rulebook.md).
 """
+import contextlib
 import json
+import os
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 from audit import digest, verify
+
+if os.name == 'nt':
+    import msvcrt
+else:
+    import fcntl
 
 GENESIS = '0' * 64
 
@@ -100,13 +109,59 @@ def _validate_system_event(event):
         raise ValueError('auto_correct_applied must be false: the AI never changes a claim or result')
 
 
+_THREAD_LOCKS = {}
+_THREAD_LOCKS_GUARD = threading.Lock()
+LOCK_TIMEOUT_SECONDS = 30
+
+
+def _thread_lock(path):
+    key = str(Path(path).resolve())
+    with _THREAD_LOCKS_GUARD:
+        return _THREAD_LOCKS.setdefault(key, threading.RLock())
+
+
+@contextlib.contextmanager
+def _file_lock(lock_path, timeout=LOCK_TIMEOUT_SECONDS):
+    """Exclusive cross-process lock (msvcrt on Windows, flock elsewhere) on a sidecar file."""
+    with open(lock_path, 'a+b') as fh:
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                fh.seek(0)
+                if os.name == 'nt':
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() > deadline:
+                    raise TimeoutError(f'Could not lock {lock_path} within {timeout}s') from None
+                time.sleep(0.005)
+        try:
+            yield
+        finally:
+            fh.seek(0)
+            if os.name == 'nt':
+                msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(fh, fcntl.LOCK_UN)
+
+
 class AuditLog:
-    """Append-only chain writer. Loads and fully verifies the existing log once
-    at open; later appends only need the tail state."""
+    """Append-only chain writer, safe for several threads and processes.
+
+    Every append takes a thread lock and an OS file lock, then RE-READS the log's real last row
+    to learn the current head and count (the values cached at open may be stale because another
+    writer appended). Without that, two writers fork the chain. The anchor is replaced atomically
+    (temp file + os.replace), and records that must survive a crash (the write-ahead ai_request,
+    human decisions) are fsync'd."""
+
+    DURABLE_EVENTS = {'ai_request'}
 
     def __init__(self, path):
         self.path = Path(path)
         self.anchor_path = self.path.with_name(self.path.name + '.head.json')
+        self.lock_path = self.path.with_name(self.path.name + '.lock')
         self.path.parent.mkdir(parents=True, exist_ok=True)
         # If an anchor exists, check against it BEFORE anything is appended. Otherwise the
         # next write would re-anchor the truncated state and erase the evidence.
@@ -115,22 +170,64 @@ class AuditLog:
         else:
             self.head, self.count = verify(self.path)
 
+    @contextlib.contextmanager
+    def _locked(self):
+        with _thread_lock(self.path), _file_lock(self.lock_path):
+            self._sync_tail()
+            yield
+
+    def _sync_tail(self):
+        """Adopt the log's actual last row as (head, count). Refuses a torn or altered tail."""
+        if not self.path.exists() or self.path.stat().st_size == 0:
+            self.head, self.count = GENESIS, 0
+            return
+        size = self.path.stat().st_size
+        chunk = 1 << 16
+        with open(self.path, 'rb') as f:
+            while True:
+                start = max(0, size - chunk)
+                f.seek(start)
+                data = f.read(size - start)
+                body = data.rstrip(b'\n')
+                if b'\n' in body or start == 0:
+                    last = body.rsplit(b'\n', 1)[-1]
+                    break
+                chunk *= 2
+        try:
+            row = json.loads(last.decode('utf-8'))
+            claimed = row.pop('hash')
+            ok = digest(row) == claimed
+        except (ValueError, KeyError, UnicodeDecodeError):
+            ok = False
+        if not ok:
+            raise ValueError('Audit log tail is torn or altered; refusing to append')
+        self.head, self.count = claimed, row['sequence']
+
     def append_system_events(self, events):
         for e in events:
             _validate_system_event(e)
         if not events:
             return self.head, self.count
-        return self._write(events)
+        durable = any(e['event_type'] in self.DURABLE_EVENTS for e in events)
+        with self._locked():
+            return self._write(events, durable)
 
     def append_review_decisions(self, events):
         """Human decisions: delegate validation to the supplied audit.append()
         rules, then re-sync tail state. Kept strict on purpose."""
         from audit import append
-        self.head, self.count = append(self.path, events)
-        self._write_anchor()
-        return self.head, self.count
+        with self._locked():
+            self.head, self.count = append(self.path, events)
+            self._fsync_file()
+            self._write_anchor()
+            return self.head, self.count
 
-    def _write(self, events):
+    def _fsync_file(self):
+        with open(self.path, 'ab') as f:  # a writable handle: fsync on a read-only one fails on Windows
+            f.flush()
+            os.fsync(f.fileno())
+
+    def _write(self, events, durable=False):
         with self.path.open('a', encoding='utf-8') as f:
             for event in events:
                 row = {'sequence': self.count + 1,
@@ -140,15 +237,19 @@ class AuditLog:
                 f.write(json.dumps({**row, 'hash': self.head}, ensure_ascii=False) + '\n')
                 self.count += 1
             f.flush()
+            if durable:
+                os.fsync(f.fileno())
         self._write_anchor()
         return self.head, self.count
 
     def _write_anchor(self):
-        self.anchor_path.write_text(json.dumps({
+        tmp = self.anchor_path.with_name(self.anchor_path.name + f'.{os.getpid()}.tmp')
+        tmp.write_text(json.dumps({
             'head': self.head, 'count': self.count,
             'written_at': datetime.now(timezone.utc).isoformat(),
             'note': 'Keep a copy of this file somewhere the log writer cannot modify.',
         }, indent=2), encoding='utf-8')
+        os.replace(tmp, self.anchor_path)
 
 
 def verify_with_anchor(log_path, anchor_path=None):
@@ -160,13 +261,17 @@ def verify_with_anchor(log_path, anchor_path=None):
     head, count = verify(log_path)
     if not anchor_path.exists():
         raise ValueError('No anchor file: chain is internally consistent but cannot be checked against truncation')
-    anchor = json.loads(anchor_path.read_text(encoding='utf-8'))
-    if count < anchor['count']:
-        raise ValueError(f"Log truncated: {count} events, anchor recorded {anchor['count']}")
-    if anchor['count'] == 0:
+    try:
+        anchor = json.loads(anchor_path.read_text(encoding='utf-8'))
+        anchor_count, anchor_head = int(anchor['count']), anchor['head']
+    except (ValueError, KeyError, TypeError) as e:
+        raise ValueError(f'Anchor file {anchor_path} is unreadable or malformed: {e}') from e
+    if count < anchor_count:
+        raise ValueError(f'Log truncated: {count} events, anchor recorded {anchor_count}')
+    if anchor_count == 0:
         return head, count
     rows = [json.loads(l) for l in log_path.read_text(encoding='utf-8').splitlines() if l.strip()]
-    if rows[anchor['count'] - 1]['hash'] != anchor['head']:
+    if rows[anchor_count - 1]['hash'] != anchor_head:
         raise ValueError('Log replaced: hash at anchored position differs from the anchor')
     return head, count
 
