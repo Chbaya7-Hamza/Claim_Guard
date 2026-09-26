@@ -45,6 +45,8 @@ Confidence: deterministic checks record confidence=null /
 confidence_kind=not_probabilistic (docs/04_Rulebook.md).
 """
 import contextlib
+import hashlib
+import hmac
 import json
 import os
 import threading
@@ -147,6 +149,32 @@ def _file_lock(lock_path, timeout=LOCK_TIMEOUT_SECONDS):
                 fcntl.flock(fh, fcntl.LOCK_UN)
 
 
+ANCHOR_KEY_ENV = 'AUDIT_ANCHOR_KEY'
+
+
+
+
+
+def _anchor_mac(head, count):
+
+    """HMAC-SHA256 over the anchored head and count, keyed by AUDIT_ANCHOR_KEY, or None when no key is configured.
+
+    Without a key, whoever can write the log can also rewrite the chain and the anchor together and still verify;
+
+    with one, forging the anchor needs a secret the log writer's storage does not hold."""
+
+    key = os.environ.get(ANCHOR_KEY_ENV)
+
+    if not key:
+
+        return None
+
+    return hmac.new(key.encode('utf-8'), f'{head}|{count}'.encode('ascii'), hashlib.sha256).hexdigest()
+
+
+
+
+
 class AuditLog:
     """Append-only chain writer, safe for several threads and processes.
 
@@ -246,11 +274,15 @@ class AuditLog:
 
     def _write_anchor(self):
         tmp = self.anchor_path.with_name(self.anchor_path.name + f'.{os.getpid()}.tmp')
-        tmp.write_text(json.dumps({
+        anchor = {
             'head': self.head, 'count': self.count,
             'written_at': datetime.now(timezone.utc).isoformat(),
             'note': 'Keep a copy of this file somewhere the log writer cannot modify.',
-        }, indent=2), encoding='utf-8')
+        }
+        mac = _anchor_mac(self.head, self.count)
+        if mac:
+            anchor['mac'] = mac
+        tmp.write_text(json.dumps(anchor, indent=2), encoding='utf-8')
         # Windows refuses to replace a file another process has open for an instant (a reader, a
         # verifier, a scanner), even though the lock serialises writers. Retry briefly; on POSIX
         # the first attempt always succeeds.
@@ -279,6 +311,9 @@ def verify_with_anchor(log_path, anchor_path=None):
         anchor_count, anchor_head = int(anchor['count']), anchor['head']
     except (ValueError, KeyError, TypeError) as e:
         raise ValueError(f'Anchor file {anchor_path} is unreadable or malformed: {e}') from e
+    if _anchor_mac(anchor_head, anchor_count) is not None:  # a key is configured: the anchor must be signed with it
+        if not hmac.compare_digest(str(anchor.get('mac', '')), _anchor_mac(anchor_head, anchor_count)):
+            raise ValueError('Anchor MAC missing or wrong: the anchor was not written with the configured key')
     if count < anchor_count:
         raise ValueError(f'Log truncated: {count} events, anchor recorded {anchor_count}')
     if anchor_count == 0:

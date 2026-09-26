@@ -8,6 +8,7 @@ assembled afterward can never drift apart. yara_engine.evaluate() builds the
 combined facts blob directly from these functions' output.
 """
 import re
+from urllib.parse import quote
 from decimal import Context, Decimal, ROUND_HALF_UP, localcontext
 
 from engine_core import empty, valid_date as _lenient_date
@@ -23,6 +24,13 @@ def valid_date(v):
     '2026-W52-4' also parse. Rule verdicts must not depend on the interpreter a judge happens to run.
     """
     return _lenient_date(v) if isinstance(v, str) and _ISO_DAY.fullmatch(v) else None
+
+
+def _q(value):
+    """Percent-encode claim data before it goes into a fact line. Facts are joined into one text blob that the
+    YARA pack matches by substring, so an unencoded value such as 'USD R009:MISMATCH:' would forge a finding for
+    another rule. Encoding removes the colon and newline every tag needs."""
+    return quote(str(value), safe='')
 
 
 def r001_details(c):
@@ -64,7 +72,7 @@ def r003_details(c):
         unknown.append('coverage status')
     elif cv['status'] != 'active':
         failed.append('coverage status is not active')
-        facts.append(f'R003:INACTIVE:status={cv["status"]}')
+        facts.append(f'R003:INACTIVE:status={_q(cv["status"])}')
     if not start or not end:
         unknown.append('coverage period')
     for i, l in enumerate(c['lines']):
@@ -106,7 +114,7 @@ def r006_details(c):
         if key in seen:
             a = seen[key]
             dups.extend([a, i])
-            facts.append(f'R006:DUPLICATE:{a},{i}:key={"|".join(key)}')
+            facts.append(f'R006:DUPLICATE:{a},{i}:key={"|".join(_q(k) for k in key)}')
         else:
             seen[key] = i
     ids = []
@@ -166,11 +174,11 @@ def r004_details(c):
     if empty(pid) or empty(bpid):
         unknown.append('patient identifiers')
     elif pid != bpid:
-        mismatches.append(f'R004:PATIENT_MISMATCH:patient_id={pid}:beneficiary_patient_id={bpid}')
+        mismatches.append(f'R004:PATIENT_MISMATCH:patient_id={_q(pid)}:beneficiary_patient_id={_q(bpid)}')
     if empty(mid) or empty(cmid):
         unknown.append('member identifiers')
     elif mid != cmid:
-        mismatches.append(f'R004:MEMBER_MISMATCH:member_id={mid}:coverage_member_id={cmid}')
+        mismatches.append(f'R004:MEMBER_MISMATCH:member_id={_q(mid)}:coverage_member_id={_q(cmid)}')
     if mismatches:
         facts = mismatches
         message = 'Patient or member identifiers do not match coverage.'
@@ -191,7 +199,7 @@ def r005_details(c, cfg):
         facts = ['R005:UNKNOWN']
         message = 'Provider or policy is unknown.'
     elif pid not in policy['allowed_providers']:
-        facts = [f'R005:UNLISTED:provider_id={pid}']
+        facts = [f'R005:UNLISTED:provider_id={_q(pid)}']
         message = 'Provider is not in the allowed network.'
     else:
         facts = ['R005:OK']
@@ -535,7 +543,7 @@ def r015_details(c, cfg):
         facts = ['R015:UNKNOWN']
         message = 'Currency or policy is unknown.'
     elif cur != policy['currency']:
-        facts = [f'R015:MISMATCH:currency={cur}']
+        facts = [f'R015:MISMATCH:currency={_q(cur)}']
         message = 'Currency does not match the policy currency.'
     else:
         facts = ['R015:OK']

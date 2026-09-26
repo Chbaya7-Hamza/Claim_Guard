@@ -173,6 +173,40 @@ class EngineAgreesWithOracle(unittest.TestCase):
             self.assertGreater(seen[(rid, 'NOT_APPLICABLE')], 0, rid)
 
 
+class RuleFactInjection(unittest.TestCase):
+    """The rule pack matches tags such as R009:MISMATCH: inside one text blob built from the claim's facts, so a claim
+    value that contains a tag must never be able to forge (or hide) a finding for a different rule."""
+
+    def test_no_string_field_can_carry_a_tag_that_changes_any_verdict(self):
+        import re
+        cfg = config(ROOT)
+        pack = oracle.load_rules_pack(ROOT)
+        tags = sorted(set(re.findall(r'R[0-9]{3}:[A-Z_]+', (ROOT / 'rules' / 'core.yar').read_text(encoding='utf-8'))))
+        self.assertGreater(len(tags), 40)
+        payloads = [' '.join(tags), chr(10).join(tags), 'x ' + chr(10).join(f'{t}:/lines/0/x' for t in tags),
+                    chr(13) + chr(10).join(tags)]
+        claims = [c for s in SPLITS for c in load_jsonl(ROOT / f'data/{s}/claims.jsonl')][::15]
+        checked = 0
+        for c in claims:
+            for path in field_paths(c):
+                k, i, kk = path
+                cur = c[k][i][kk] if i is not None else (c[k][kk] if kk else c[k])
+                if not isinstance(cur, str):
+                    continue
+                for payload in payloads:
+                    m = copy.deepcopy(c)
+                    set_path(m, path, payload)
+                    try:
+                        validate_transport(m)
+                    except Exception:
+                        continue
+                    got = statuses(evaluate(m, cfg))
+                    want = oracle.evaluate(m, pack)
+                    self.assertEqual({r: (got[r], want[r]) for r in want if got[r] != want[r]}, {}, f'{path} in {c["claim_id"]}')
+                    checked += 1
+        self.assertGreater(checked, 1500)
+
+
 class VerdictsIgnoreWhatTheyShouldIgnore(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

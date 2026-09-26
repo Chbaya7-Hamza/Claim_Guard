@@ -94,7 +94,7 @@ def evaluate(c, cfg, tool_errors=None):
             details[rid] = fn(view, cfg)
         except Exception as e:  # noqa: BLE001 - isolation is the point
             crashed[rid] = f'{type(e).__name__}: {e}'
-            logger.warning('rule %s crashed on %s, treating as UNABLE_TO_ASSESS: %s', rid, c.get('claim_id'), crashed[rid])
+            logger.warning('rule %s crashed on %r, treating as UNABLE_TO_ASSESS: %r', rid, c.get('claim_id'), crashed[rid])
             if tool_errors is not None:
                 tool_errors.append(f'{rid}: engine exception {crashed[rid]}')
     blob = '\n'.join(fact for d in details.values() for fact in d['facts']) + '\n'
