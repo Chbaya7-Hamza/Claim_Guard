@@ -38,6 +38,8 @@ The detailed specification of what the system does, how each part is configured,
 
 ## 2. Architecture and data flow
 
+Diagrams, the trust-boundary table, the per-component tool-permission table and the numbered data flow are in `docs/22_Architecture_and_Data_Flow.md`; the summary below is the text form.
+
 ```
  FHIR R4 bundle | CSV folder | JSONL
             |
@@ -216,7 +218,7 @@ Residual: no authentication, protected health information would go to a third-pa
 | Independent oracle (`tests/oracle.py`) | 0 disagreements over about 111,000 generated claims and 123 hand-derived boundary cases |
 | Hostile inputs | Runner, ingestion, review page, audit log, AI providers |
 | Security and red team | `docs/20` |
-| Suite | 410 tests, offline, on Python 3.10, 3.12 and 3.14; the committed audit sample's 6,000 result hashes are re-checked |
+| Suite | 420 tests, offline, on Python 3.10, 3.12 and 3.14; the committed audit sample's 6,000 result hashes are re-checked |
 
 ## 11. Experiments in detail
 

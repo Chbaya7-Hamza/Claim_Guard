@@ -128,7 +128,7 @@ We ran four rounds of experiments on the Featherless.ai endpoint (2026-09-26, 4,
 | The mentor-held 200 claims are unavailable | The oracle and stress tests are the substitute |
 | Live AI answers not yet scored by a person | Open, and now the most valuable missing evidence. `experiments/manual_scoring_sheet_e8.csv` (150 shuffled answers, arm hidden) is ready; if people prefer the old default, revert the model and prompt (`docs/21`) |
 | Audit log tamper-evident, not immutable | Set `AUDIT_ANCHOR_KEY`, keep the anchor elsewhere, use write-once storage for real immutability (`docs/16`) |
-| Architecture diagram, demo video, pitch, runbook | Not yet made |
+| Demo video and pitch | The demo runs with `python scripts/demo.py`; the video is to be recorded from `docs/23_Demo_Video_Kit.md`. The pitch is not yet made |
 | No overall budget cap on paid model calls | Documented (`docs/20`, LLM10) |
 
 ## 9. Working in this repository
@@ -146,7 +146,7 @@ We ran four rounds of experiments on the Featherless.ai endpoint (2026-09-26, 4,
 
 **Experiments.** `python scripts/run_experiments.py` and `scripts/analyze_experiments.py` (needs `experiments/requirements-experiments.txt` and a `FEATHERLESS_API_KEY`). Write the metrics and decision rule down *before* a run, interleave the configurations you compare, and never change the default model, prompt or temperature without a new frozen run and a version note.
 
-**Where to read next:** `docs/19` (how it was stress-tested and how each judged item is covered), `docs/20` (security), `docs/21` (experiments), `docs/17` (evaluation report).
+**Where to read next:** `docs/22` (architecture, trust boundaries, data flow with diagrams), `docs/23` (how to record the demo video), `docs/19` (how it was stress-tested and how each judged item is covered), `docs/20` (security), `docs/21` (experiments), `docs/17` (evaluation report).
 
 ## 10. Glossary
 

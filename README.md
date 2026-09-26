@@ -59,17 +59,52 @@ The FHIR route cannot carry authorization details or free-text notes, so R009 re
 
 **Audit log.** It records ingestion, every rule check with its confidence fields, the AI's question (written before the model is called), the AI recommendation, and system and human decisions, as a hash chain plus a separately stored head-hash anchor. This is tamper-*evident*, not immutable: `docs/16_Audit_Log_Design.md` states what production immutability would additionally need (write-once storage, an externally held anchor, authenticated reviewers). Setting `AUDIT_ANCHOR_KEY` signs the anchor so it cannot be forged without the key (`docs/20_Security_Audit.md`).
 
-## Quick start
+## Install and run
 
-Python 3.10 or newer (tested on 3.10, 3.12 and 3.14). The rule engine needs `yara-x`; the AI step needs `openai` and `pydantic`. Everything else is the standard library.
+**Prerequisites.** Python 3.10 or newer (tested on 3.10, 3.12 and 3.14) and git. Windows, macOS and Linux all work. The rule engine needs `yara-x`; the AI step needs `openai` and `pydantic`; everything else is the standard library. No API key, GPU or internet access is needed to run anything below except the optional live model.
+
+**1. Get the code and install**
 
 ```bash
+git clone https://github.com/Chbaya7-Hamza/Claim_Guard.git
+cd Claim_Guard
+
+# with uv (recommended)
 uv venv --python 3.10 .venv
 uv pip install --python .venv -r requirements.txt
-cp .env.example .env        # optional: add FEATHERLESS_API_KEY for live AI explanations. Never commit .env.
 
-python -m unittest discover -s tests          # 410 tests, about 60 s, offline, no API key needed
+# or with plain pip
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt          # Windows: .venv\Scripts\pip install -r requirements.txt
+```
 
+On Windows use `.venv\Scripts\python.exe` wherever the commands below say `python`; on macOS and Linux use `.venv/bin/python` (or activate the environment).
+
+**2. See it work in one command (about 2 seconds, offline)**
+
+```bash
+python scripts/demo.py
+```
+
+This is a narrated tour of the whole pipeline in eight scenes: ingestion of FHIR, CSV and JSONL (with a damaged file quarantined), the 15 rules with evidence, unknown data never becoming a pass, the AI step and a simulated misbehaving model being rejected, the hash-chained audit log, a tamper attempt being detected, human review with a recheck, and an offline review page written to `outputs/demo/review.html`. Options: `--pause` (wait for Enter between scenes), `--delay 6` (hands-free pacing for a recording), `--live` (use the real model in scene 4, needs a key, see step 4). A recording guide is in [docs/23_Demo_Video_Kit.md](docs/23_Demo_Video_Kit.md).
+
+**3. Run the tests**
+
+```bash
+python -m unittest discover -s tests          # 420 tests, about 60 s, offline, no API key needed
+```
+
+**4. Optional: live AI explanations.** Without a key, the explanation is a deterministic template, so every command here works offline. To use the hosted model:
+
+```bash
+cp .env.example .env      # Windows: copy .env.example .env
+# then put your own key in .env:  FEATHERLESS_API_KEY=...   (never commit .env; it is git-ignored)
+python scripts/demo.py --live
+```
+
+**5. Run the pipeline yourself**
+
+```bash
 # run the 15 rules over a split, score it against the answer key, and open the review page
 python src/run_yara.py --input data/development/claims.jsonl --output outputs/yara_dev_predictions.jsonl
 python src/evaluate.py --gold data/development/expected_results.jsonl --pred outputs/yara_dev_predictions.jsonl \
@@ -81,7 +116,20 @@ python scripts/run_audited_review.py
 python scripts/verify_audit.py --log outputs/audit_demo/audit.jsonl   # run_audited_review.py rewrites the committed outputs/audit_demo sample with fresh ids and timestamps
 ```
 
-On Windows use `.venv\Scripts\python.exe`. Without an API key the AI step uses a deterministic template, so every command above works offline.
+Expected: `evaluate.py` prints status accuracy 1.0 for the development split; `verify_audit.py` ends with the chain and AI ordering reported OK. Open `outputs/yara_review.html` in a browser for the review page (works offline, no server).
+
+**Architecture and data flow** are documented, with diagrams, in [docs/22_Architecture_and_Data_Flow.md](docs/22_Architecture_and_Data_Flow.md).
+
+**Troubleshooting**
+
+| Symptom | Fix |
+|---|---|
+| `ModuleNotFoundError: yara_x` or `pydantic` | The environment is not active or not installed: use the `.venv` python, or re-run the install command |
+| Garbled characters in the terminal on Windows | `chcp 65001`, or set `PYTHONIOENCODING=utf-8` |
+| `python` is not found on Windows | Use `py -3.10` to create the venv, then `.venv\Scripts\python.exe` |
+| `--live` says it is using the template | `FEATHERLESS_API_KEY` is missing or empty in `.env`; the demo still runs, and says which writer it used |
+| A live answer is slow | The hosted endpoint has slow spells (p95 about 28 s); a timeout falls back to the template automatically |
+| `validate_pack.py` exits non-zero | Expected and documented under Boundaries |
 
 ## Results
 
@@ -89,7 +137,7 @@ On Windows use `.venv\Scripts\python.exe`. Without an API key the AI step uses a
 |---|---|
 | Status accuracy, issue precision and recall, all 15 rules | **1.0** on the development, validation and stress splits (9,000 of 9,000 results) |
 | Independent oracle agreement (rules written again from the rulebook text alone) | 0 disagreements over about 111,000 generated claims and 123 hand-derived edge cases |
-| Tests | 410, all offline, on Python 3.10, 3.12 and 3.14 (last verified on all three at the commit named in `docs/19`) |
+| Tests | 420, all offline, on Python 3.10, 3.12 and 3.14 (last verified on all three at the commit named in `docs/19`) |
 | Live AI explanations (Mistral-Nemo-Instruct-2407 via Featherless.ai, prompt v1.6.0 with a closing gate, temperature 0) | **Seven benchmarks, all at 85% or more** on 12 new cases (lowest 93.2%): 97.5% live, 93.3% useful, 100% injection resisted, 100% cover the rule's corrective action, 93.2% cite an observed evidence value, 93.2% name a next step, 0 garbled answers shown. Chosen by four rounds of experiments, see below |
 | Security | audited against the OWASP Top 10 for LLM Applications and the OWASP Top 10: `docs/20_Security_Audit.md` |
 
@@ -157,8 +205,8 @@ Also built and tested, but off by default: a **cascade** (fluent model, then a r
 | `rules/` | `core.yar` (compiled rule pack), `rules.json`, `policies.json`, catalogues |
 | `schemas/` | JSON schemas for claims, results and review events |
 | `data/` | 600 synthetic claims in three splits, in JSONL, CSV and FHIR forms, with the public answer key |
-| `tests/` | 410 tests, including `oracle.py` (independent reference implementation) and the stress and security suites |
-| `scripts/` | Audited runs, audit verification, AI evaluation and the experiment runner |
+| `tests/` | 420 tests, including `oracle.py` (independent reference implementation) and the stress and security suites |
+| `scripts/` | `demo.py` (narrated tour), audited runs, audit verification, `draw_diagrams.py`, AI evaluation and the experiment runner |
 | `experiments/` | Raw experiment data and `summary.json`; figures are in `docs/figures/` |
 | `outputs/` | Frozen evidence: metrics, audit samples, recorded live AI runs |
 | `docs/` | Numbered documents; see the index below |
@@ -176,6 +224,8 @@ Also built and tested, but off by default: a **cascade** (fluent model, then a r
 | `docs/19_Stress_Testing_and_Judging_Coverage.md` | How the rules were stress-tested; each judged item mapped to its test |
 | `docs/20_Security_Audit.md` | OWASP audit, red-team run, fixes, residual risks |
 | `docs/21_Experiments.md` | AI experiments: temperature, model, prompt, concurrency |
+| [docs/22_Architecture_and_Data_Flow.md](docs/22_Architecture_and_Data_Flow.md) | Architecture diagram, trust boundaries, tool permissions, data flow |
+| [docs/23_Demo_Video_Kit.md](docs/23_Demo_Video_Kit.md) | Script, shot list and checklist for recording the demo video |
 | `docs/00_Starter_Pack_README.md` | The organizers' original starter-pack README, kept in full |
 
 ## Boundaries
@@ -186,4 +236,4 @@ No clinical judgement, medical-necessity decision, fraud accusation, automatic a
 
 ## Status
 
-Phase 1 (ingestion, rule engine, structured output, audit log) is complete. Not yet built: the review interface as a mobile app on a local API server, authentication, the architecture diagram, demo video and pitch.
+Phase 1 (ingestion, rule engine, structured output, audit log) is complete. The architecture and data-flow document is `docs/22`, and the demo runs with `python scripts/demo.py`; the recorded video follows `docs/23`. Not yet built: the review interface as a mobile app on a local API server, authentication and the pitch.
