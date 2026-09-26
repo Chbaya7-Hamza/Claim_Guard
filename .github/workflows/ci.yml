@@ -1,0 +1,131 @@
+# ClaimGuard AI CI. Runs on every pull request and on every push to main.
+# It never needs a secret: the live model is not called, so the AI step uses the deterministic template.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build (syntax and install)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Install pinned dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Every Python file compiles
+        run: python -m compileall -q src scripts tests
+      - name: The rule pack compiles and the JSON files parse
+        run: |
+          python - <<'EOF'
+          import json, pathlib
+          import yara_x
+          yara_x.compile(pathlib.Path('rules/core.yar').read_text(encoding='utf-8'))
+          for p in [*pathlib.Path('rules').glob('*.json'), *pathlib.Path('schemas').glob('*.json')]:
+              json.loads(p.read_text(encoding='utf-8'))
+          print('rule pack and json files OK')
+          EOF
+
+  test:
+    name: test (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.12', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install pinned dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Full test suite (offline, no API key)
+        env:
+          FEATHERLESS_API_KEY: ''
+        run: python -m unittest discover -s tests
+      - name: The narrated demo runs end to end
+        run: python scripts/demo.py --out-dir "$RUNNER_TEMP/demo"
+
+  rules-accuracy:
+    name: rules-accuracy (15 rules vs the answer key)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Install pinned dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run the rules on all three public splits and require a perfect score
+        run: |
+          set -e
+          for split in development validation stress; do
+            python src/run_yara.py --input data/$split/claims.jsonl --output "$RUNNER_TEMP/$split.pred.jsonl"
+            python src/evaluate.py --gold data/$split/expected_results.jsonl --pred "$RUNNER_TEMP/$split.pred.jsonl" \
+              --claims data/$split/claims.jsonl --output "$RUNNER_TEMP/$split.metrics.json"
+            python - "$split" "$RUNNER_TEMP/$split.metrics.json" <<'EOF'
+          import json, sys
+          split, path = sys.argv[1:3]
+          o = json.load(open(path))['overall']
+          bad = {k: o[k] for k in ('status_accuracy', 'issue_precision', 'issue_recall') if o[k] != 1.0}
+          bad.update({k: o[k] for k in ('false_abstentions', 'missed_abstentions', 'not_implemented') if o[k] != 0})
+          print(split, 'count', o['count'], 'status_accuracy', o['status_accuracy'])
+          sys.exit(f'{split}: regression {bad}' if bad else 0)
+          EOF
+          done
+      - name: The committed audit sample still verifies (chain, anchor, AI ordering)
+        run: python scripts/verify_audit.py --log outputs/audit_demo/audit.jsonl
+
+  security:
+    name: security (pen-test suite, static analysis, dependencies, secrets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: pip
+      - name: Install pinned dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Adversarial suites (OWASP mapping, red-team findings, hostile input, prompt injection, audit tampering)
+        env:
+          FEATHERLESS_API_KEY: ''
+        run: |
+          python -m unittest -v tests.test_security_owasp tests.test_redteam_findings tests.test_garbled_output_guard \
+            tests.test_stress_ingest tests.test_stress_ai_boundary tests.test_stress_review_page
+      - name: Static analysis (bandit, medium severity and above fails the build)
+        run: |
+          python -m pip install bandit==1.9.4
+          bandit -q -r src scripts -ll
+      - name: Known vulnerabilities in dependencies (pip-audit)
+        run: |
+          python -m pip install pip-audit
+          pip-audit -r requirements.txt
+      - name: Secret scan of the whole history (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

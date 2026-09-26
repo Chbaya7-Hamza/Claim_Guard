@@ -584,7 +584,7 @@ def verify_ai_ordering(log_path):
         elif kind in ('ai_recommendation', 'ai_failure'):
             stats['ai_recommendations' if kind == 'ai_recommendation' else 'ai_failures'] += 1
             rid = e.get('request_id')
-            req = requests.get(rid)
+            req = requests.get(rid)  # nosec B113 (a local dict, not the HTTP library)
             if req is None:
                 problems.append(f'seq {seq}: {kind} with no earlier ai_request ({rid})')
                 continue
