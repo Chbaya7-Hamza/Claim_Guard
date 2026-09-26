@@ -10,7 +10,7 @@ Synthetic teaching benchmark only. Nothing here is a claim about real denial red
 Python 3.10.11 (`.venv` via uv), `yara-x==1.20.0`, `openai==3.19.0` (`requirements.txt`). Secrets live in an untracked `.env` (`.env.example` is committed).
 
 ```bash
-python -m unittest discover -s tests                     # 380 tests, all offline, no API key needed
+python -m unittest discover -s tests                     # 410 tests, all offline, no API key needed
 python src/run_yara.py --input data/development/claims.jsonl --output outputs/yara_dev_predictions.jsonl
 python src/evaluate.py --gold data/development/expected_results.jsonl \
     --pred outputs/yara_dev_predictions.jsonl --claims data/development/claims.jsonl \
@@ -75,7 +75,7 @@ All of these passed `validate_explanation` and kept `needs_human_review: true`. 
 
 ## AI evaluation
 
-**Provider history.** *Update, rounds two and three of `docs/21`: the model in use is now `mistralai/Mistral-Nemo-Instruct-2407` with prompt v1.5.0 (frozen live runs: v1.4.0 in `outputs/*_v14.jsonl`, 24 of 25 and 11 of 11 answered by the model; v1.5.0 in `outputs/*_v15.jsonl`, 24 of 25 and 10 of 11, with VAR-02 rejected by the schema). The account below describes the earlier default.* The project's NVIDIA key was withdrawn as untrusted. The earlier provider was Featherless.ai, model `Qwen/Qwen2.5-14B-Instruct` (chosen because it is from the official Qwen organisation, on the plan at concurrency cost 1, 32k context, and not a "thinking" model that would emit reasoning text before the JSON). `temperature=0`, `top_p=1`, `max_tokens=500`, 90 s timeout, at most one retry and only for transient transport or garbled-envelope failures (never for a schema or grounding violation). Prompt v1.2.0 embeds the per-finding pydantic JSON Schema; replies are parsed with that schema (`extra='forbid'`, strict types, `Literal` citations, rule id and review flag). Baseline = the deterministic template provider, also the fallback. The earlier NVIDIA `mistral-nemotron` runs (prompt v1.0.0, no schema) are kept as history in `outputs/llm_explanations_run1.jsonl`, `..._run2.jsonl`, `outputs/llm_injection_variants*.jsonl`. Automatic checks: `outputs/ai_eval.json`. **No human has scored the manual 0/1 scorecard**; the reading below was done by the AI assistant that built the system, so treat it as a draft.
+**Provider history.** *Update, rounds two and three of `docs/21`: the model in use is now `mistralai/Mistral-Nemo-Instruct-2407` with prompt v1.6.0 and a closing gate (frozen live runs: v1.4.0 in `outputs/*_v14.jsonl`, 24 of 25 and 11 of 11 answered by the model; v1.5.0 in `outputs/*_v15.jsonl`, 24 of 25 and 10 of 11; v1.6.0 in `outputs/*_v16.jsonl`, 25 of 25 and 9 of 11, the two others rejected by the safety net). The account below describes the earlier default.* The project's NVIDIA key was withdrawn as untrusted. The earlier provider was Featherless.ai, model `Qwen/Qwen2.5-14B-Instruct` (chosen because it is from the official Qwen organisation, on the plan at concurrency cost 1, 32k context, and not a "thinking" model that would emit reasoning text before the JSON). `temperature=0`, `top_p=1`, `max_tokens=500`, 90 s timeout, at most one retry and only for transient transport or garbled-envelope failures (never for a schema or grounding violation). Prompt v1.2.0 embeds the per-finding pydantic JSON Schema; replies are parsed with that schema (`extra='forbid'`, strict types, `Literal` citations, rule id and review flag). Baseline = the deterministic template provider, also the fallback. The earlier NVIDIA `mistral-nemotron` runs (prompt v1.0.0, no schema) are kept as history in `outputs/llm_explanations_run1.jsonl`, `..._run2.jsonl`, `outputs/llm_injection_variants*.jsonl`. Automatic checks: `outputs/ai_eval.json`. **No human has scored the manual 0/1 scorecard**; the reading below was done by the AI assistant that built the system, so treat it as a draft.
 
 | Set | Live model answers | Fallbacks | Median / max latency (live) | Tokens | Unsupported-token candidates | Grounding-guard rejects |
 |---|---|---|---|---|---|---|
@@ -102,7 +102,7 @@ An independent oracle written only from the rulebook agrees with the engine on a
 
 
 
-This is the "AI ablations" part of the evaluation. Full design, data, figures, deviations and threats to validity are in `docs/21_Experiments.md`; raw replies are in `experiments/raw/`. Headlines, from 3,528 live calls on 2026-09-26 (three rounds):
+This is the "AI ablations" part of the evaluation. Full design, data, figures, deviations and threats to validity are in `docs/21_Experiments.md`; raw replies are in `experiments/raw/`. Headlines, from 4,212 live calls on 2026-09-26 (four rounds):
 
 
 
@@ -113,6 +113,7 @@ This is the "AI ablations" part of the evaluation. Full design, data, figures, d
 - The model matters more than the temperature: Qwen2.5-7B and Mistral-Nemo never garbled, the 32B model was worst, the 14B default garbled about a fifth of its raw replies.
 
 - Round one: the pre-registered rule selected Qwen2.5-7B with a short prompt (100% "useful" on fresh cases), but its answers restate the engine's sentence and cite no evidence values, so we did not adopt it (a judgement that overrode the rule).
+- Round four then put every one of seven pre-registered benchmarks at 85% or more on 12 new cases (lowest 93.2%) with prompt v1.6.0 and a closing gate, by the rule and without an override; two of the benchmarks had been mis-specified and were redefined before the runs. The same round added a deterministic repair for formatting slips in cited evidence paths (47 of 49 recorded rejections recovered), recorded in the audit log.
 - Round three then raised the share of answers that cover the rule's corrective action from 72% to 88% with prompt v1.5.0 (the shipped prompt), by the pre-registered rule and without an override; its cost (more rejected replies on the tuning set, one injection variant followed and rejected) is in `docs/21`.
 - Round two settled the choice: a new prompt (v1.4.0) that asks for every reason, the evidence values and a closing action, on Mistral-Nemo, scored 99% useful with 0 garbled replies and 100% injection resistance on 12 new cases, against 77% and 27 garbled raw replies of 131 for the earlier default. No arm met every pre-registered criterion (value citation 45.8% against a 50% bar), so **adopting it was a second judgement that overrode the rule**, with a one-setting revert and a blind human-scoring sheet (`experiments/manual_scoring_sheet_e8.csv`) as safeguards. A cascade of model tiers is built and tested but not the default.
 
@@ -122,7 +123,7 @@ This is the "AI ablations" part of the evaluation. Full design, data, figures, d
 
 ## Human review and security
 
-Evidence is in the tests (380 passing) and the frozen runs:
+Evidence is in the tests (410 passing) and the frozen runs:
 
 - **Review workflow** (`tests/test_review_workflow.py`, 12 tests): decisions must match the finding's real status, only FAIL / UNABLE_TO_ASSESS findings are reviewable, reason and actor are required, one bad decision rejects the whole batch, decisions never modify rule results. A recheck creates a new run with a new input hash and links it to the prior run; the original claim and results are untouched; a rechecked finding that still fails returns to "unreviewed".
 - **Audit log** (`tests/test_audit_log.py`, 35 tests incl. write-ahead ordering and the verifier; systematic record `outputs/audit_dev/` = 8,598 events, 499 AI requests each logged before its answer and all `human_escalation` (offline template provider, so no live-model events in this log) for all 400 development claims, cross-checked against the results file by `scripts/verify_audit.py`, which also fails on a tampered result; workflow demo `outputs/audit_demo/`): an edited event, a truncated log and a fully replaced log are each detected; the system cannot log an approval; a fabricated confidence on a deterministic event is rejected. Tamper-evident only, not immutable (`docs/16_Audit_Log_Design.md`).

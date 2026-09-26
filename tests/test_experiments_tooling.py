@@ -28,13 +28,13 @@ class ProductionDefaultsAreUnchanged(unittest.TestCase):
         self.assertEqual(FeatherlessExplanationProvider.DEFAULT_MODEL, 'mistralai/Mistral-Nemo-Instruct-2407')
         self.assertEqual(R.DEFAULT_MODEL, 'Qwen/Qwen2.5-14B-Instruct')
 
-    def test_the_shipped_prompt_is_v1_5_0_and_is_the_prompt_that_was_measured(self):
+    def test_the_shipped_prompt_is_v1_6_0_and_is_the_prompt_that_was_measured(self):
 
         shipped = (ROOT / 'prompts' / 'explain_findings.md').read_text(encoding='utf-8').replace(chr(13) + chr(10), chr(10))
 
-        measured = (ROOT / 'prompts' / 'variants' / 'guided2.md').read_text(encoding='utf-8').replace(chr(13) + chr(10), chr(10))
+        measured = (ROOT / 'prompts' / 'variants' / 'guided3.md').read_text(encoding='utf-8').replace(chr(13) + chr(10), chr(10))
 
-        self.assertTrue(shipped.startswith('# Explanation helper prompt v1.5.0' + chr(10)))
+        self.assertTrue(shipped.startswith('# Explanation helper prompt v1.6.0' + chr(10)))
 
         self.assertEqual(shipped.split(chr(10), 1)[1], measured.split(chr(10), 1)[1])  # only the title line differs
 
@@ -43,6 +43,8 @@ class ProductionDefaultsAreUnchanged(unittest.TestCase):
         self.assertTrue(frozen.startswith('# Explanation helper prompt v1.3.0'))
         frozen_14 = (ROOT / 'prompts' / 'variants' / 'v1_4_0.md').read_text(encoding='utf-8')
         self.assertTrue(frozen_14.startswith('# Explanation helper prompt v1.4.0'))
+        frozen_15 = (ROOT / 'prompts' / 'variants' / 'v1_5_0.md').read_text(encoding='utf-8')
+        self.assertTrue(frozen_15.startswith('# Explanation helper prompt v1.5.0'))
 
         self.assertIn('Mistral-Nemo', (ROOT / 'src' / 'llm_adapter.py').read_text(encoding='utf-8'))
 
@@ -52,7 +54,8 @@ class ProductionDefaultsAreUnchanged(unittest.TestCase):
         finding = {'claim_id': 'CG-1', 'rule_id': 'R001', 'status': 'FAIL', 'requires_human_review': True,
                    'explanation': 'x', 'evidence': [{'path': '/a', 'value': 1}]}
         default = build_prompt(finding, {'rule_id': 'R001'})
-        self.assertTrue(default.startswith((ROOT / 'prompts' / 'explain_findings.md').read_text(encoding='utf-8')))
+        raw = (ROOT / 'prompts' / 'explain_findings.md').read_text(encoding='utf-8')
+        self.assertTrue(default.startswith(raw.split('[[CLOSING]]')[0]))  # v1.6.0 fills the marker per finding
         variant = build_prompt(finding, {'rule_id': 'R001'}, None, 'OVERRIDDEN INSTRUCTIONS')
         self.assertTrue(variant.startswith('OVERRIDDEN INSTRUCTIONS'))
         self.assertEqual(variant.split('OVERRIDDEN INSTRUCTIONS', 1)[1], default.split(default.split(chr(10) + '## Required output schema')[0], 1)[1])

@@ -30,7 +30,7 @@ def main():
     p.add_argument('--per-arm', type=int, default=50)
     p.add_argument('--seed', type=int, default=7)
     a = p.parse_args()
-    cases = {c['case_id']: c for which in ('tuning', 'fresh', 'fresh2', 'fresh3') for c in load_cases(which)}
+    cases = {c['case_id']: c for which in ('tuning', 'fresh', 'fresh2', 'fresh3', 'fresh4') for c in load_cases(which)}
     calls = [json.loads(l) for l in (ROOT / 'experiments' / 'raw' / f'{a.experiment}.jsonl').read_text(encoding='utf-8').split(chr(10))
              if l.strip()]
     calls = [r for r in calls if r['type'] == 'call' and r['outcome'] == 'live']

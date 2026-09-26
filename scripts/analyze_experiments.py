@@ -488,6 +488,24 @@ def figures(summary, data):
 
 
 
+    for exp, fname, title in (('e10b', 'scoreboard_e10b.png', 'Round four scoreboard: 12 new cases (10 repeats)'),
+                              ('e10a', 'scoreboard_e10a.png', 'Round four scoreboard: 36 tuning cases (3 repeats)')):
+        block = summary.get(exp)
+        if not block:
+            continue
+        arms = sorted(block['configs'], key=lambda c: (c['prompt'] != 'guided2', c['gate']))
+        names = [n for n, _ in SCOREBOARD]
+        fig, ax = plt.subplots(figsize=(12, 4.6))
+        w = 0.26
+        for i, c in enumerate(arms):
+            vals = [c['scoreboard']['values'][n] for n in names]
+            ax.bar([j + (i - 1) * w for j in range(len(names))], vals, w, label='Mistral-Nemo, prompt ' + {'guided2': 'v1.5.0', 'guided3': 'v1.6.0'}[c['prompt']] + (' + closing gate' if c['gate'] else '') + ('  (passes)' if c['scoreboard']['passes'] else '  (misses the bar)'))
+        ax.axhline(85, color='#c0504d', ls='--', lw=1.2)
+        ax.text(len(names) - 0.55, 86, '85% bar', color='#c0504d', fontsize=8)
+        ax.set_xticks(range(len(names))); ax.set_xticklabels(names, rotation=15, fontsize=8); ax.set_ylim(60, 102)
+        ax.set_ylabel('%'); ax.set_title(title); ax.legend(fontsize=8, loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=3)
+        save(fname)
+
     timeline = data.get('timeline')
 
     if timeline:
@@ -760,7 +778,7 @@ def main():
         for cid, rows in groups.items():
             r0 = rows[0]
             entry = {'cfg_id': cid, 'model': r0['model'], 'temperature': r0['temperature'], 'top_p': r0['top_p'],
-                     'prompt': r0['prompt'], 'workers': r0['workers'], 'stats': summarize(rows)}
+                     'prompt': r0['prompt'], 'workers': r0['workers'], 'gate': '|gate' in cid, 'stats': summarize(rows)}
             parts = cid.split('|')
             entry['label'] = {'e1': f'T={r0["temperature"]}', 'e2': parts[0].replace('-Instruct', ''),
                               'e3': parts[0].replace('-Instruct', '') + ' / ' + r0['prompt'], 'e4': f'{parts[0].replace("-Instruct", "")}, {r0["workers"]} workers',
@@ -768,8 +786,8 @@ def main():
                               'e6': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
                               'e7': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
                               'e9a': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}', 'e9b': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
-                              'e10a': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}' + (' + gate' if r0.get('gate') else ''),
-                              'e10b': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}' + (' + gate' if r0.get('gate') else ''),
+                              'e10a': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}' + (' + gate' if '|gate' in cid else ''),
+                              'e10b': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}' + (' + gate' if '|gate' in cid else ''),
                               'e8': ('cascade: ' + ' > '.join(t.replace('-Instruct-2407', '').replace('-Instruct', '').replace('|', '/') for t in cid.split('|', 1)[1].split('>'))) if r0['model'] == 'cascade' else f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}'}[exp]
             batch = next((b for b in batches if b['cfg_id'] == cid), None)
             if batch:

@@ -143,7 +143,7 @@ def one_call(cfg, provider, case, rep, extra_retries=2):
     out = drafted['output']
     return {
         'type': 'call', 'exp': cfg['exp'], 'cfg_id': cfg['cfg_id'], 'model': cfg['model'], 'temperature': cfg['temperature'],
-        'top_p': cfg['top_p'], 'prompt': cfg['prompt'], 'workers': cfg['workers'], 'case_id': case['case_id'], 'rep': rep,
+        'top_p': cfg['top_p'], 'prompt': cfg['prompt'], 'workers': cfg['workers'], 'gate': cfg.get('gate', False), 'case_id': case['case_id'], 'rep': rep,
         'outcome': 'live' if not drafted['used_fallback'] else ('transport_failure' if kind == 'transport' else 'model_rejected'),
         'error': error, 'attempts': drafted.get('attempts'), 'runner_retries': len(tries) - 1, 'all_errors': tries,
         'latency_ms': drafted['latency_ms'], 'wall_ms': round(wall_ms, 1), 'usage': drafted.get('usage'),

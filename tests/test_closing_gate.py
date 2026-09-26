@@ -74,8 +74,9 @@ class CoversClosing(unittest.TestCase):
 
 
 class TheGate(unittest.TestCase):
-    def test_off_by_default(self):
-        p = Scripted([reply(SHORT)], instructions=MARKED)
+    def test_the_featherless_provider_has_it_on_by_default_and_it_can_be_switched_off(self):
+        self.assertTrue(Scripted([]).closing_retry)
+        p = Scripted([reply(SHORT)], instructions=MARKED, closing_retry=False)
         self.assertEqual(p.explain(copy.deepcopy(FINDING), RULE)['explanation'], SHORT)
         self.assertEqual(len(p.prompts), 1)
 

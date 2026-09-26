@@ -170,7 +170,9 @@ class RecordedRejections(unittest.TestCase):
 
     def test_the_repair_recovers_most_recorded_bad_citations_and_never_a_relabelled_reply(self):
         raw = ROOT / 'experiments' / 'raw'
-        files = sorted(raw.glob('e*.jsonl')) if raw.exists() else []
+        # Only runs made before the repair existed: in round four (e10*) the repair was already on, so what is rejected there is
+        # by construction what it could not fix.
+        files = [p for p in sorted(raw.glob('e*.jsonl')) if not p.stem.startswith('e10')] if raw.exists() else []
         if not files:
             self.skipTest('no recorded experiment data')
         cases = {}

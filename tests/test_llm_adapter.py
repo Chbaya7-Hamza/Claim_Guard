@@ -195,7 +195,9 @@ class FeatherlessProviderTests(unittest.TestCase):
                        'cited_rule_ids': ['R001'], 'needs_human_review': True})
 
     def provider(self, *responses):
-        p = FeatherlessExplanationProvider(api_key='test-key-not-real')
+        # These tests are about transport retries and usage capture, so the closing-sentence gate (on by default since round four,
+        # tests/test_closing_gate.py) is switched off here to keep the number of calls exactly what each test counts.
+        p = FeatherlessExplanationProvider(api_key='test-key-not-real', closing_retry=False)
         p.client.chat.completions.create = MagicMock(side_effect=list(responses))
         return p
 

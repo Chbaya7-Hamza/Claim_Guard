@@ -13,7 +13,7 @@ Note on the standard: ISO does not publish a "top 10". The two OWASP lists are t
 | `detect-secrets` over every tracked file | Only SHA-256 digests and base64 of synthetic FHIR documents. |
 | History scan | The key in the untracked `.env` appears in no commit and no tracked file. |
 | Manual review of every place claim data crosses a boundary | Rule facts, model prompt, model reply, HTML page, JSONL files, audit log. Findings below. |
-| Adversarial tests | `tests/test_security_owasp.py`, plus the earlier `test_stress_*` suites. All run offline in the normal suite (380 tests). |
+| Adversarial tests | `tests/test_security_owasp.py`, plus the earlier `test_stress_*` suites. All run offline in the normal suite (410 tests). |
 
 ## Findings fixed in this audit
 
@@ -36,12 +36,12 @@ Fixed in the earlier stress pass and relevant here: the AI trust boundary now ru
 | LLM02 | Sensitive information disclosure | **Partial** | The prompt carries the finding and its evidence, not the whole claim, but evidence can include member ids and document text. Data is synthetic. With real data this sends PHI to a third-party API (Featherless.ai); that would need a data-processing agreement or an on-premise model. No key or secret ever enters a prompt. |
 | LLM03 | Supply chain | **Partial** | Dependencies pinned to exact versions (tested); `pip-audit` clean. Hashes are not pinned (`--require-hashes`), and the open-weight model behind the provider is not verified. |
 | LLM04 | Data and model poisoning | **Not applicable / low** | Nothing is trained or fine-tuned and there is no retrieval index. The rulebook files are covered by the release checksums, and every audit run records the rule pack hash and now an engine code hash. |
-| LLM05 | Improper output handling | **Mitigated** | Every model reply is validated (schema, citations, grounding) in the orchestrator before use, otherwise the template is used. The review page writes text only (`textContent`), never markup; hostile strings are tested. |
+| LLM05 | Improper output handling | **Mitigated** | Every model reply is validated (schema, citations, grounding, garbled text) in the orchestrator before use, otherwise the template is used. Two later changes were reviewed against this row: the citation repair only maps a formatting slip in a cited path to the one allowed path it means (text, rule id and review flag are never touched, unmappable paths are still rejected, every repair is logged), and the closing gate re-asks with a hint built only from trusted rulebook text and can only keep or improve a valid answer. The review page writes text only (`textContent`), never markup; hostile strings are tested. |
 | LLM06 | Excessive agency | **Mitigated** | The model has no tools, no write access and no way to change a result. Its actions are logged as `human_escalation`, and the audit log rejects any auto-correct action. A provider that edits the finding it is handed changes nothing (it receives copies). |
 | LLM07 | System prompt leakage | **Low** | The prompt (`prompts/explain_findings.md`) is public in the repo and holds no secret or credential. |
 | LLM08 | Vector and embedding weaknesses | **Not applicable** | No embeddings or vector store. |
 | LLM09 | Misinformation | **Partial** | Human review is mandatory for every FAIL and UNABLE. A guard rejects invented currency symbols, relative-time claims and unsupported validity statements. The manual 0/1 scoring of live answers is not filled in. |
-| LLM10 | Unbounded consumption | **Mitigated, residual** | Request timeout, `max_tokens=500`, one retry, bounded prompts (F2), 8 concurrent calls. There is no overall budget per run, so a very large file could make many paid calls. |
+| LLM10 | Unbounded consumption | **Mitigated, residual** | Request timeout, `max_tokens=500`, one retry for transient failures plus at most one closing-gate call (so at most three calls per answer, and the gate fires on roughly 6% to 9% of answers), bounded prompts (F2), 8 concurrent calls. There is no overall budget per run, so a very large file could make many paid calls. |
 
 ## OWASP Top 10 (2021)
 

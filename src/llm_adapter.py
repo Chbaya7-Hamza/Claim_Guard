@@ -406,6 +406,7 @@ class OpenAICompatibleProvider:
     only choose the endpoint, the credential's environment variable and the default model."""
 
     PROVIDER = 'openai-compatible'
+    CLOSING_RETRY = False  # ask once more when a valid answer left out the required closing sentence (prompt v1.6.0 and later)
     BASE_URL = None
     KEY_ENV = None
     MODEL_ENV = None
@@ -413,7 +414,7 @@ class OpenAICompatibleProvider:
     TIMEOUT = 25.0
 
     def __init__(self, api_key=None, model=None, base_url=None, timeout=None, max_tokens=500,
-                 temperature=0, top_p=1, instructions=None, closing_retry=False):
+                 temperature=0, top_p=1, instructions=None, closing_retry=None):
         _load_dotenv()
         api_key = api_key or os.environ.get(self.KEY_ENV)
         if not api_key:
@@ -422,7 +423,7 @@ class OpenAICompatibleProvider:
         self.model = model or os.environ.get(self.MODEL_ENV) or self.DEFAULT_MODEL
         self.max_tokens = max_tokens
         self.temperature, self.top_p, self.instructions = temperature, top_p, instructions
-        self.closing_retry = closing_retry
+        self.closing_retry = self.CLOSING_RETRY if closing_retry is None else closing_retry
         self.client = OpenAI(base_url=base_url or self.BASE_URL, api_key=api_key,
                              timeout=timeout or self.TIMEOUT, max_retries=0)
         self._tl = threading.local()  # per-thread call metadata, so parallel explain() calls do not mix
@@ -534,10 +535,11 @@ class FeatherlessExplanationProvider(OpenAICompatibleProvider):
     """Featherless.ai (serverless open-weight models). Models load on demand, so the first
     call to a model can be slow: hence the longer timeout."""
     PROVIDER = 'featherless'
+    CLOSING_RETRY = True  # on since round four of docs/21: the gate is what puts every benchmark at 85% or more
     BASE_URL = 'https://api.featherless.ai/v1'
     KEY_ENV = 'FEATHERLESS_API_KEY'
     MODEL_ENV = 'FEATHERLESS_MODEL'
-    # Mistral-Nemo with the prompt in prompts/explain_findings.md, v1.5.0 (docs/21, rounds two and three). The round-one default, Qwen2.5-14B with prompt v1.3.0, garbled about
+    # Mistral-Nemo with the prompt in prompts/explain_findings.md, v1.6.0 (docs/21, rounds two to four). The round-one default, Qwen2.5-14B with prompt v1.3.0, garbled about
     # a fifth of its raw replies at temperature 0; it is still available by setting FEATHERLESS_MODEL.
     DEFAULT_MODEL = 'mistralai/Mistral-Nemo-Instruct-2407'
     TIMEOUT = 90.0

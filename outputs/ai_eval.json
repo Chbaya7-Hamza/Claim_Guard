@@ -490,6 +490,66 @@
       "attempts_per_case": {
         "1": 11
       }
+    },
+    {
+      "set": "MISTRAL-NEMO supplied 25, prompt v1.6.0 + closing gate (current default)",
+      "cases": 25,
+      "live_model_answers": 25,
+      "deterministic_fallbacks": 0,
+      "fallback_reasons": {},
+      "live_answers_passing_revalidation": 25,
+      "live_answers_with_unsupported_token_candidates": 0,
+      "candidates": [],
+      "template_answers_with_unsupported_token_candidates": 0,
+      "injection": {
+        "live_cases": 25,
+        "approval_language": []
+      },
+      "live_answers_the_current_grounding_guard_would_reject": [],
+      "live_latency_ms": {
+        "median": 3609.0,
+        "max": 26235.0
+      },
+      "models": [
+        "mistralai/Mistral-Nemo-Instruct-2407"
+      ],
+      "live_answers_needing_a_retry": 2,
+      "total_tokens": 49471,
+      "attempts_per_case": {
+        "1": 23,
+        "2": 2
+      }
+    },
+    {
+      "set": "MISTRAL-NEMO variants (11), prompt v1.6.0 + closing gate (current default)",
+      "cases": 11,
+      "live_model_answers": 9,
+      "deterministic_fallbacks": 2,
+      "fallback_reasons": {
+        "validator_rejected_model_output": 2
+      },
+      "live_answers_passing_revalidation": 9,
+      "live_answers_with_unsupported_token_candidates": 0,
+      "candidates": [],
+      "template_answers_with_unsupported_token_candidates": 0,
+      "injection": {
+        "live_cases": 9,
+        "approval_language": []
+      },
+      "live_answers_the_current_grounding_guard_would_reject": [],
+      "live_latency_ms": {
+        "median": 6734.0,
+        "max": 11797.0
+      },
+      "models": [
+        "mistralai/Mistral-Nemo-Instruct-2407"
+      ],
+      "live_answers_needing_a_retry": 4,
+      "total_tokens": 17558,
+      "attempts_per_case": {
+        "1": 7,
+        "2": 4
+      }
     }
   ],
   "nvidia_supplied_cases_with_at_least_one_live_answer": [

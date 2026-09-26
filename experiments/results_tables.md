@@ -86,3 +86,19 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Mistral-Nemo-2407 / guided | 120 | 0 | 96.7 | **96.7** (91.7 to 98.7) | 96.7 (91.7 to 98.7) | 4 | 1 of 136 | 100.0 | 0.67 | 2.6 / 22.1 | 24.3 | 63.8 | 64.7 | 72.4 | 50.9 | 56.0 |
 | Mistral-Nemo-2407 / guided2 | 120 | 0 | 95.8 | **95.8** (90.6 to 98.2) | 95.8 (90.6 to 98.2) | 5 | 0 of 129 | 100.0 | 0.77 | 2.4 / 19.9 | 27.5 | 80.0 | 88.7 | 87.8 | 72.2 | 87.0 |
+
+### E10a: every benchmark at 85%? tuning set (interleaved)
+
+| Configuration | Calls | Transport failures | Live % | **Useful %** (95% CI) | Useful % lenient (post hoc) | Rejected | Garbled raw replies | Injection resisted % | Repeat stability | p50 / p95 latency (s) | Words | Names a next step % (verbs as first defined) | Names a next step % (extended verbs) | Covers the corrective action % | Cites evidence value % (regex) | Cites an observed value % |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Mistral-Nemo-2407 / guided2 | 108 | 0 | 97.2 | **97.2** (92.1 to 99.1) | 97.2 (92.1 to 99.1) | 3 | 0 of 109 | 95.2 | 0.88 | 2.5 / 5.2 | 30.6 | 97.1 | 100.0 | 99.0 | 64.8 | 96.2 |
+| Mistral-Nemo-2407 / guided3 | 108 | 0 | 96.3 | **92.6** (86.1 to 96.2) | 96.3 (90.9 to 98.6) | 4 | 0 of 109 | 95.2 | 0.76 | 2.4 / 5.9 | 27.8 | 81.7 | 84.6 | 83.7 | 50.0 | 81.7 |
+| Mistral-Nemo-2407 / guided3 + gate | 108 | 0 | 97.2 | **94.4** (88.4 to 97.4) | 97.2 (92.1 to 99.1) | 3 | 0 of 114 | 95.2 | 0.85 | 2.5 / 6.2 | 31.0 | 97.1 | 100.0 | 100.0 | 66.7 | 97.1 |
+
+### E10b: every benchmark at 85%? 12 new confirmation cases (interleaved)
+
+| Configuration | Calls | Transport failures | Live % | **Useful %** (95% CI) | Useful % lenient (post hoc) | Rejected | Garbled raw replies | Injection resisted % | Repeat stability | p50 / p95 latency (s) | Words | Names a next step % (verbs as first defined) | Names a next step % (extended verbs) | Covers the corrective action % | Cites evidence value % (regex) | Cites an observed value % |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Mistral-Nemo-2407 / guided2 | 120 | 0 | 99.2 | **90.8** (84.3 to 94.8) | 90.8 (84.3 to 94.8) | 1 | 0 of 122 | 100.0 | 0.91 | 2.6 / 28.1 | 28.6 | 82.4 | 89.9 | 84.9 | 59.7 | 84.0 |
+| Mistral-Nemo-2407 / guided3 | 120 | 0 | 97.5 | **96.7** (91.7 to 98.7) | 96.7 (91.7 to 98.7) | 3 | 0 of 123 | 100.0 | 0.84 | 2.7 / 26.9 | 28.6 | 83.8 | 84.6 | 92.3 | 63.2 | 84.6 |
+| Mistral-Nemo-2407 / guided3 + gate | 120 | 0 | 97.5 | **93.3** (87.4 to 96.6) | 93.3 (87.4 to 96.6) | 3 | 0 of 131 | 100.0 | 0.81 | 2.9 / 28.9 | 30.4 | 91.5 | 93.2 | 100.0 | 72.6 | 93.2 |

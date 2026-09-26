@@ -68,7 +68,7 @@ uv venv --python 3.10 .venv
 uv pip install --python .venv -r requirements.txt
 cp .env.example .env        # optional: add FEATHERLESS_API_KEY for live AI explanations. Never commit .env.
 
-python -m unittest discover -s tests          # 380 tests, about 60 s, offline, no API key needed
+python -m unittest discover -s tests          # 410 tests, about 60 s, offline, no API key needed
 
 # run the 15 rules over a split, score it against the answer key, and open the review page
 python src/run_yara.py --input data/development/claims.jsonl --output outputs/yara_dev_predictions.jsonl
@@ -89,8 +89,8 @@ On Windows use `.venv\Scripts\python.exe`. Without an API key the AI step uses a
 |---|---|
 | Status accuracy, issue precision and recall, all 15 rules | **1.0** on the development, validation and stress splits (9,000 of 9,000 results) |
 | Independent oracle agreement (rules written again from the rulebook text alone) | 0 disagreements over about 111,000 generated claims and 123 hand-derived edge cases |
-| Tests | 380, all offline, on Python 3.10, 3.12 and 3.14 (last verified on all three at the commit named in `docs/19`) |
-| Live AI explanations (Mistral-Nemo-Instruct-2407 via Featherless.ai, prompt v1.5.0, temperature 0) | On 12 new cases: 96% useful, 0 garbled replies, 100% injection resistance, and 88% of answers cover the rule's corrective action (was 20% with the first setting). Chosen by three rounds of experiments, see below |
+| Tests | 410, all offline, on Python 3.10, 3.12 and 3.14 (last verified on all three at the commit named in `docs/19`) |
+| Live AI explanations (Mistral-Nemo-Instruct-2407 via Featherless.ai, prompt v1.6.0 with a closing gate, temperature 0) | **Seven benchmarks, all at 85% or more** on 12 new cases (lowest 93.2%): 97.5% live, 93.3% useful, 100% injection resisted, 100% cover the rule's corrective action, 93.2% cite an observed evidence value, 93.2% name a next step, 0 garbled answers shown. Chosen by four rounds of experiments, see below |
 | Security | audited against the OWASP Top 10 for LLM Applications and the OWASP Top 10: `docs/20_Security_Audit.md` |
 
 Perfect scores on the public splits are not evidence of generalization. The mentor-held 200 claims are not available to us; the independent oracle and the stress tests are the closest substitute.
@@ -99,7 +99,7 @@ Perfect scores on the public splits are not evidence of generalization. The ment
 
 
 
-The 15 rules have nothing to tune, so the experiments optimize the only part that can vary: the language model that **explains** each finding (model, temperature, instruction text, parallel calls). 3,528 live calls on the Featherless.ai endpoint over three rounds. Three rules held throughout: no setting may change a verdict (checked by hashing the finding before and after every call; it never changed), the metrics and decision rules were written **before** each run, and every answer went through the production safety net.
+The 15 rules have nothing to tune, so the experiments optimize the only part that can vary: the language model that **explains** each finding (model, temperature, instruction text, parallel calls). 4,212 live calls on the Featherless.ai endpoint over four rounds. Three rules held throughout: no setting may change a verdict (checked by hashing the finding before and after every call; it never changed), the metrics and decision rules were written **before** each run, and every answer went through the production safety net.
 
 
 
@@ -119,32 +119,29 @@ The 15 rules have nothing to tune, so the experiments optimize the only part tha
 
 
 
-**Prompt: the biggest lever.** A new prompt that asks for the engine's reasons, the evidence values and a closing action lifted Mistral-Nemo from 71% to 97% useful answers. The final comparison on 12 cases nothing had touched:
-
-
-
-![Round two decision](docs/figures/e8_decision.png)
-
-
-
-| Setting (10 repeats each) | Case set | Useful | Garbled raw replies | Injection resisted | Covers the corrective action | Cites an evidence value |
-|---|---|---|---|---|---|---|
-| First default: Qwen2.5-14B, prompt v1.3.0 | A (12 new cases) | 77% | 27 of 131 | 100% | 20% | 39% |
-| Mistral-Nemo, prompt v1.4.0 (round two) | A | 99% | 0 of 121 | 100% | 60% | 46% |
-| Mistral-Nemo, prompt v1.4.0 | B (12 other new cases) | 97% | 1 of 136 | 100% | 72% | 51% |
-| **Mistral-Nemo, prompt v1.5.0 (in use)** | B | 96% | 0 of 129 | 100% | **88%** | **72%** |
-
-The two case sets differ, so compare rows within a set (the same prompt scores 60% and 72% on the action measure on sets A and B).
-
-Round three improved "covers the corrective action" (the closing instruction) after we found the model skipped it for rules with short findings; the new prompt makes the three-sentence shape mandatory.
-
-
-
-![Prompt v1.5.0 against v1.4.0](docs/figures/e9b_prompt_v15.png)
-
-
-
-**What it cost, and what to distrust.** On the 36 tuning cases the v1.5.0 prompt gets more replies rejected (12 against 4, mostly bad citations) and the model follows one known injection (the safety net rejects it every time, so a reviewer sees the template). Two decisions were judgement calls that overrode our own pre-registered rule, once in each direction, and both are documented. A hosted endpoint drifts over time, the confirmation sets are small (12 cases), and the "adds something" measures are word patterns. **Nobody has scored the answers by hand yet**: `experiments/manual_scoring_sheet_e8.csv` and `manual_scoring_sheet_e9b.csv` hold shuffled answers with the setting hidden, ready for the team. If people prefer the old settings, they can be restored with one environment variable and one file (`SPECS.md` section 12).
+**Prompt and safety net: the biggest levers.** A new prompt that asks for the engine's reasons, the evidence values and a closing action lifted Mistral-Nemo from 71% to 97% useful answers (round two). Rounds three and four then chased the remaining gaps. The findings behind them: the model skipped the closing instruction for rules with short findings; 47 of 49 recorded rejected replies were only formatting slips in a cited path (now repaired deterministically and logged); and two of our own benchmarks were mis-specified (a correct answer could not satisfy the value-citation regex when the evidence value was null). The final prompt (v1.6.0) tells the model, per finding, the exact corrective action to close with, and a **closing gate** asks once more when a valid answer still leaves it out.@@
+@@
+**Result: every benchmark at 85% or more.** On 12 cases nothing had touched (10 repeats, interleaved), against a pre-registered scoreboard of seven benchmarks with an 85% bar:@@
+@@
+![Scoreboard on new cases](docs/figures/scoreboard_e10b.png)@@
+@@
+| Benchmark (bar 85%) | Prompt v1.5.0 | Prompt v1.6.0 | **v1.6.0 + closing gate (in use)** |@@
+|---|---|---|---|@@
+| Live rate (answered by the model) | 99.2 | 97.5 | **97.5** |@@
+| Useful answers, strict | 90.8 | 96.7 | **93.3** |@@
+| Useful answers, lenient | 90.8 | 96.7 | **93.3** |@@
+| Injection resisted | 100.0 | 100.0 | **100.0** |@@
+| Covers the rule's corrective action | 84.9 | 92.3 | **100.0** |@@
+| Cites an observed evidence value | 84.0 | 84.6 | **93.2** |@@
+| Names a next step | 89.9 | 84.6 | **93.2** |@@
+| Garbled answers shown | 0 | 0 | **0** |@@
+| **All at 85% or more?** | no (2 miss by under 1 point) | no (2 miss by under 1 point) | **yes, lowest 93.2** |@@
+@@
+The gate makes a second call on roughly 6% to 9% of answers and never makes an answer worse. On the 36 tuning cases the same setting also clears the bar (lowest 94.4). Earlier rounds, for context (different case sets, so compare within a set): the first default (Qwen2.5-14B) scored 77% useful with 27 garbled raw replies of 131 and covered the corrective action in 20% of answers.@@
+@@
+![Round two decision](docs/figures/e8_decision.png)@@
+@@
+**What it cost, and what to distrust.** The model still follows a couple of injection variants (VAR-02 flips the review flag; the safety net rejects that reply every time, so a reviewer sees the template), and in the frozen run of the supplied exercises 25 of 25 cases and 9 of 11 injection variants were answered by the model. "85% on 12 new cases" is a threshold we chose on a small set, not a guarantee: another set of cases would move each number by several points. Two of the seven benchmarks were redefined in round four before the runs (the old definitions are still reported), and two earlier decisions were judgement calls that overrode our own pre-registered rule, once in each direction, all documented. A hosted endpoint drifts over time, the confirmation sets are small (12 cases), and the "adds something" measures are word patterns. **Nobody has scored the answers by hand yet**: `experiments/manual_scoring_sheet_e8.csv`, `_e9b.csv` and `_e10b.csv` hold shuffled answers with the setting hidden, ready for the team. If people prefer the old settings, they can be restored with one environment variable and one file (`SPECS.md` section 12).
 
 
 
@@ -160,12 +157,12 @@ Also built and tested, but off by default: a **cascade** (fluent model, then a r
 | `rules/` | `core.yar` (compiled rule pack), `rules.json`, `policies.json`, catalogues |
 | `schemas/` | JSON schemas for claims, results and review events |
 | `data/` | 600 synthetic claims in three splits, in JSONL, CSV and FHIR forms, with the public answer key |
-| `tests/` | 380 tests, including `oracle.py` (independent reference implementation) and the stress and security suites |
+| `tests/` | 410 tests, including `oracle.py` (independent reference implementation) and the stress and security suites |
 | `scripts/` | Audited runs, audit verification, AI evaluation and the experiment runner |
 | `experiments/` | Raw experiment data and `summary.json`; figures are in `docs/figures/` |
 | `outputs/` | Frozen evidence: metrics, audit samples, recorded live AI runs |
 | `docs/` | Numbered documents; see the index below |
-| `prompts/`, `exercises/` | The AI prompt (v1.5.0) and its earlier versions and variants; the 25 supplied and our own test cases |
+| `prompts/`, `exercises/` | The AI prompt (v1.6.0) and its earlier versions and variants; the 25 supplied and our own test cases |
 
 ## Documents
 

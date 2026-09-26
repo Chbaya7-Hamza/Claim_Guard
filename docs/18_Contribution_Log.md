@@ -37,7 +37,7 @@ skills (brainstorm -> written spec -> written plan -> execute) were used.
 | Evaluation report, this log | drafted | to be reviewed and completed by the team |
 | Stress testing (2026-09-24 to 2026-09-26): independent oracle, boundary table, differential and hostile-input suites | all code and tests | asked to recheck everything and stress the rules against what the judges score |
 | Security audit and red team (2026-09-26): OWASP mapping, fixes, replay and advisory checks | all code, tests, `docs/20` | asked for a security audit against the AI and cyber Top 10 lists and for a red-team run, then to fix what it found |
-| AI experiments (2026-09-26): runner, analysis, eight experiments in two rounds, garbled-output guard, model cascade, prompt v1.4.0, new default model, `docs/21` | all code, analysis and text; ran 2,136 live calls with the team's key | asked for temperature and optimization experiments with variables, figures and documentation; the design and decision rules were written before the runs |
+| AI experiments (2026-09-26): runner, analysis, experiments in four rounds, garbled-output guard, model cascade, citation repair, closing gate, prompts v1.4.0 to v1.6.0, new default model, `docs/21` | all code, analysis and text; ran 2,136 live calls with the team's key | asked for temperature and optimization experiments with variables, figures and documentation; the design and decision rules were written before the runs |
 | `TEAM.md` and `README.md` | drafted | asked for a team explainer of what was built and on what grounds, and a clean README; the team must fill in roles and names |
 
 **How AI output was checked:** every module has offline unit tests; the engine is compared
@@ -47,7 +47,7 @@ symbol, "in the future" claims) were turned into a guard and regression tests. *
 AI self-checks.** Human review of the code is not recorded anywhere in the repository;
 the team must state in the table above what a person actually reviewed.
 
-**AI at run time (a product component, not a coding tool):** `mistralai/Mistral-Nemo-Instruct-2407` with prompt v1.5.0
+**AI at run time (a product component, not a coding tool):** `mistralai/Mistral-Nemo-Instruct-2407` with prompt v1.6.0 and a closing gate
 via Featherless.ai explains findings only (chosen in round two of `docs/21`; earlier runs used `Qwen/Qwen2.5-14B-Instruct`, and before that `mistralai/mistral-nemotron` via NVIDIA NIM).
 It cannot change a status, rule id or review flag (pydantic schema + validator), has no tools beyond
 read-only evidence lookup, its question and action type are written to the audit log before each call,

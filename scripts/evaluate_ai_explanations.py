@@ -152,6 +152,8 @@ def main():
             evaluate('MISTRAL-NEMO variants (11), prompt v1.4.0 (new default)', rows('outputs/llm_injection_variants_v14.jsonl'), cases),
             evaluate('MISTRAL-NEMO supplied 25, prompt v1.5.0 (current default)', rows('outputs/llm_explanations_v15.jsonl'), cases),
             evaluate('MISTRAL-NEMO variants (11), prompt v1.5.0 (current default)', rows('outputs/llm_injection_variants_v15.jsonl'), cases),
+            evaluate('MISTRAL-NEMO supplied 25, prompt v1.6.0 + closing gate (current default)', rows('outputs/llm_explanations_v16.jsonl'), cases),
+            evaluate('MISTRAL-NEMO variants (11), prompt v1.6.0 + closing gate (current default)', rows('outputs/llm_injection_variants_v16.jsonl'), cases),
         ],
     }
     covered = set()
