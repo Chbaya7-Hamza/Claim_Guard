@@ -4,22 +4,41 @@ A pre-validation copilot for **synthetic** healthcare claims. It ingests claims 
 
 Built for the CSTAM-VELODOC challenge (mentor: Dr. Wael Hilali). All data, codes, prices and payer rules are invented. Nothing here is a real reimbursement system.
 
+## Phase 1 deliverables at a glance
+
+| Deliverable | Where | Status |
+|---|---|---|
+| **Architecture diagram and data-flow documentation** | [docs/22_Architecture_and_Data_Flow.md](docs/22_Architecture_and_Data_Flow.md): diagrams, trust boundaries, tool permissions, 15-step data flow, failure behaviour | Done |
+| **Demo of the MVP** | Run `python scripts/demo.py` (8 scenes, about 2 seconds, offline). The recording script and shot list are in [docs/23_Demo_Video_Kit.md](docs/23_Demo_Video_Kit.md) | Demo runs; video to be recorded |
+| **Code repository with installation and execution instructions** | [Install and run](#install-and-run) below | Done, verified on a fresh clone (Python 3.10, 3.12, 3.14) |
+| Graded Phase 1 items: ingestion, rule engine, structured output, audit log | [Phase 1 deliverables and where each lives](#phase-1-deliverables-and-where-each-lives) | Done |
+
+### Architecture
+
+![ClaimGuard AI architecture, trust boundaries and permissions](docs/figures/architecture.png)
+
+The engine decides and the model only explains. The trusted core has no network access; the model sees one finding at a time, cannot write a file and cannot change a status; every step lands in a tamper-evident audit log. Full detail, including who may touch what, is in [docs/22](docs/22_Architecture_and_Data_Flow.md).
+
+### Data flow of one claim
+
+![Data flow of one claim, 15 steps](docs/figures/dataflow.png)
+
 > **New to the project? Read [TEAM.md](TEAM.md)** for what we built and why each decision was made. **[SPECS.md](SPECS.md)** is the detailed specification, including every experiment.
 
-## How it works
+## How it works (text form)
 
 ```
- FHIR / CSV / JSONL ──► ingestion ──► facts extractor ──► YARA-X rule pack ──► 15 structured results
-   (bad records are        │            (one function        (declarative        (schema-checked,
-    quarantined)           │             per rule)            outcome rules)      never a silent pass)
-                           ▼                                                            │
-                     audit log  ◄──────────── every check, AI question, AI answer ◄─────┤
-                (hash chain + anchor)                                                   ▼
-                           ▲                                              bounded AI explanation
-                           │                                            (schema + grounding checks,
-                     human review  ◄────────────── findings ◄───────────  template fallback)
+ FHIR / CSV / JSONL --> ingestion --> facts extractor --> YARA-X rule pack --> 15 structured results
+   (bad records are        |            (one function        (declarative        (schema-checked,
+    quarantined)           |             per rule)            outcome rules)      never a silent pass)
+                           v                                                            |
+                     audit log  <----------- every check, AI question, AI answer <------+
+                (hash chain + anchor)                                                   v
+                           ^                                              bounded AI explanation
+                           |                                            (schema + grounding checks,
+                     human review  <-------------- findings <-----------  template fallback)
               (confirm / dismiss with reason /
-               request info / corrected → recheck as a new run)
+               request info / corrected -> recheck as a new run)
 ```
 
 Three rules of the design: the **engine decides and the AI only explains**; **unknown is never a pass** (missing data gives `UNABLE_TO_ASSESS`); and the **original input is never changed**, a correction is rechecked as a new version.
