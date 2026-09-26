@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 sys.path.insert(0, str(ROOT / 'src'))
 from evaluate_ai_explanations import APPROVAL, unsupported
-from llm_adapter import omitted_reasons
+from llm_adapter import _stems, omitted_reasons
 from run_experiments import classify, load_cases
 
 RAW = ROOT / 'experiments' / 'raw'
@@ -128,6 +128,22 @@ def is_useful(rec):
     return not unsupported(rec['explanation'], CASES[rec['case_id']])
 
 
+def covers_action(rec):
+
+    """Pre-registered for round two (docs/21): the answer covers the first clause of the rule's corrective_action when at
+
+    least half of that clause's content-word stems occur in the answer."""
+
+    clause = re.split('[;.]', CASES[rec['case_id']]['rule']['corrective_action'])[0]
+
+    stems = _stems(clause)
+
+    return bool(stems) and len(stems & _stems(rec['explanation'])) / len(stems) >= 0.5
+
+
+
+
+
 def is_useful_lenient(rec):
 
     """POST-HOC (added after seeing E1, see docs/21 Deviations): same as is_useful, but a reason counts as omitted only
@@ -199,6 +215,8 @@ def summarize(calls):
         'unsupported_token_rate': pct(sum(1 for r in live if unsupported(r['explanation'], CASES[r['case_id']])) / len(live)) if live else None,
         'mean_words': round(statistics.mean(len(r['explanation'].split()) for r in live), 1) if live else None,
         'engine_text_overlap': round(statistics.mean(jaccard(r['explanation'], r['engine_explanation']) for r in live), 3) if live else None,
+        'action_coverage_rate': pct(sum(1 for r in live if covers_action(r)) / len(live)) if live else None,
+        'answered_by': dict(Counter(r.get('answered_by') or 'template' for r in calls if r['outcome'] != 'transport_failure')),
         'names_next_step_rate': pct(sum(1 for r in live if NEXT_STEP.search(r['explanation'])) / len(live)) if live else None,
         'cites_evidence_value_rate': pct(sum(1 for r in live if EVIDENCE_VALUE.search(r['explanation'])) / len(live)) if live else None,
         'replies_seen': sum(len(r['raw_replies']) for r in calls),
@@ -334,13 +352,15 @@ def figures(summary, data):
 
     for exp, title, fname in (('e2', 'E2: model', 'e2_models.png'), ('e3', 'E3: instruction text', 'e3_prompts.png'),
                               ('e5', 'E5: confirmation on fresh cases', 'e5_confirmation.png'),
-                              ('e6', 'E6: fluent candidates, fresh cases', 'e6_candidates.png')):
+                              ('e6', 'E6: fluent candidates, fresh cases', 'e6_candidates.png'),
+                              ('e7', 'E7: choosing tiers (tuning set)', 'e7_tiers.png'),
+                              ('e8', 'E8: the decision (new cases)', 'e8_decision.png')):
         block = summary.get(exp)
         if not block:
             continue
         cfgs = block['configs']
         labels = [c['label'] for c in cfgs]
-        fig, axes = plt.subplots(1, 3 if exp in ('e5', 'e6') else 2, figsize=(13 if exp in ('e5', 'e6') else 9, 4))
+        fig, axes = plt.subplots(1, 3 if exp in ('e5', 'e6', 'e7', 'e8') else 2, figsize=(13 if exp in ('e5', 'e6', 'e7', 'e8') else 9, 4))
         u = [c['stats']['useful_rate'] for c in cfgs]
         lo = [c['stats']['useful_rate'] - c['stats']['useful_ci95'][0] for c in cfgs]
         hi = [c['stats']['useful_ci95'][1] - c['stats']['useful_rate'] for c in cfgs]
@@ -348,19 +368,19 @@ def figures(summary, data):
         axes[0].set_ylim(0, 105); axes[0].set_ylabel('useful answers %  (95% CI)'); axes[0].set_title(title)
         axes[1].bar(labels, [(c['stats']['latency_p50_ms'] or 0) / 1000 for c in cfgs], color=colors['incomplete'])
         axes[1].set_ylabel('p50 latency (s)'); axes[1].set_title('latency')
-        if exp in ('e5', 'e6'):  # the primary metric cannot see whether an answer adds anything: show the added-value measures
+        if exp in ('e5', 'e6', 'e7', 'e8'):  # the primary metric cannot see whether an answer adds anything: show the added-value measures
 
             w = 0.38
 
             xs = list(range(len(cfgs)))
 
-            axes[2].bar([i - w / 2 for i in xs], [c['stats']['names_next_step_rate'] for c in cfgs], w, label='names a next step', color=colors['useful'])
+            axes[2].bar([i - w / 2 for i in xs], [c['stats']['action_coverage_rate'] for c in cfgs], w, label='covers the corrective action', color=colors['useful'])
 
             axes[2].bar([i + w / 2 for i in xs], [c['stats']['cites_evidence_value_rate'] for c in cfgs], w, label='cites an evidence value', color='#5b4b9a')
 
             axes[2].set_xticks(xs); axes[2].set_xticklabels(labels); axes[2].set_ylim(0, 105); axes[2].set_ylabel('% of live answers')
 
-            axes[2].set_title('what the answer adds (crude word patterns)'); axes[2].legend(fontsize=8)
+            axes[2].axhline(50, color='#c0504d', ls='--', lw=1); axes[2].set_title('what the answer adds (dashed: 50% bar)'); axes[2].legend(fontsize=8)
 
         for ax in axes:
 
@@ -463,11 +483,13 @@ def markdown_tables(summary):
               'e3': 'E3: instruction text (temperature 0)', 'e4': 'E4: concurrency (Qwen2.5-7B, temperature 0)',
 
               'e5': 'E5: confirmation on 12 fresh cases (interleaved)',
-              'e6': 'E6: fluent candidates on 12 fresh cases (interleaved)'}
+              'e6': 'E6: fluent candidates on 12 fresh cases (interleaved)',
+              'e7': 'E7: choosing the cascade tiers, tuning set (interleaved)',
+              'e8': 'E8: the decision, 12 new confirmation cases (interleaved)'}
 
     out = []
 
-    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6'):
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'):
 
         block = summary.get(exp)
 
@@ -477,9 +499,9 @@ def markdown_tables(summary):
 
         out.append(f'### {titles[exp]}' + nl)
 
-        out.append('| Configuration | Calls | Transport failures | Live % | **Useful %** (95% CI) | Useful % lenient (post hoc) | Rejected | Garbled raw replies | Injection resisted % | Repeat stability | p50 / p95 latency (s) | Words | Names a next step % | Cites evidence value % |')
+        out.append('| Configuration | Calls | Transport failures | Live % | **Useful %** (95% CI) | Useful % lenient (post hoc) | Rejected | Garbled raw replies | Injection resisted % | Repeat stability | p50 / p95 latency (s) | Words | Names a next step % | Covers the corrective action % | Cites evidence value % |')
 
-        out.append('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
+        out.append('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
 
         for c in block['configs']:
 
@@ -495,7 +517,7 @@ def markdown_tables(summary):
 
                        f"{x['useful_lenient_posthoc_rate']} ({x['useful_lenient_posthoc_ci95'][0]} to {x['useful_lenient_posthoc_ci95'][1]}) | {x['model_rejected']} | "
 
-                       f"{x['degenerate_replies']} of {x['replies_seen']} | {inj} | {stab} | {lat} | {x['mean_words']} | {x['names_next_step_rate']} | {x['cites_evidence_value_rate']} |")
+                       f"{x['degenerate_replies']} of {x['replies_seen']} | {inj} | {stab} | {lat} | {x['mean_words']} | {x['names_next_step_rate']} | {x['action_coverage_rate']} | {x['cites_evidence_value_rate']} |")
 
         out.append('')
 
@@ -511,7 +533,7 @@ def label_of(cfg_id):
 
 def main():
     summary, data, all_calls = {}, {}, []
-    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6'):
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'):
         calls, batches, manifests = load(exp)
         if not calls:
             continue
@@ -527,7 +549,9 @@ def main():
             entry['label'] = {'e1': f'T={r0["temperature"]}', 'e2': parts[0].replace('-Instruct', ''),
                               'e3': parts[0].replace('-Instruct', '') + ' / ' + r0['prompt'], 'e4': f'{r0["workers"]} workers',
                               'e5': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]} / T={r0["temperature"]}',
-                              'e6': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}'}[exp]
+                              'e6': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
+                              'e7': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
+                              'e8': ('cascade: ' + cid.split('|', 1)[1].replace('|', '/').replace('>', ' then ')) if r0['model'] == 'cascade' else f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}'}[exp]
             batch = next((b for b in batches if b['cfg_id'] == cid), None)
             if batch:
                 entry['wall_s'] = batch['wall_s']
@@ -562,7 +586,7 @@ def main():
         figures(summary, data)
     except ImportError:
         print('matplotlib not installed: skipping figures (uv pip install -r experiments/requirements-experiments.txt)')
-    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6'):
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'):
         for c in summary.get(exp, {}).get('configs', []):
             s = c['stats']
             print(f'{exp} {c["label"]:<38} n={s["calls"]:>3} transport={s["transport_failures"]:>2} live={s["live_rate"]}% '

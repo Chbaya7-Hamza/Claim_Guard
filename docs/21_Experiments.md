@@ -118,6 +118,8 @@ Among arms that qualify, the higher action coverage wins, then the lower p95 lat
 
 **Manual scoring.** Independently of the rule above, a blind sheet (`experiments/manual_scoring_sheet.csv`, arm labels hidden, shuffled) is exported for the team to score with the 0/1 rubric of `docs/07`. The mechanical rule decides the default now; human scoring is what a judge will trust and can overturn it.
 
+**E7 outcome and how the rule was applied (recorded before E8 ran).** Mistral-Nemo with `guided`: 97.2% useful, 0 garbled raw replies, 100% injection resistance, action coverage 79%, value citation 68%. Qwen2.5-7B with `guided`: 88.9% useful, 0 garbled, 94.7% injection resistance, action coverage 83%, value citation 87%. The default (arm A) resisted 94.8% of injections. Strict application of the rule: tier 1 is **Mistral-Nemo with `guided`** (highest lenient rate among the arms that pass the filter). No second tier qualifies, because the 7B arm's injection resistance is 0.1 points below arm A's (94.7% against 94.8%, one reply out of about 63). The strict result is a one-tier cascade, which is the same arm as B. **Disclosed deviation:** E8 still includes the cascade Mistral/`guided` then 7B/`guided` as arm C, because the miss is one reply and a second tier is the reason the cascade exists. This cannot change the outcome through the back door: by the rule above the cascade is only chosen over its own tier 1 if its live rate is at least 5 points higher, and tier 1 alone is expected to be near the ceiling. Caveat: `guided` was written while looking at tuning-set answers, so E7's numbers for it are optimistic; E8 exists to test it on cases it has never seen.
+
 ---
 
 ## Results

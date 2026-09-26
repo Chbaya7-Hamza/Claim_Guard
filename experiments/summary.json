@@ -41,6 +41,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 34.6,
           "engine_text_overlap": 0.205,
+          "action_coverage_rate": 23.0,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 16.0,
           "cites_evidence_value_rate": 65.0,
           "replies_seen": 116,
@@ -96,6 +100,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 35.2,
           "engine_text_overlap": 0.202,
+          "action_coverage_rate": 34.4,
+          "answered_by": {
+            "template": 107
+          },
           "names_next_step_rate": 18.8,
           "cites_evidence_value_rate": 63.5,
           "replies_seen": 121,
@@ -151,6 +159,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 34.7,
           "engine_text_overlap": 0.184,
+          "action_coverage_rate": 26.7,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 23.3,
           "cites_evidence_value_rate": 55.8,
           "replies_seen": 133,
@@ -207,6 +219,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 35.3,
           "engine_text_overlap": 0.194,
+          "action_coverage_rate": 32.1,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 25.0,
           "cites_evidence_value_rate": 56.0,
           "replies_seen": 134,
@@ -263,6 +279,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 34.6,
           "engine_text_overlap": 0.181,
+          "action_coverage_rate": 36.0,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 23.6,
           "cites_evidence_value_rate": 53.9,
           "replies_seen": 124,
@@ -333,6 +353,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 26.9,
           "engine_text_overlap": 0.256,
+          "action_coverage_rate": 21.0,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 7.6,
           "cites_evidence_value_rate": 85.7,
           "replies_seen": 108,
@@ -386,6 +410,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 35.4,
           "engine_text_overlap": 0.192,
+          "action_coverage_rate": 26.0,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 20.0,
           "cites_evidence_value_rate": 63.0,
           "replies_seen": 119,
@@ -441,6 +469,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 29.5,
           "engine_text_overlap": 0.226,
+          "action_coverage_rate": 21.1,
+          "answered_by": {
+            "template": 105
+          },
           "names_next_step_rate": 13.2,
           "cites_evidence_value_rate": 78.9,
           "replies_seen": 124,
@@ -497,6 +529,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 12.2,
           "engine_text_overlap": 0.653,
+          "action_coverage_rate": 8.8,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 4.9,
           "cites_evidence_value_rate": 29.4,
           "replies_seen": 108,
@@ -566,6 +602,10 @@
           "unsupported_token_rate": 1.3,
           "mean_words": 33.4,
           "engine_text_overlap": 0.214,
+          "action_coverage_rate": 18.4,
+          "answered_by": {
+            "template": 107
+          },
           "names_next_step_rate": 13.2,
           "cites_evidence_value_rate": 59.2,
           "replies_seen": 141,
@@ -621,6 +661,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 33.8,
           "engine_text_overlap": 0.2,
+          "action_coverage_rate": 59.7,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 42.9,
           "cites_evidence_value_rate": 20.8,
           "replies_seen": 138,
@@ -675,6 +719,10 @@
           "unsupported_token_rate": 3.1,
           "mean_words": 23.2,
           "engine_text_overlap": 0.371,
+          "action_coverage_rate": 32.0,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 24.7,
           "cites_evidence_value_rate": 61.9,
           "replies_seen": 117,
@@ -730,6 +778,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 12.2,
           "engine_text_overlap": 0.646,
+          "action_coverage_rate": 8.8,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 4.9,
           "cites_evidence_value_rate": 29.4,
           "replies_seen": 108,
@@ -784,6 +836,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 37.7,
           "engine_text_overlap": 0.178,
+          "action_coverage_rate": 90.8,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 91.8,
           "cites_evidence_value_rate": 57.1,
           "replies_seen": 109,
@@ -839,6 +895,10 @@
           "unsupported_token_rate": 2.9,
           "mean_words": 7.7,
           "engine_text_overlap": 0.885,
+          "action_coverage_rate": 11.4,
+          "answered_by": {
+            "template": 108
+          },
           "names_next_step_rate": 2.9,
           "cites_evidence_value_rate": 5.7,
           "replies_seen": 108,
@@ -907,6 +967,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 12.2,
           "engine_text_overlap": 0.657,
+          "action_coverage_rate": 8.8,
+          "answered_by": {
+            "template": 36
+          },
           "names_next_step_rate": 5.9,
           "cites_evidence_value_rate": 29.4,
           "replies_seen": 36,
@@ -961,6 +1025,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 12.2,
           "engine_text_overlap": 0.646,
+          "action_coverage_rate": 8.8,
+          "answered_by": {
+            "template": 36
+          },
           "names_next_step_rate": 5.9,
           "cites_evidence_value_rate": 29.4,
           "replies_seen": 36,
@@ -1015,6 +1083,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 12.2,
           "engine_text_overlap": 0.646,
+          "action_coverage_rate": 8.8,
+          "answered_by": {
+            "template": 36
+          },
           "names_next_step_rate": 5.9,
           "cites_evidence_value_rate": 29.4,
           "replies_seen": 36,
@@ -1069,6 +1141,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 12.3,
           "engine_text_overlap": 0.656,
+          "action_coverage_rate": 8.8,
+          "answered_by": {
+            "template": 36
+          },
           "names_next_step_rate": 5.9,
           "cites_evidence_value_rate": 32.4,
           "replies_seen": 36,
@@ -1138,6 +1214,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 32.9,
           "engine_text_overlap": 0.254,
+          "action_coverage_rate": 25.9,
+          "answered_by": {
+            "template": 96
+          },
           "names_next_step_rate": 34.1,
           "cites_evidence_value_rate": 49.4,
           "replies_seen": 105,
@@ -1191,6 +1271,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 6.5,
           "engine_text_overlap": 1.0,
+          "action_coverage_rate": 16.7,
+          "answered_by": {
+            "template": 96
+          },
           "names_next_step_rate": 8.3,
           "cites_evidence_value_rate": 0.0,
           "replies_seen": 96,
@@ -1255,6 +1339,10 @@
           "unsupported_token_rate": 8.5,
           "mean_words": 25.1,
           "engine_text_overlap": 0.332,
+          "action_coverage_rate": 27.1,
+          "answered_by": {
+            "template": 60
+          },
           "names_next_step_rate": 8.5,
           "cites_evidence_value_rate": 91.5,
           "replies_seen": 70,
@@ -1306,6 +1394,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 30.3,
           "engine_text_overlap": 0.252,
+          "action_coverage_rate": 25.5,
+          "answered_by": {
+            "template": 60
+          },
           "names_next_step_rate": 36.4,
           "cites_evidence_value_rate": 54.5,
           "replies_seen": 63,
@@ -1357,6 +1449,10 @@
           "unsupported_token_rate": 0.0,
           "mean_words": 6.5,
           "engine_text_overlap": 1.0,
+          "action_coverage_rate": 16.7,
+          "answered_by": {
+            "template": 60
+          },
           "names_next_step_rate": 8.3,
           "cites_evidence_value_rate": 0.0,
           "replies_seen": 60,
@@ -1379,21 +1475,263 @@
       }
     ]
   },
+  "e7": {
+    "manifest": {
+      "commit": "41df4e0400d1ca15f77662998ccf4cd5d6fc56d9",
+      "engine_code_hash": "4abb200e5b757f45ba1742af543c9e7812ebe0f35cd67fed51f112c806926c3d",
+      "n_cases": 36,
+      "reps": 3,
+      "prompt_sha256": {
+        "current": "8ef1934158ab50d19ca6bfcdbe9b48707262286d3ab8c439b0392c6bfba7432a",
+        "short": "34a48ba5ea1cf6632734e4c477ae2a8ca3e5e5ceb5e51b8ffc4df4d107958839",
+        "fewshot": "6ee6965cf985f3b97ce339aa8613a0a5d5c17d7d3aa793633edbe1abdc58fcbe",
+        "guided": "652f34107b0e9f08b21a34d6be195673d6c87316bfae50b5c6a19b4a7c1915c0"
+      }
+    },
+    "configs": [
+      {
+        "cfg_id": "Mistral-Nemo-Instruct-2407|T0|p1|current",
+        "model": "mistralai/Mistral-Nemo-Instruct-2407",
+        "temperature": 0,
+        "top_p": 1,
+        "prompt": "current",
+        "workers": 4,
+        "stats": {
+          "calls": 108,
+          "transport_failures": 0,
+          "answered": 108,
+          "live": 99,
+          "live_rate": 91.7,
+          "useful": 77,
+          "useful_rate": 71.3,
+          "useful_ci95": [
+            62.1,
+            79.0
+          ],
+          "live_but_not_useful": 22,
+          "useful_lenient_posthoc_rate": 87.0,
+          "useful_lenient_posthoc_ci95": [
+            79.4,
+            92.1
+          ],
+          "omitted_reason_rate": 22.2,
+          "unsupported_token_rate": 0.0,
+          "mean_words": 26.9,
+          "engine_text_overlap": 0.257,
+          "action_coverage_rate": 22.2,
+          "answered_by": {
+            "template": 108
+          },
+          "names_next_step_rate": 8.1,
+          "cites_evidence_value_rate": 85.9,
+          "replies_seen": 111,
+          "degenerate_replies": 0,
+          "model_rejected": 9,
+          "rejection_reasons": {
+            "bad_citation": 3,
+            "review_flag_changed": 2,
+            "not_json": 2,
+            "ungrounded_statement": 2
+          },
+          "injection_replies_judged": 63,
+          "injection_obeyed": 2,
+          "injection_resistance_rate": 96.8,
+          "stability_modal_share": 0.657,
+          "stability_word_overlap": 0.821,
+          "stability_cases": 33,
+          "latency_p50_ms": 3016.0,
+          "latency_p95_ms": 21703.0,
+          "mean_total_tokens": 1349,
+          "provider_retries_used": 1,
+          "runner_retries_used": 0
+        },
+        "label": "Mistral-Nemo-2407 / current"
+      },
+      {
+        "cfg_id": "Mistral-Nemo-Instruct-2407|T0|p1|guided",
+        "model": "mistralai/Mistral-Nemo-Instruct-2407",
+        "temperature": 0,
+        "top_p": 1,
+        "prompt": "guided",
+        "workers": 4,
+        "stats": {
+          "calls": 108,
+          "transport_failures": 0,
+          "answered": 108,
+          "live": 105,
+          "live_rate": 97.2,
+          "useful": 105,
+          "useful_rate": 97.2,
+          "useful_ci95": [
+            92.1,
+            99.1
+          ],
+          "live_but_not_useful": 0,
+          "useful_lenient_posthoc_rate": 97.2,
+          "useful_lenient_posthoc_ci95": [
+            92.1,
+            99.1
+          ],
+          "omitted_reason_rate": 0.0,
+          "unsupported_token_rate": 0.0,
+          "mean_words": 29.4,
+          "engine_text_overlap": 0.254,
+          "action_coverage_rate": 79.0,
+          "answered_by": {
+            "template": 108
+          },
+          "names_next_step_rate": 75.2,
+          "cites_evidence_value_rate": 67.6,
+          "replies_seen": 111,
+          "degenerate_replies": 0,
+          "model_rejected": 3,
+          "rejection_reasons": {
+            "bad_citation": 3
+          },
+          "injection_replies_judged": 63,
+          "injection_obeyed": 0,
+          "injection_resistance_rate": 100.0,
+          "stability_modal_share": 0.819,
+          "stability_word_overlap": 0.879,
+          "stability_cases": 35,
+          "latency_p50_ms": 3156.0,
+          "latency_p95_ms": 19015.0,
+          "mean_total_tokens": 1546,
+          "provider_retries_used": 2,
+          "runner_retries_used": 0
+        },
+        "label": "Mistral-Nemo-2407 / guided"
+      },
+      {
+        "cfg_id": "Qwen2.5-14B-Instruct|T0|p1|current",
+        "model": "Qwen/Qwen2.5-14B-Instruct",
+        "temperature": 0,
+        "top_p": 1,
+        "prompt": "current",
+        "workers": 4,
+        "stats": {
+          "calls": 108,
+          "transport_failures": 0,
+          "answered": 108,
+          "live": 99,
+          "live_rate": 91.7,
+          "useful": 82,
+          "useful_rate": 75.9,
+          "useful_ci95": [
+            67.1,
+            83.0
+          ],
+          "live_but_not_useful": 17,
+          "useful_lenient_posthoc_rate": 90.7,
+          "useful_lenient_posthoc_ci95": [
+            83.8,
+            94.9
+          ],
+          "omitted_reason_rate": 17.2,
+          "unsupported_token_rate": 0.0,
+          "mean_words": 33.8,
+          "engine_text_overlap": 0.193,
+          "action_coverage_rate": 22.2,
+          "answered_by": {
+            "template": 108
+          },
+          "names_next_step_rate": 14.1,
+          "cites_evidence_value_rate": 63.6,
+          "replies_seen": 117,
+          "degenerate_replies": 14,
+          "model_rejected": 9,
+          "rejection_reasons": {
+            "not_json": 5,
+            "review_flag_changed": 3,
+            "ungrounded_statement": 1
+          },
+          "injection_replies_judged": 58,
+          "injection_obeyed": 3,
+          "injection_resistance_rate": 94.8,
+          "stability_modal_share": 0.538,
+          "stability_word_overlap": 0.71,
+          "stability_cases": 35,
+          "latency_p50_ms": 2891.0,
+          "latency_p95_ms": 21860.0,
+          "mean_total_tokens": 1319,
+          "provider_retries_used": 10,
+          "runner_retries_used": 5
+        },
+        "label": "Qwen2.5-14B / current"
+      },
+      {
+        "cfg_id": "Qwen2.5-7B-Instruct|T0|p1|guided",
+        "model": "Qwen/Qwen2.5-7B-Instruct",
+        "temperature": 0,
+        "top_p": 1,
+        "prompt": "guided",
+        "workers": 4,
+        "stats": {
+          "calls": 108,
+          "transport_failures": 0,
+          "answered": 108,
+          "live": 99,
+          "live_rate": 91.7,
+          "useful": 96,
+          "useful_rate": 88.9,
+          "useful_ci95": [
+            81.6,
+            93.5
+          ],
+          "live_but_not_useful": 3,
+          "useful_lenient_posthoc_rate": 88.9,
+          "useful_lenient_posthoc_ci95": [
+            81.6,
+            93.5
+          ],
+          "omitted_reason_rate": 3.0,
+          "unsupported_token_rate": 0.0,
+          "mean_words": 33.9,
+          "engine_text_overlap": 0.227,
+          "action_coverage_rate": 82.8,
+          "answered_by": {
+            "template": 108
+          },
+          "names_next_step_rate": 75.8,
+          "cites_evidence_value_rate": 86.9,
+          "replies_seen": 114,
+          "degenerate_replies": 0,
+          "model_rejected": 9,
+          "rejection_reasons": {
+            "review_flag_changed": 3,
+            "not_json": 6
+          },
+          "injection_replies_judged": 57,
+          "injection_obeyed": 3,
+          "injection_resistance_rate": 94.7,
+          "stability_modal_share": 0.949,
+          "stability_word_overlap": 0.958,
+          "stability_cases": 33,
+          "latency_p50_ms": 2328.0,
+          "latency_p95_ms": 7000.0,
+          "mean_total_tokens": 1538,
+          "provider_retries_used": 0,
+          "runner_retries_used": 0
+        },
+        "label": "Qwen2.5-7B / guided"
+      }
+    ]
+  },
   "invariant_verdicts_unchanged": {
-    "calls_checked": 2136,
+    "calls_checked": 2568,
     "changed_by_a_call": [],
     "cases_with_differing_findings": [],
     "holds": true
   },
   "degenerate_replies_by_model_temperature_0": {
     "Qwen2.5-14B": {
-      "bad": 178,
-      "seen": 799,
-      "rate": 0.2227784730913642
+      "bad": 192,
+      "seen": 916,
+      "rate": 0.2096069868995633
     },
     "Qwen2.5-7B": {
       "bad": 0,
-      "seen": 733,
+      "seen": 847,
       "rate": 0.0
     },
     "Qwen2.5-32B": {
@@ -1403,7 +1741,7 @@
     },
     "Mistral-Nemo-2407": {
       "bad": 0,
-      "seen": 178,
+      "seen": 400,
       "rate": 0.0
     }
   },

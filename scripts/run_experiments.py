@@ -245,13 +245,15 @@ def probe(models, temperature):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('experiment', choices=['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'probe'])
+    p.add_argument('experiment', choices=['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'probe'])
     p.add_argument('--model', default=DEFAULT_MODEL)
     p.add_argument('--models', default='')
     p.add_argument('--temperature', type=float, default=0)
     p.add_argument('--prompt', default='current', choices=list(PROMPTS))
     p.add_argument('--workers', type=int, default=4)
     p.add_argument('--reps', type=int, default=3)
+    p.add_argument('--tier1', default='', help='model:prompt of the first cascade tier (e8)')
+    p.add_argument('--tier2', default='', help='model:prompt of the second cascade tier (e8)')
     a = p.parse_args()
     if a.experiment == 'probe':
         probe([m for m in a.models.split(',') if m] or [a.model], a.temperature)
@@ -271,13 +273,41 @@ def main():
         grid = [cfg('e6', DEFAULT_MODEL, 0, 'current', a.workers), cfg('e6', 'mistralai/Mistral-Nemo-Instruct-2407', 0, 'current', a.workers),
                 cfg('e6', 'Qwen/Qwen2.5-7B-Instruct', 0, 'short', a.workers)]
         cases, reps = load_cases('fresh'), a.reps
+    elif a.experiment == 'e7':  # round two: choose the cascade tiers on the tuning set
+
+        grid = [cfg('e7', DEFAULT_MODEL, 0, 'current', a.workers), cfg('e7', 'mistralai/Mistral-Nemo-Instruct-2407', 0, 'guided', a.workers),
+
+                cfg('e7', 'Qwen/Qwen2.5-7B-Instruct', 0, 'guided', a.workers), cfg('e7', 'mistralai/Mistral-Nemo-Instruct-2407', 0, 'current', a.workers)]
+
+        cases, reps = load_cases('tuning'), a.reps
+
+    elif a.experiment == 'e8':  # round two: the decision, on a confirmation set nothing has touched
+
+        t1 = dict(zip(('model', 'prompt'), a.tier1.rsplit(':', 1)))
+
+        t2 = dict(zip(('model', 'prompt'), a.tier2.rsplit(':', 1))) if a.tier2 else None
+
+        grid = [cfg('e8', DEFAULT_MODEL, 0, 'current', a.workers), cfg('e8', t1['model'], 0, t1['prompt'], a.workers)]
+
+        tiers = [t1] + ([t2] if t2 else [])
+
+        casc = cfg('e8', 'cascade', 0, 'current', a.workers)
+
+        casc['tiers'] = tiers
+
+        casc['cfg_id'] = 'cascade|' + '>'.join(f"{t['model'].split('/')[-1]}|{t['prompt']}" for t in tiers)
+
+        grid.append(casc)
+
+        cases, reps = load_cases('fresh2'), a.reps
+
     else:  # e5: current defaults against the chosen setting, on cases nothing was tuned on
         grid = [cfg('e5', DEFAULT_MODEL, 0, 'current', a.workers)]
         chosen = cfg('e5', a.model, a.temperature, a.prompt, a.workers)
         if chosen['cfg_id'] != grid[0]['cfg_id']:
             grid.append(chosen)
         cases, reps = load_cases('fresh'), a.reps
-    run_grid(a.experiment, grid, cases, reps, RAW / f'{a.experiment}.jsonl', interleave=a.experiment in ('e5', 'e6'))
+    run_grid(a.experiment, grid, cases, reps, RAW / f'{a.experiment}.jsonl', interleave=a.experiment in ('e5', 'e6', 'e7', 'e8'))
 
 
 if __name__ == '__main__':
