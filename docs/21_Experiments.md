@@ -96,6 +96,28 @@ E5 confirmed the pre-registered winner on paper (Qwen2.5-7B with the `short` pro
 - **New descriptive metrics** (defined here, before the run): *names a next step* (the answer contains verify, check, request, review, confirm, compare, obtain, correct, ensure or resolve) and *cites an evidence value* (an identifier, a date, a decimal or a number of two or more digits). Both are crude word patterns, not judgements of quality.
 - **Decision rule.** An arm is recommended over the default only if it (a) produced no garbled raw reply, (b) has a lenient useful-answer rate within 5 percentage points of the best arm, and (c) names a next step and cites an evidence value in at least 25% of its answers each. Among arms that qualify, the fastest wins. If none qualifies, or only the default does, the default stays. The terse arm is not eligible for (c) unless it changes.
 
+## Round two: settling the choice (pre-registered here, before any of these runs)
+
+The first round could not settle the choice: the fluent models sometimes derail and the reliable one copies the template. Round two tries to get the best of each with a **cascade** (`CascadeExplanationProvider`): a first tier that writes fluent answers, a second tier used only when the first fails or is rejected, and the deterministic template as the floor. Every tier passes the same schema and grounding checks, and the audit log names the tier that wrote the text.
+
+**Candidate prompt.** `prompts/variants/guided.md` (v1.4.0) asks for exactly three sentences: every engine reason in the model's own words, the evidence values quoted exactly, and a final instruction to the reviewer that starts with a verb and follows the rule's `corrective_action`. It was iterated **twice** on the 36 tuning cases while looking at a handful of answers by eye (Mistral-Nemo and Qwen2.5-7B); no fresh case was used to write it.
+
+**New metric (defined here).** *Action coverage*: the answer covers the first clause of the rule's `corrective_action` (the text before the first semicolon or full stop) when at least half of that clause's content-word stems occur in the answer. It replaces the crude "names a next step" word list for decisions. *Cites a value* keeps its earlier definition.
+
+**E7: choosing the tiers (tuning set, 36 cases x 3 repeats, interleaved).** Arms: A Qwen2.5-14B with prompt v1.3.0 (the current default), B Mistral-Nemo with `guided`, C Qwen2.5-7B with `guided`, D Mistral-Nemo with prompt v1.3.0. E7 adopts nothing; it only chooses tiers. *Tier 1* is the arm other than A with the highest lenient useful rate among those with no garbled raw reply and an injection-resistance rate not lower than A's (tie: higher action coverage). *Tier 2* is the best remaining arm of a **different model** under the same filter. If there is no second such arm, the cascade has one tier.
+
+**E8: the decision (new confirmation set, 12 cases x 5 repeats, interleaved).** The twelve cases in `exercises/fresh2_variants.jsonl` (`FX-01` to `FX-12`) come from validation and stress claims that appear in no earlier set, including the earlier confirmation cases (`FR-*`, which drove two decisions and are no longer fresh), with four new injection phrasings. Arms: A the current default; B tier 1 alone; C the cascade (tier 1, then tier 2, then the template). An arm is **adopted** only if it meets all of these:
+
+1. No garbled answer is shown to a reviewer (a live answer containing garbled text).
+2. Injection resistance on the raw reply not lower than A's.
+3. Lenient useful rate within 5 percentage points of the best arm.
+4. Action coverage at least 50% and value citation at least 50% among live answers.
+5. Median latency of a live answer at most 4 seconds.
+
+Among arms that qualify, the higher action coverage wins, then the lower p95 latency. If the cascade and its own tier 1 both qualify, the cascade is chosen only if its live rate is at least 5 points higher; otherwise the simpler single model. **If no arm qualifies, the current default stays and we say so.** If an arm other than A is adopted it is adopted deliberately: prompt version bump, code defaults changed together with the tests that pin them, a new frozen live run on the 25 supplied and 11 variant cases, and updates to `docs/17`, this file and `TEAM.md`.
+
+**Manual scoring.** Independently of the rule above, a blind sheet (`experiments/manual_scoring_sheet.csv`, arm labels hidden, shuffled) is exported for the team to score with the 0/1 rubric of `docs/07`. The mechanical rule decides the default now; human scoring is what a judge will trust and can overturn it.
+
 ---
 
 ## Results

@@ -28,7 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from claim_review import draft_and_validate_explanation
-from llm_adapter import FeatherlessExplanationProvider, MockExplanationProvider
+from llm_adapter import CascadeExplanationProvider, FeatherlessExplanationProvider, MockExplanationProvider
 from yara_engine import engine_code_hash
 
 RAW = ROOT / 'experiments' / 'raw'
@@ -36,7 +36,7 @@ DEFAULT_MODEL = 'Qwen/Qwen2.5-14B-Instruct'
 TEMPERATURES = [0, 0.2, 0.5, 0.8, 1.0]
 WORKERS_GRID = [1, 2, 4, 8]
 PROMPTS = {'current': None, 'short': ROOT / 'prompts' / 'variants' / 'short.md',
-           'fewshot': ROOT / 'prompts' / 'variants' / 'fewshot.md'}
+           'fewshot': ROOT / 'prompts' / 'variants' / 'fewshot.md', 'guided': ROOT / 'prompts' / 'variants' / 'guided.md'}
 TRANSPORT = {'APITimeoutError', 'APIConnectionError', 'RateLimitError', 'InternalServerError', 'TransientProviderError',
              'TimeoutError', 'ConnectionError', 'ReadTimeout', 'ConnectTimeout'}
 CONFIG_ERRORS = {'NotFoundError', 'PermissionDeniedError', 'AuthenticationError', 'BadRequestError',
@@ -64,8 +64,21 @@ class RecordingProvider(FeatherlessExplanationProvider):
         return text
 
 
+class RecordingCascade(CascadeExplanationProvider):
+    """A cascade that also keeps the raw replies of every tier it tried, for the experiment record."""
+
+    def explain(self, finding, rule, untrusted_note=None):
+        for tier in self.tiers:
+            tier._tl.raws = []
+        try:
+            return super().explain(finding, rule, untrusted_note)
+        finally:
+            self._tl.raws = [t for tier in self.tiers for t in getattr(tier._tl, 'raws', [])]
+
+
 def load_cases(which):
-    names = {'tuning': ['llm_explanation_cases.jsonl', 'injection_variants.jsonl'], 'fresh': ['fresh_variants.jsonl']}[which]
+    names = {'tuning': ['llm_explanation_cases.jsonl', 'injection_variants.jsonl'], 'fresh': ['fresh_variants.jsonl'],
+             'fresh2': ['fresh2_variants.jsonl']}[which]
     cases = []
     for name in names:
         for line in (ROOT / 'exercises' / name).read_text(encoding='utf-8').split(chr(10)):
@@ -129,11 +142,15 @@ def one_call(cfg, provider, case, rep, extra_retries=2):
         'explanation': out['explanation'], 'cited_paths': out['cited_evidence_paths'], 'cited_rules': out['cited_rule_ids'],
         'needs_human_review': out['needs_human_review'], 'omitted_engine_reasons': drafted['omitted_engine_reasons'],
         'engine_explanation': drafted['engine_explanation'], 'raw_replies': list(provider._tl.raws),
+        'answered_by': drafted.get('answered_by'), 'tier_errors': drafted.get('tier_errors', []),
         'finding_hash_before': before, 'finding_hash_after': after, 'ts': time.time(),
     }
 
 
 def make_provider(cfg):
+    if cfg.get('tiers'):  # a cascade: each tier is (model, prompt) at temperature 0
+        return RecordingCascade([RecordingProvider(model=t['model'], temperature=cfg['temperature'], top_p=cfg['top_p'],
+                                                   instructions=prompt_text(t['prompt'])) for t in cfg['tiers']])
     return RecordingProvider(model=cfg['model'], temperature=cfg['temperature'], top_p=cfg['top_p'],
                              instructions=prompt_text(cfg['prompt']))
 
