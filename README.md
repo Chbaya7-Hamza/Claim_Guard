@@ -78,7 +78,7 @@ python src/make_review.py --input outputs/yara_dev_predictions.jsonl --output ou
 
 # a full audited review (ingest -> rules -> AI explanation -> audit -> reviewer decisions -> recheck)
 python scripts/run_audited_review.py
-python scripts/verify_audit.py --log outputs/audit_demo/audit.jsonl
+python scripts/verify_audit.py --log outputs/audit_demo/audit.jsonl   # run_audited_review.py rewrites the committed outputs/audit_demo sample with fresh ids and timestamps
 ```
 
 On Windows use `.venv\Scripts\python.exe`. Without an API key the AI step uses a deterministic template, so every command above works offline.
