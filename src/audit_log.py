@@ -234,7 +234,9 @@ class AuditLog:
                        'recorded_at': datetime.now(timezone.utc).isoformat(),
                        'previous_hash': self.head, 'event': event}
                 self.head = digest(row)
-                f.write(json.dumps({**row, 'hash': self.head}, ensure_ascii=False) + '\n')
+                # ASCII-escaped so a U+2028 inside a claim value can never split a log line for a splitlines()
+                # reader. The hash is over the parsed row (digest), so how the row is spelled on disk is irrelevant.
+                f.write(json.dumps({**row, 'hash': self.head}) + '\n')
                 self.count += 1
             f.flush()
             if durable:
@@ -281,7 +283,7 @@ def verify_with_anchor(log_path, anchor_path=None):
         raise ValueError(f'Log truncated: {count} events, anchor recorded {anchor_count}')
     if anchor_count == 0:
         return head, count
-    rows = [json.loads(l) for l in log_path.read_text(encoding='utf-8').splitlines() if l.strip()]
+    rows = [json.loads(l) for l in log_path.read_text(encoding='utf-8').split('\n') if l.strip()]
     if rows[anchor_count - 1]['hash'] != anchor_head:
         raise ValueError('Log replaced: hash at anchored position differs from the anchor')
     return head, count
@@ -407,7 +409,7 @@ def verify_ai_ordering(log_path):
     (ai_recommendation / ai_failure): a matching earlier ai_request exists, answered once, same
     run / claim / rule, recorded no earlier than the request, action type human_escalation and
     auto_correct_applied false. A run that finished with an unanswered request is a violation."""
-    rows = [json.loads(l) for l in Path(log_path).read_text(encoding='utf-8').splitlines() if l.strip()]
+    rows = [json.loads(l) for l in Path(log_path).read_text(encoding='utf-8').split('\n') if l.strip()]
     started, checks, finished = set(), {}, set()
     requests, answered = {}, set()
     problems = []

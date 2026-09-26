@@ -24,6 +24,7 @@ from pathlib import Path
 from csv_to_jsonl import convert as csv_folder_to_claims
 from engine_core import validate_transport
 from fhir_adapter import FhirMappingError, bundle_to_claim
+from jsonl_reader import parse_json, read_lines
 
 NORMALIZED = 'normalized_json'
 FHIR = 'fhir_bundle'
@@ -50,7 +51,7 @@ def detect_format(path):
         if (p / 'claims.csv').exists():
             return CSV_FOLDER
         raise ValueError(f'{p} is a directory without claims.csv')
-    head = p.read_text(encoding='utf-8').lstrip()[:2000]
+    head = p.read_text(encoding='utf-8-sig', errors='replace').lstrip()[:2000]
     return FHIR if '"resourceType"' in head and '"Bundle"' in head else NORMALIZED
 
 
@@ -58,21 +59,25 @@ def _records(path):
     """Yield (source_ref, parsed_json_or_None, parse_error_or_None). Handles JSONL,
     and a JSON array; one malformed line is reported, not fatal."""
     p = Path(path)
-    text = p.read_text(encoding='utf-8')
-    if text.lstrip().startswith('['):
-        try:
-            for i, rec in enumerate(json.loads(text), start=1):
-                yield f'{p.name}[{i}]', rec, None
-        except json.JSONDecodeError as e:
-            yield p.name, None, f'Invalid JSON: {e}'
+    try:
+        text = p.read_text(encoding='utf-8-sig')
+    except UnicodeDecodeError as e:
+        yield p.name, None, f'Invalid UTF-8: {e}'
         return
-    for i, line in enumerate(text.splitlines(), start=1):
-        if not line.strip():
+    if text.lstrip().startswith('['):
+        value, error = parse_json(text)
+        if error or not isinstance(value, list):
+            yield p.name, None, error or 'Invalid JSON: expected an array'
+            return
+        for i, rec in enumerate(value, start=1):
+            yield f'{p.name}[{i}]', rec, None
+        return
+    for i, line, read_error in read_lines(p):
+        if read_error:
+            yield f'{p.name}:{i}', None, read_error
             continue
-        try:
-            yield f'{p.name}:{i}', json.loads(line), None
-        except json.JSONDecodeError as e:
-            yield f'{p.name}:{i}', None, f'Invalid JSON: {e}'
+        rec, error = parse_json(line)
+        yield f'{p.name}:{i}', rec, error
 
 
 def _finish(item):

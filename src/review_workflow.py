@@ -40,7 +40,7 @@ class DecisionError(ValueError):
 
 def load_decisions(path):
     """Read the JSONL the review page downloads (review_decisions.jsonl)."""
-    return [json.loads(l) for l in Path(path).read_text(encoding='utf-8').splitlines() if l.strip()]
+    return [json.loads(l) for l in Path(path).read_text(encoding='utf-8').split('\n') if l.strip()]
 
 
 def index_findings(results):
@@ -92,7 +92,7 @@ def review_state(results, log_path):
     run the latest decision wins."""
     rows = []
     if Path(log_path).exists():
-        rows = [json.loads(l) for l in Path(log_path).read_text(encoding='utf-8').splitlines() if l.strip()]
+        rows = [json.loads(l) for l in Path(log_path).read_text(encoding='utf-8').split('\n') if l.strip()]
     run_start = {}
     for row in rows:
         e = row['event']
@@ -179,7 +179,7 @@ def main():
     p.add_argument('--decisions', required=True, help='review_decisions.jsonl downloaded from the review page')
     p.add_argument('--log', default='outputs/audit.jsonl')
     a = p.parse_args()
-    results = [json.loads(l) for l in Path(a.results).read_text(encoding='utf-8').splitlines() if l.strip()]
+    results = [json.loads(l) for l in Path(a.results).read_text(encoding='utf-8').split('\n') if l.strip()]
     log = AuditLog(a.log)
     head, count = apply_decisions(log, load_decisions(a.decisions), results)
     counts = unresolved_counts(results, a.log)

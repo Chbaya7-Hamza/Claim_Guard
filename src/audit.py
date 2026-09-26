@@ -6,7 +6,8 @@ def digest(obj):return hashlib.sha256(json.dumps(obj,sort_keys=True,separators=(
 def verify(path):
     previous='0'*64;count=0
     if not Path(path).exists():return previous,count
-    for line in Path(path).read_text(encoding='utf-8').splitlines():
+    for line in Path(path).read_text(encoding='utf-8').split('\n'):  # not splitlines(): U+2028 in a reviewer's reason must not split a record
+        if not line.strip():continue
         row=json.loads(line);claimed=row.pop('hash')
         if row['previous_hash']!=previous or digest(row)!=claimed:raise ValueError(f'Audit chain invalid at event {count+1}')
         previous=claimed;count+=1
@@ -20,7 +21,7 @@ def append(path,events):
     with out.open('a',encoding='utf-8') as f:
         for event in events:
             row={'sequence':count+1,'recorded_at':datetime.now(timezone.utc).isoformat(),'previous_hash':previous,'event':event}
-            previous=digest(row);f.write(json.dumps({**row,'hash':previous},ensure_ascii=False)+'\n');count+=1
+            previous=digest(row);f.write(json.dumps({**row,'hash':previous})+'\n');count+=1
     return previous,count
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--log',default='outputs/audit.jsonl');p.add_argument('--events');p.add_argument('--verify',action='store_true');a=p.parse_args()

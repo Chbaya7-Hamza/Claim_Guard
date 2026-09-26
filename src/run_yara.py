@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from engine_core import config, validate_transport
+from jsonl_reader import parse_json, read_lines
 from yara_engine import evaluate, fail_closed_results
 
 
@@ -21,16 +22,16 @@ def run(input_path, output_path, cfg, limit=None):
     summary = {'claims': 0, 'results': 0, 'fail_closed_claims': [], 'unreadable_lines': [], 'tool_errors': []}
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
-    with open(input_path, encoding='utf-8') as src, out.open('w', encoding='utf-8') as f:
-        for n, line in enumerate(src, start=1):
-            if not line.strip():
-                continue
+    with out.open('w', encoding='utf-8') as f:
+        for n, line, read_error in read_lines(input_path):
             if limit is not None and summary['claims'] >= limit:
                 break
-            try:
-                c = json.loads(line)
-            except json.JSONDecodeError as e:
-                summary['unreadable_lines'].append({'line': n, 'error': str(e)})
+            if read_error:
+                summary['unreadable_lines'].append({'line': n, 'error': read_error})
+                continue
+            c, parse_error = parse_json(line)
+            if parse_error:
+                summary['unreadable_lines'].append({'line': n, 'error': parse_error})
                 continue
             summary['claims'] += 1
             errors = []
@@ -47,7 +48,7 @@ def run(input_path, output_path, cfg, limit=None):
                     continue
             summary['tool_errors'].extend(f"{c['claim_id']}: {e}" for e in errors)
             for r in results:
-                f.write(json.dumps(r, ensure_ascii=False) + '\n')
+                f.write(json.dumps(r) + '\n')  # ASCII-escaped: U+2028 and friends can never split a record
             summary['results'] += len(results)
     return summary
 
