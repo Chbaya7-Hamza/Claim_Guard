@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 sys.path.insert(0, str(ROOT / 'tests'))
 import oracle
+from claim_gen import random_claim
 from engine_core import config, load_jsonl, validate_transport
 from test_engine_robustness import field_paths, set_path
 from yara_engine import evaluate
@@ -126,6 +127,29 @@ class EngineAgreesWithOracle(unittest.TestCase):
                 self.assertEqual(diff, {}, f'engine vs oracle on {m["claim_id"]} (seed {seed})')
                 checked += 1
         self.assertGreater(checked, 3500)
+
+    def test_claims_generated_from_scratch_get_identical_statuses(self):
+        """Not derived from the public data at all, so a blind spot shared with the 600 public claims shows up here."""
+        rng = random.Random(20260926)
+        seen = Counter()
+        checked = 0
+        for _ in range(4500):
+            c = random_claim(rng)
+            try:
+                validate_transport(c)
+            except Exception:
+                continue
+            errors = []
+            got = statuses(evaluate(c, self.cfg, errors))
+            want = oracle.evaluate(c, self.pack)
+            self.assertEqual(errors, [], 'a rule crashed and was isolated')
+            self.assertEqual({r: (got[r], want[r]) for r in want if got[r] != want[r]}, {}, c['claim_id'])
+            seen.update((r, s) for r, s in want.items())
+            checked += 1
+        self.assertGreater(checked, 4000)
+        for rid in oracle.RULES:
+            for st in ('PASS', 'FAIL'):
+                self.assertGreater(seen[(rid, st)], 20, (rid, st))
 
     def test_the_mutants_actually_reach_every_status_of_every_rule(self):
         """A fuzzer that only ever produces PASS would agree with anything."""
