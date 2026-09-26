@@ -1,0 +1,32 @@
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 12/180 calls, last outcome live
+ExplanationProvider failed for 'CG-E7B49E48B565'/'R008', falling back: "TransientProviderError: Provider returned no message content: ChatCompletion(id=None, choices=None, created=None, model=None, object=None, metadata=None, moderation=None, service_tier=None, system_fingerprint=None, usage=None, error={'message': 'No successful re"
+ExplanationProvider failed for 'CG-0820B93F0DEA'/'R012', falling back: "TransientProviderError: Provider returned no message content: ChatCompletion(id=None, choices=None, created=None, model=None, object=None, metadata=None, moderation=None, service_tier=None, system_fingerprint=None, usage=None, error={'message': 'No successful re"
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 24/180 calls, last outcome live
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 36/180 calls, last outcome live
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 48/180 calls, last outcome live
+ExplanationProvider failed for 'CG-0820B93F0DEA'/'R012', falling back: 'JSONDecodeError: Expecting property name enclosed in double quotes: line 2 column 1 (char 2)'
+ExplanationProvider failed for 'CG-03A54F36D4E9'/'R011', falling back: "TransientProviderError: Provider returned no message content: ChatCompletion(id=None, choices=None, created=None, model=None, object=None, metadata=None, moderation=None, service_tier=None, system_fingerprint=None, usage=None, error={'message': 'No successful re"
+ExplanationProvider failed for 'CG-9323EBD91EC2'/'R014', falling back: 'JSONDecodeError: Expecting property name enclosed in double quotes: line 2 column 1 (char 2)'
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 60/180 calls, last outcome live
+ExplanationProvider failed for 'CG-51E66F6563A0'/'R010', falling back: "TransientProviderError: Provider returned no message content: ChatCompletion(id=None, choices=None, created=None, model=None, object=None, metadata=None, moderation=None, service_tier=None, system_fingerprint=None, usage=None, error={'message': 'No successful re"
+ExplanationProvider failed for 'CG-D5EB04F316E0'/'R004', falling back: 'JSONDecodeError: Invalid control character at: line 2 column 684 (char 685)'
+ExplanationProvider failed for 'CG-0EFBF5DD6EF1'/'R005', falling back: 'JSONDecodeError: Expecting property name enclosed in double quotes: line 2 column 1 (char 2)'
+ExplanationProvider failed for 'CG-51E66F6563A0'/'R010', falling back: "TransientProviderError: Provider returned no message content: ChatCompletion(id=None, choices=None, created=None, model=None, object=None, metadata=None, moderation=None, service_tier=None, system_fingerprint=None, usage=None, error={'message': 'No successful re"
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 72/180 calls, last outcome live
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 84/180 calls, last outcome live
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 96/180 calls, last outcome live
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 108/180 calls, last outcome live
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 120/180 calls, last outcome live
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 132/180 calls, last outcome live
+ExplanationProvider failed for 'CG-9323EBD91EC2'/'R014', falling back: 'JSONDecodeError: Invalid control character at: line 2 column 541 (char 542)'
+ExplanationProvider failed for 'CG-09723F40289A'/'R013', falling back: 'JSONDecodeError: Expecting property name enclosed in double quotes: line 2 column 1 (char 2)'
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 144/180 calls, last outcome live
+ExplanationProvider failed for 'CG-98355D73FCC0'/'R002', falling back: "TransientProviderError: Provider returned no message content: ChatCompletion(id=None, choices=None, created=None, model=None, object=None, metadata=None, moderation=None, service_tier=None, system_fingerprint=None, usage=None, error={'message': 'No successful re"
+ExplanationProvider failed for 'CG-D5EB04F316E0'/'R004', falling back: "TransientProviderError: Provider returned no message content: ChatCompletion(id=None, choices=None, created=None, model=None, object=None, metadata=None, moderation=None, service_tier=None, system_fingerprint=None, usage=None, error={'message': 'No successful re"
+ExplanationProvider failed for 'CG-0EFBF5DD6EF1'/'R005', falling back: "TransientProviderError: Provider returned no message content: ChatCompletion(id=None, choices=None, created=None, model=None, object=None, metadata=None, moderation=None, service_tier=None, system_fingerprint=None, usage=None, error={'message': 'No successful re"
+ExplanationProvider failed for 'CG-E4013A7BE88F'/'R009', falling back: "TransientProviderError: Provider returned no message content: ChatCompletion(id=None, choices=None, created=None, model=None, object=None, metadata=None, moderation=None, service_tier=None, system_fingerprint=None, usage=None, error={'message': 'No successful re"
+ExplanationProvider failed for 'CG-0EFBF5DD6EF1'/'R005', falling back: "TransientProviderError: Provider returned no message content: ChatCompletion(id=None, choices=None, created=None, model=None, object=None, metadata=None, moderation=None, service_tier=None, system_fingerprint=None, usage=None, error={'message': 'No successful re"
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 156/180 calls, last outcome live
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 168/180 calls, last outcome live
+  cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided: 180/180 calls, last outcome live
+e8: done -> C:\Users\moham\cstam\rulesbook\.claude\worktrees\yara-facts-blob-harness\experiments\raw\e8.jsonl

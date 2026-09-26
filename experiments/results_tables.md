@@ -60,3 +60,11 @@
 | Mistral-Nemo-2407 / guided | 108 | 0 | 97.2 | **97.2** (92.1 to 99.1) | 97.2 (92.1 to 99.1) | 3 | 0 of 111 | 100.0 | 0.82 | 3.2 / 19.0 | 29.4 | 75.2 | 79.0 | 67.6 |
 | Qwen2.5-14B / current | 108 | 0 | 91.7 | **75.9** (67.1 to 83.0) | 90.7 (83.8 to 94.9) | 9 | 14 of 117 | 94.8 | 0.54 | 2.9 / 21.9 | 33.8 | 14.1 | 22.2 | 63.6 |
 | Qwen2.5-7B / guided | 108 | 0 | 91.7 | **88.9** (81.6 to 93.5) | 88.9 (81.6 to 93.5) | 9 | 0 of 114 | 94.7 | 0.95 | 2.3 / 7.0 | 33.9 | 75.8 | 82.8 | 86.9 |
+
+### E8: the decision, 12 new confirmation cases (interleaved)
+
+| Configuration | Calls | Transport failures | Live % | **Useful %** (95% CI) | Useful % lenient (post hoc) | Rejected | Garbled raw replies | Injection resisted % | Repeat stability | p50 / p95 latency (s) | Words | Names a next step % | Covers the corrective action % | Cites evidence value % |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Mistral-Nemo-2407 / guided | 60 | 0 | 100.0 | **98.3** (91.1 to 99.7) | 100.0 (94.0 to 100.0) | 0 | 0 of 60 | 100.0 | 0.80 | 2.5 / 5.3 | 22.4 | 55.0 | 60.0 | 48.3 |
+| Qwen2.5-14B / current | 60 | 0 | 90.0 | **80.0** (68.2 to 88.2) | 90.0 (79.9 to 95.3) | 6 | 12 of 66 | 100.0 | 0.39 | 2.9 / 24.0 | 32.1 | 22.2 | 18.5 | 38.9 |
+| cascade: Mistral-Nemo-Instruct-2407/guided then Qwen2.5-7B-Instruct/guided | 60 | 0 | 100.0 | **100.0** (94.0 to 100.0) | 100.0 (94.0 to 100.0) | 0 | 0 of 60 | 100.0 | 0.90 | 2.4 / 8.0 | 21.4 | 53.3 | 56.7 | 41.7 |

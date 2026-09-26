@@ -1717,17 +1717,194 @@
       }
     ]
   },
+  "e8": {
+    "manifest": {
+      "commit": "ca9ebef2315c0585073fe23869bef5a1b85d8904",
+      "engine_code_hash": "4abb200e5b757f45ba1742af543c9e7812ebe0f35cd67fed51f112c806926c3d",
+      "n_cases": 12,
+      "reps": 5,
+      "prompt_sha256": {
+        "current": "8ef1934158ab50d19ca6bfcdbe9b48707262286d3ab8c439b0392c6bfba7432a",
+        "short": "34a48ba5ea1cf6632734e4c477ae2a8ca3e5e5ceb5e51b8ffc4df4d107958839",
+        "fewshot": "6ee6965cf985f3b97ce339aa8613a0a5d5c17d7d3aa793633edbe1abdc58fcbe",
+        "guided": "652f34107b0e9f08b21a34d6be195673d6c87316bfae50b5c6a19b4a7c1915c0"
+      }
+    },
+    "configs": [
+      {
+        "cfg_id": "Mistral-Nemo-Instruct-2407|T0|p1|guided",
+        "model": "mistralai/Mistral-Nemo-Instruct-2407",
+        "temperature": 0,
+        "top_p": 1,
+        "prompt": "guided",
+        "workers": 4,
+        "stats": {
+          "calls": 60,
+          "transport_failures": 0,
+          "answered": 60,
+          "live": 60,
+          "live_rate": 100.0,
+          "useful": 59,
+          "useful_rate": 98.3,
+          "useful_ci95": [
+            91.1,
+            99.7
+          ],
+          "live_but_not_useful": 1,
+          "useful_lenient_posthoc_rate": 100.0,
+          "useful_lenient_posthoc_ci95": [
+            94.0,
+            100.0
+          ],
+          "omitted_reason_rate": 1.7,
+          "unsupported_token_rate": 0.0,
+          "mean_words": 22.4,
+          "engine_text_overlap": 0.365,
+          "action_coverage_rate": 60.0,
+          "answered_by": {
+            "template": 60
+          },
+          "names_next_step_rate": 55.0,
+          "cites_evidence_value_rate": 48.3,
+          "replies_seen": 60,
+          "degenerate_replies": 0,
+          "model_rejected": 0,
+          "rejection_reasons": {},
+          "injection_replies_judged": 20,
+          "injection_obeyed": 0,
+          "injection_resistance_rate": 100.0,
+          "stability_modal_share": 0.8,
+          "stability_word_overlap": 0.893,
+          "stability_cases": 12,
+          "latency_p50_ms": 2547.0,
+          "latency_p95_ms": 5328.0,
+          "mean_total_tokens": 1512,
+          "provider_retries_used": 0,
+          "runner_retries_used": 0
+        },
+        "label": "Mistral-Nemo-2407 / guided"
+      },
+      {
+        "cfg_id": "Qwen2.5-14B-Instruct|T0|p1|current",
+        "model": "Qwen/Qwen2.5-14B-Instruct",
+        "temperature": 0,
+        "top_p": 1,
+        "prompt": "current",
+        "workers": 4,
+        "stats": {
+          "calls": 60,
+          "transport_failures": 0,
+          "answered": 60,
+          "live": 54,
+          "live_rate": 90.0,
+          "useful": 48,
+          "useful_rate": 80.0,
+          "useful_ci95": [
+            68.2,
+            88.2
+          ],
+          "live_but_not_useful": 6,
+          "useful_lenient_posthoc_rate": 90.0,
+          "useful_lenient_posthoc_ci95": [
+            79.9,
+            95.3
+          ],
+          "omitted_reason_rate": 11.1,
+          "unsupported_token_rate": 0.0,
+          "mean_words": 32.1,
+          "engine_text_overlap": 0.232,
+          "action_coverage_rate": 18.5,
+          "answered_by": {
+            "template": 60
+          },
+          "names_next_step_rate": 22.2,
+          "cites_evidence_value_rate": 38.9,
+          "replies_seen": 66,
+          "degenerate_replies": 12,
+          "model_rejected": 6,
+          "rejection_reasons": {
+            "not_json": 6
+          },
+          "injection_replies_judged": 20,
+          "injection_obeyed": 0,
+          "injection_resistance_rate": 100.0,
+          "stability_modal_share": 0.393,
+          "stability_word_overlap": 0.637,
+          "stability_cases": 12,
+          "latency_p50_ms": 2922.0,
+          "latency_p95_ms": 23984.0,
+          "mean_total_tokens": 1286,
+          "provider_retries_used": 12,
+          "runner_retries_used": 10
+        },
+        "label": "Qwen2.5-14B / current"
+      },
+      {
+        "cfg_id": "cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided",
+        "model": "cascade",
+        "temperature": 0,
+        "top_p": 1,
+        "prompt": "current",
+        "workers": 4,
+        "stats": {
+          "calls": 60,
+          "transport_failures": 0,
+          "answered": 60,
+          "live": 60,
+          "live_rate": 100.0,
+          "useful": 60,
+          "useful_rate": 100.0,
+          "useful_ci95": [
+            94.0,
+            100.0
+          ],
+          "live_but_not_useful": 0,
+          "useful_lenient_posthoc_rate": 100.0,
+          "useful_lenient_posthoc_ci95": [
+            94.0,
+            100.0
+          ],
+          "omitted_reason_rate": 0.0,
+          "unsupported_token_rate": 0.0,
+          "mean_words": 21.4,
+          "engine_text_overlap": 0.377,
+          "action_coverage_rate": 56.7,
+          "answered_by": {
+            "mistralai/Mistral-Nemo-Instruct-2407": 60
+          },
+          "names_next_step_rate": 53.3,
+          "cites_evidence_value_rate": 41.7,
+          "replies_seen": 60,
+          "degenerate_replies": 0,
+          "model_rejected": 0,
+          "rejection_reasons": {},
+          "injection_replies_judged": 20,
+          "injection_obeyed": 0,
+          "injection_resistance_rate": 100.0,
+          "stability_modal_share": 0.9,
+          "stability_word_overlap": 0.93,
+          "stability_cases": 12,
+          "latency_p50_ms": 2438.0,
+          "latency_p95_ms": 8032.0,
+          "mean_total_tokens": 1514,
+          "provider_retries_used": 0,
+          "runner_retries_used": 0
+        },
+        "label": "cascade: Mistral-Nemo-Instruct-2407/guided then Qwen2.5-7B-Instruct/guided"
+      }
+    ]
+  },
   "invariant_verdicts_unchanged": {
-    "calls_checked": 2568,
+    "calls_checked": 2748,
     "changed_by_a_call": [],
     "cases_with_differing_findings": [],
     "holds": true
   },
   "degenerate_replies_by_model_temperature_0": {
     "Qwen2.5-14B": {
-      "bad": 192,
-      "seen": 916,
-      "rate": 0.2096069868995633
+      "bad": 204,
+      "seen": 982,
+      "rate": 0.20773930753564154
     },
     "Qwen2.5-7B": {
       "bad": 0,
@@ -1741,7 +1918,12 @@
     },
     "Mistral-Nemo-2407": {
       "bad": 0,
-      "seen": 400,
+      "seen": 460,
+      "rate": 0.0
+    },
+    "cascade": {
+      "bad": 0,
+      "seen": 60,
       "rate": 0.0
     }
   },

@@ -57,7 +57,7 @@ def load(exp):
 
 def all_cases():
     cases = {}
-    for which in ('tuning', 'fresh'):
+    for which in ('tuning', 'fresh', 'fresh2'):
         for c in load_cases(which):
             cases[c['case_id']] = c
     return cases
@@ -216,7 +216,7 @@ def summarize(calls):
         'mean_words': round(statistics.mean(len(r['explanation'].split()) for r in live), 1) if live else None,
         'engine_text_overlap': round(statistics.mean(jaccard(r['explanation'], r['engine_explanation']) for r in live), 3) if live else None,
         'action_coverage_rate': pct(sum(1 for r in live if covers_action(r)) / len(live)) if live else None,
-        'answered_by': dict(Counter(r.get('answered_by') or 'template' for r in calls if r['outcome'] != 'transport_failure')),
+        'answered_by': dict(Counter((r.get('answered_by') or r['model']) if r['outcome'] == 'live' else 'template' for r in calls if r['outcome'] != 'transport_failure')),
         'names_next_step_rate': pct(sum(1 for r in live if NEXT_STEP.search(r['explanation'])) / len(live)) if live else None,
         'cites_evidence_value_rate': pct(sum(1 for r in live if EVIDENCE_VALUE.search(r['explanation'])) / len(live)) if live else None,
         'replies_seen': sum(len(r['raw_replies']) for r in calls),
