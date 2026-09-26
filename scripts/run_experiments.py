@@ -11,6 +11,8 @@ Usage (resumable: a finished (config, case, repeat) is never called twice):
     python scripts/run_experiments.py e4 --temperature 0 --prompt current
     python scripts/run_experiments.py e5 --temperature 0 --model Qwen/Qwen2.5-14B-Instruct --prompt fewshot --reps 5
     python scripts/run_experiments.py e6 --reps 5              # fluent candidates vs default vs the terse winner, fresh cases
+    python scripts/run_experiments.py e7 --reps 3               # round two: choose cascade tiers on the tuning set
+    python scripts/run_experiments.py e8 --tier1 mistralai/Mistral-Nemo-Instruct-2407:guided --tier2 Qwen/Qwen2.5-7B-Instruct:guided --reps 10
     python scripts/run_experiments.py probe --models a,b     # one call per model, to check it can answer in JSON
 
 Raw output: experiments/raw/<experiment>.jsonl. Nothing secret is written: not the key, the client or the environment.
@@ -32,10 +34,13 @@ from llm_adapter import CascadeExplanationProvider, FeatherlessExplanationProvid
 from yara_engine import engine_code_hash
 
 RAW = ROOT / 'experiments' / 'raw'
+# The round-one baseline model (with prompt 'current' = v1.3.0). Since round two the production default is Mistral-Nemo (see llm_adapter).
 DEFAULT_MODEL = 'Qwen/Qwen2.5-14B-Instruct'
 TEMPERATURES = [0, 0.2, 0.5, 0.8, 1.0]
 WORKERS_GRID = [1, 2, 4, 8]
-PROMPTS = {'current': None, 'short': ROOT / 'prompts' / 'variants' / 'short.md',
+# 'current' is the round-one baseline, prompt v1.3.0, frozen under prompts/variants/. 'production' is whatever
+# prompts/explain_findings.md holds now (v1.4.0 since round two, byte-identical to 'guided' except for the title line).
+PROMPTS = {'current': ROOT / 'prompts' / 'variants' / 'v1_3_0.md', 'production': None, 'short': ROOT / 'prompts' / 'variants' / 'short.md',
            'fewshot': ROOT / 'prompts' / 'variants' / 'fewshot.md', 'guided': ROOT / 'prompts' / 'variants' / 'guided.md'}
 TRANSPORT = {'APITimeoutError', 'APIConnectionError', 'RateLimitError', 'InternalServerError', 'TransientProviderError',
              'TimeoutError', 'ConnectionError', 'ReadTimeout', 'ConnectTimeout'}

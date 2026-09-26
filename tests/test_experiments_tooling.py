@@ -24,7 +24,27 @@ class ProductionDefaultsAreUnchanged(unittest.TestCase):
         self.assertEqual(params['top_p'].default, 1)
         self.assertIsNone(params['instructions'].default)
         self.assertEqual(params['max_tokens'].default, 500)
-        self.assertEqual(FeatherlessExplanationProvider.DEFAULT_MODEL, 'Qwen/Qwen2.5-14B-Instruct')
+        # Changed on purpose in round two (docs/21): Mistral-Nemo + prompt v1.4.0. The round-one baseline is R.DEFAULT_MODEL.
+        self.assertEqual(FeatherlessExplanationProvider.DEFAULT_MODEL, 'mistralai/Mistral-Nemo-Instruct-2407')
+        self.assertEqual(R.DEFAULT_MODEL, 'Qwen/Qwen2.5-14B-Instruct')
+
+    def test_the_shipped_prompt_is_v1_4_0_and_is_the_prompt_that_was_measured(self):
+
+        shipped = (ROOT / 'prompts' / 'explain_findings.md').read_text(encoding='utf-8').replace(chr(13) + chr(10), chr(10))
+
+        measured = (ROOT / 'prompts' / 'variants' / 'guided.md').read_text(encoding='utf-8').replace(chr(13) + chr(10), chr(10))
+
+        self.assertTrue(shipped.startswith('# Explanation helper prompt v1.4.0' + chr(10)))
+
+        self.assertEqual(shipped.split(chr(10), 1)[1], measured.split(chr(10), 1)[1])  # only the title line differs
+
+        frozen = (ROOT / 'prompts' / 'variants' / 'v1_3_0.md').read_text(encoding='utf-8')
+
+        self.assertTrue(frozen.startswith('# Explanation helper prompt v1.3.0'))
+
+        self.assertIn('Mistral-Nemo', (ROOT / 'src' / 'llm_adapter.py').read_text(encoding='utf-8'))
+
+
 
     def test_the_default_prompt_is_still_the_frozen_file_and_an_override_replaces_only_the_instructions(self):
         finding = {'claim_id': 'CG-1', 'rule_id': 'R001', 'status': 'FAIL', 'requires_human_review': True,
@@ -94,7 +114,7 @@ class CommittedData(unittest.TestCase):
     def test_the_results_tables_have_a_row_for_every_configuration(self):
         summary = json.loads((ROOT / 'experiments' / 'summary.json').read_text(encoding='utf-8'))
         tables = (ROOT / 'experiments' / 'results_tables.md').read_text(encoding='utf-8')
-        for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6'):
+        for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'):
             for cfg in summary[exp]['configs']:
                 self.assertIn('| ' + cfg['label'] + ' |', tables, cfg['cfg_id'])
 
@@ -120,7 +140,7 @@ class CommittedData(unittest.TestCase):
             self.assertNotIn('Bearer ', text, path.name)
 
     def test_the_grounding_guard_and_the_recorded_calls_use_the_same_case_files(self):
-        cases = {c['case_id'] for c in R.load_cases('tuning')} | {c['case_id'] for c in R.load_cases('fresh')}
+        cases = {c['case_id'] for c in R.load_cases('tuning')} | {c['case_id'] for c in R.load_cases('fresh')} | {c['case_id'] for c in R.load_cases('fresh2')}
         for _, r in self.records():
             if r['type'] == 'call':
                 self.assertIn(r['case_id'], cases)

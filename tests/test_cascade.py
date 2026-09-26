@@ -183,5 +183,41 @@ class CascadeInThePipeline(unittest.TestCase):
         self.assertEqual((out['answered_by'], out['used_fallback']), ('qwen7', False))
 
 
+class DefaultProviderConfiguration(unittest.TestCase):
+    def setUp(self):
+        import os
+        self.os = os
+        self.saved = {k: os.environ.get(k) for k in ('FEATHERLESS_API_KEY', 'FEATHERLESS_FALLBACK_MODEL', 'FEATHERLESS_MODEL')}
+        os.environ['FEATHERLESS_API_KEY'] = 'not-a-real-key'
+        os.environ.pop('FEATHERLESS_FALLBACK_MODEL', None)
+        os.environ.pop('FEATHERLESS_MODEL', None)
+
+    def tearDown(self):
+        for k, v in self.saved.items():
+            if v is None:
+                self.os.environ.pop(k, None)
+            else:
+                self.os.environ[k] = v
+
+    def test_by_default_one_model_and_no_cascade(self):
+        from llm_adapter import default_provider, FeatherlessExplanationProvider
+        p = default_provider()
+        self.assertIsInstance(p, FeatherlessExplanationProvider)
+        self.assertEqual(p.model, 'mistralai/Mistral-Nemo-Instruct-2407')
+        self.assertEqual((p.temperature, p.top_p), (0, 1))
+
+    def test_a_fallback_model_in_the_environment_turns_on_the_cascade(self):
+        from llm_adapter import default_provider
+        self.os.environ['FEATHERLESS_FALLBACK_MODEL'] = 'Qwen/Qwen2.5-7B-Instruct'
+        p = default_provider()
+        self.assertIsInstance(p, CascadeExplanationProvider)
+        self.assertEqual([t.model for t in p.tiers], ['mistralai/Mistral-Nemo-Instruct-2407', 'Qwen/Qwen2.5-7B-Instruct'])
+
+    def test_the_round_one_model_is_still_one_setting_away(self):
+        from llm_adapter import default_provider
+        self.os.environ['FEATHERLESS_MODEL'] = 'Qwen/Qwen2.5-14B-Instruct'
+        self.assertEqual(default_provider().model, 'Qwen/Qwen2.5-14B-Instruct')
+
+
 if __name__ == '__main__':
     unittest.main()

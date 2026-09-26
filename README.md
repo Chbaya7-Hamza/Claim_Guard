@@ -68,7 +68,7 @@ uv venv --python 3.10 .venv
 uv pip install --python .venv -r requirements.txt
 cp .env.example .env        # optional: add FEATHERLESS_API_KEY for live AI explanations. Never commit .env.
 
-python -m unittest discover -s tests          # 364 tests, about 60 s, offline, no API key needed
+python -m unittest discover -s tests          # 380 tests, about 60 s, offline, no API key needed
 
 # run the 15 rules over a split, score it against the answer key, and open the review page
 python src/run_yara.py --input data/development/claims.jsonl --output outputs/yara_dev_predictions.jsonl
@@ -89,8 +89,8 @@ On Windows use `.venv\Scripts\python.exe`. Without an API key the AI step uses a
 |---|---|
 | Status accuracy, issue precision and recall, all 15 rules | **1.0** on the development, validation and stress splits (9,000 of 9,000 results) |
 | Independent oracle agreement (rules written again from the rulebook text alone) | 0 disagreements over about 111,000 generated claims and 123 hand-derived edge cases |
-| Tests | 364, all offline, on Python 3.10, 3.12 and 3.14 (last verified on all three at the commit named in `docs/19`) |
-| Live AI explanations (Qwen2.5-14B via Featherless.ai) | see `docs/21_Experiments.md` for temperature, model and prompt experiments |
+| Tests | 380, all offline, on Python 3.10, 3.12 and 3.14 (last verified on all three at the commit named in `docs/19`) |
+| Live AI explanations (Mistral-Nemo-Instruct-2407 via Featherless.ai, prompt v1.4.0, temperature 0) | 99% useful, 0 garbled replies and 100% injection resistance on 12 new cases; chosen by two rounds of experiments (`docs/21_Experiments.md`), adopted by judgement after the pre-registered rule found no arm meeting every criterion |
 | Security | audited against the OWASP Top 10 for LLM Applications and the OWASP Top 10: `docs/20_Security_Audit.md` |
 
 Perfect scores on the public splits are not evidence of generalization. The mentor-held 200 claims are not available to us; the independent oracle and the stress tests are the closest substitute.
@@ -103,7 +103,7 @@ Perfect scores on the public splits are not evidence of generalization. The ment
 | `rules/` | `core.yar` (compiled rule pack), `rules.json`, `policies.json`, catalogues |
 | `schemas/` | JSON schemas for claims, results and review events |
 | `data/` | 600 synthetic claims in three splits, in JSONL, CSV and FHIR forms, with the public answer key |
-| `tests/` | 364 tests, including `oracle.py` (independent reference implementation) and the stress and security suites |
+| `tests/` | 380 tests, including `oracle.py` (independent reference implementation) and the stress and security suites |
 | `scripts/` | Audited runs, audit verification, AI evaluation and the experiment runner |
 | `experiments/` | Raw experiment data and `summary.json`; figures are in `docs/figures/` |
 | `outputs/` | Frozen evidence: metrics, audit samples, recorded live AI runs |

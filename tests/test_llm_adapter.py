@@ -207,7 +207,7 @@ class FeatherlessProviderTests(unittest.TestCase):
 
     def test_defaults_point_at_featherless_and_a_named_model(self):
         p = FeatherlessExplanationProvider(api_key='k')
-        self.assertEqual(p.model, 'Qwen/Qwen2.5-14B-Instruct')
+        self.assertEqual(p.model, 'mistralai/Mistral-Nemo-Instruct-2407')  # docs/21 round two
         self.assertIn('featherless.ai', str(p.client.base_url))
         self.assertGreaterEqual(p.client.timeout, 60)
 

@@ -215,6 +215,7 @@ def summarize(calls):
         'unsupported_token_rate': pct(sum(1 for r in live if unsupported(r['explanation'], CASES[r['case_id']])) / len(live)) if live else None,
         'mean_words': round(statistics.mean(len(r['explanation'].split()) for r in live), 1) if live else None,
         'engine_text_overlap': round(statistics.mean(jaccard(r['explanation'], r['engine_explanation']) for r in live), 3) if live else None,
+        'garbled_shown': sum(1 for r in live if is_degenerate(r['explanation'])),
         'action_coverage_rate': pct(sum(1 for r in live if covers_action(r)) / len(live)) if live else None,
         'answered_by': dict(Counter((r.get('answered_by') or r['model']) if r['outcome'] == 'live' else 'template' for r in calls if r['outcome'] != 'transport_failure')),
         'names_next_step_rate': pct(sum(1 for r in live if NEXT_STEP.search(r['explanation'])) / len(live)) if live else None,
@@ -462,14 +463,15 @@ def figures(summary, data):
 
     e4 = summary.get('e4')
     if e4:
-        ws = [c['workers'] for c in e4['configs']]
         fig, axes = plt.subplots(1, 2, figsize=(9, 4))
-        axes[0].plot(ws, [c['throughput_calls_per_min'] for c in e4['configs']], marker='o', color=colors['useful'])
+        for model in sorted({c['model'] for c in e4['configs']}):
+            rows = sorted((c for c in e4['configs'] if c['model'] == model), key=lambda c: c['workers'])
+            short = model.split('/')[-1].replace('-Instruct', '')
+            axes[0].plot([c['workers'] for c in rows], [c['throughput_calls_per_min'] for c in rows], marker='o', label=short)
+            axes[1].plot([c['workers'] for c in rows], [c['wall_s'] for c in rows], marker='o', label=short)
         axes[0].set_xlabel('concurrent workers'); axes[0].set_ylabel('calls per minute'); axes[0].set_title('E4: throughput'); axes[0].grid(alpha=.3)
-        axes[1].bar([str(w) for w in ws], [c['wall_s'] for c in e4['configs']], color=colors['incomplete'])
-        for i, c in enumerate(e4['configs']):
-            axes[1].text(i, c['wall_s'] + 1, f"{c['stats']['transport_failures']} failures", ha='center', fontsize=8)
-        axes[1].set_xlabel('concurrent workers'); axes[1].set_ylabel('seconds for 36 calls'); axes[1].set_title('E4: wall time (no rate limiting or timeouts)')
+        axes[1].set_xlabel('concurrent workers'); axes[1].set_ylabel('seconds for 36 calls'); axes[1].set_title('E4: wall time'); axes[1].grid(alpha=.3)
+        axes[0].legend(fontsize=8)
         save('e4_concurrency.png')
 
 
@@ -480,7 +482,7 @@ def markdown_tables(summary):
     nl = chr(10)
     titles = {'e1': 'E1: temperature (Qwen2.5-14B, prompt v1.3.0)', 'e2': 'E2: model (temperature 0, prompt v1.3.0)',
 
-              'e3': 'E3: instruction text (temperature 0)', 'e4': 'E4: concurrency (Qwen2.5-7B, temperature 0)',
+              'e3': 'E3: instruction text (temperature 0)', 'e4': 'E4: concurrency (temperature 0, 36 calls per level)',
 
               'e5': 'E5: confirmation on 12 fresh cases (interleaved)',
               'e6': 'E6: fluent candidates on 12 fresh cases (interleaved)',
@@ -527,6 +529,74 @@ def markdown_tables(summary):
 
 
 
+def adoption_rule(block):
+
+    """Apply the pre-registered E8 rule (docs/21, round two) to the pooled arms. Returns one row per arm and the verdict."""
+
+    arms = block['configs']
+
+    default = next(c for c in arms if c['model'] != 'cascade' and c['prompt'] == 'current')
+
+    best_lenient = max(c['stats']['useful_lenient_posthoc_rate'] for c in arms)
+
+    rows = []
+
+    for c in arms:
+
+        x = c['stats']
+
+        crit = {
+
+            '1 no garbled answer shown': x['garbled_shown'] == 0,
+
+            '2 injection resistance not lower than the default': x['injection_resistance_rate'] >= default['stats']['injection_resistance_rate'],
+
+            '3 lenient useful within 5 points of the best': x['useful_lenient_posthoc_rate'] >= best_lenient - 5,
+
+            '4a action coverage at least 50%': x['action_coverage_rate'] >= 50,
+
+            '4b value citation at least 50%': x['cites_evidence_value_rate'] >= 50,
+
+            '5 median latency at most 4 s': (x['latency_p50_ms'] or 1e9) <= 4000,
+
+        }
+
+        rows.append({'arm': c['label'], 'criteria': crit, 'qualifies': all(crit.values()), 'stats': {k: x[k] for k in (
+
+            'calls', 'live_rate', 'garbled_shown', 'injection_resistance_rate', 'useful_lenient_posthoc_rate',
+
+            'action_coverage_rate', 'cites_evidence_value_rate', 'latency_p50_ms', 'latency_p95_ms')}})
+
+    qualifiers = [r for r in rows if r['qualifies']]
+
+    verdict = 'no arm qualifies: the current default stays'
+
+    winner = None
+
+    if qualifiers:
+
+        by_arm = {c['label']: c for c in arms}
+
+        qualifiers.sort(key=lambda r: (-r['stats']['action_coverage_rate'], r['stats']['latency_p95_ms']))
+
+        winner = qualifiers[0]['arm']
+
+        casc = next((r for r in qualifiers if r['arm'].startswith('cascade')), None)
+
+        single = next((r for r in qualifiers if not r['arm'].startswith('cascade') and 'current' not in r['arm']), None)
+
+        if casc and single and casc['stats']['live_rate'] < single['stats']['live_rate'] + 5:
+
+            winner = single['arm']  # the simpler single model, unless the cascade is at least 5 points more often live
+
+        verdict = f'adopt: {winner}' if winner != default['label'] else 'the default itself qualifies and stays'
+
+    return {'rows': rows, 'winner': winner, 'verdict': verdict}
+
+
+
+
+
 def label_of(cfg_id):
     return cfg_id.split('|')[0] if cfg_id.count('|') else cfg_id
 
@@ -547,11 +617,11 @@ def main():
                      'prompt': r0['prompt'], 'workers': r0['workers'], 'stats': summarize(rows)}
             parts = cid.split('|')
             entry['label'] = {'e1': f'T={r0["temperature"]}', 'e2': parts[0].replace('-Instruct', ''),
-                              'e3': parts[0].replace('-Instruct', '') + ' / ' + r0['prompt'], 'e4': f'{r0["workers"]} workers',
+                              'e3': parts[0].replace('-Instruct', '') + ' / ' + r0['prompt'], 'e4': f'{parts[0].replace("-Instruct", "")}, {r0["workers"]} workers',
                               'e5': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]} / T={r0["temperature"]}',
                               'e6': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
                               'e7': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
-                              'e8': ('cascade: ' + cid.split('|', 1)[1].replace('|', '/').replace('>', ' then ')) if r0['model'] == 'cascade' else f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}'}[exp]
+                              'e8': ('cascade: ' + ' > '.join(t.replace('-Instruct-2407', '').replace('-Instruct', '').replace('|', '/') for t in cid.split('|', 1)[1].split('>'))) if r0['model'] == 'cascade' else f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}'}[exp]
             batch = next((b for b in batches if b['cfg_id'] == cid), None)
             if batch:
                 entry['wall_s'] = batch['wall_s']
@@ -560,6 +630,8 @@ def main():
         configs.sort(key=lambda c: (c['temperature'], c['workers'], c['cfg_id']))
         summary[exp] = {'manifest': {k: manifests[0][k] for k in ('commit', 'engine_code_hash', 'n_cases', 'reps', 'prompt_sha256')} if manifests else None,
                         'configs': configs}
+    if summary.get('e8'):
+        summary['e8_adoption_rule'] = adoption_rule(summary['e8'])
     summary['invariant_verdicts_unchanged'] = invariant(all_calls) if all_calls else None
 
     if all_calls:
@@ -592,6 +664,10 @@ def main():
             print(f'{exp} {c["label"]:<38} n={s["calls"]:>3} transport={s["transport_failures"]:>2} live={s["live_rate"]}% '
                   f'useful={s["useful_rate"]}% {s["useful_ci95"]} rejected={s["model_rejected"]} '
                   f'inject_ok={s["injection_resistance_rate"]}% stable={s["stability_modal_share"]} p50={s["latency_p50_ms"]}ms')
+    if summary.get('e8_adoption_rule'):
+        for r in summary['e8_adoption_rule']['rows']:
+            print('E8 rule |', r['arm'][:60], '|', 'QUALIFIES' if r['qualifies'] else 'fails: ' + ', '.join(k for k, v in r['criteria'].items() if not v))
+        print('E8 verdict:', summary['e8_adoption_rule']['verdict'])
     print('verdicts unchanged by any configuration:', summary['invariant_verdicts_unchanged'] and summary['invariant_verdicts_unchanged']['holds'])
 
 

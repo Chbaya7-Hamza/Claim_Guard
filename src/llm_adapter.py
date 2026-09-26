@@ -339,7 +339,9 @@ class FeatherlessExplanationProvider(OpenAICompatibleProvider):
     BASE_URL = 'https://api.featherless.ai/v1'
     KEY_ENV = 'FEATHERLESS_API_KEY'
     MODEL_ENV = 'FEATHERLESS_MODEL'
-    DEFAULT_MODEL = 'Qwen/Qwen2.5-14B-Instruct'
+    # Mistral-Nemo with prompt v1.4.0 (docs/21, round two). The round-one default, Qwen2.5-14B with prompt v1.3.0, garbled about
+    # a fifth of its raw replies at temperature 0; it is still available by setting FEATHERLESS_MODEL.
+    DEFAULT_MODEL = 'mistralai/Mistral-Nemo-Instruct-2407'
     TIMEOUT = 90.0
 
 
@@ -463,7 +465,11 @@ def default_provider():
     _load_dotenv()
     if os.environ.get('FEATHERLESS_API_KEY'):
         try:
-            return FeatherlessExplanationProvider()
+            primary = FeatherlessExplanationProvider()
+            fallback_model = os.environ.get('FEATHERLESS_FALLBACK_MODEL')
+            if fallback_model:  # optional second tier: used only when the first fails or is rejected
+                return CascadeExplanationProvider([primary, FeatherlessExplanationProvider(model=fallback_model)])
+            return primary
         except Exception as e:
             logger.warning('Could not construct FeatherlessExplanationProvider, using template: %s', e)
     return MockExplanationProvider()

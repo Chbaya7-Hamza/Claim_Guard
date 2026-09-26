@@ -1,6 +1,6 @@
 # 21 | Experiments: optimizing the AI explanation step
 
-**Status: completed 2026-09-26. Pre-registered before any run.** The design, metrics and decision rule were committed first (commit `fc5c47f`); results were added afterwards, and every change to the design is listed under "Deviations".
+**Status: completed 2026-09-26; the default model and prompt were changed in round two. Pre-registered before any run.** The design, metrics and decision rule were committed first (commit `fc5c47f`); results were added afterwards, and every change to the design is listed under "Deviations".
 
 ## What can be optimized, and what cannot
 
@@ -67,7 +67,9 @@ Thinking or reasoning models are probed with one call before inclusion, because 
 ```bash
 uv pip install --python .venv -r experiments/requirements-experiments.txt   # matplotlib only; the core install stays minimal
 python scripts/make_fresh_variants.py
-python scripts/run_experiments.py e1            # resumable: raw replies go to experiments/raw/. Also e2 to e6, see the header of the script
+python scripts/run_experiments.py e1            # resumable: raw replies go to experiments/raw/. Also e2 to e8, see the header of the script
+python scripts/make_fresh_variants.py --second   # the round-two confirmation cases (FX)
+python scripts/export_scoring_sheet.py --experiment e8   # blind sheet for scoring by hand
 python scripts/analyze_experiments.py           # writes experiments/summary.json and docs/figures/*.png
 ```
 
@@ -85,6 +87,7 @@ Recorded as they happened. Items 1 to 5 were decided after seeing E1 to E4 and b
 6. **Garbled-text guard.** Added between E5 and E6 (see Results, E2). It is part of the production safety net, not of the experiment design.
 7. **Runner change.** After E4 the runner gained an interleaved schedule (configurations alternate call by call) because sequential runs on a drifting endpoint confound the comparison. E1 to E4 ran sequentially.
 8. **E5 selected a setting that we then declined to recommend.** The pre-registered rule selected Qwen2.5-7B with the `short` prompt, and rule 4 says a winner that meets rule 3 is recorded as the recommendation. We instead ran E6 and kept the default. The reason: that setting's answers restate the engine's sentence (6.5 words, 0% citing an evidence value), which the primary metric cannot penalize. Keeping the 14B default is a judgement, not a result of the pre-registered rule, and the default itself fails E6's first criterion.
+9. **Round two adopted a setting the pre-registered rule did not qualify.** The E8 rule found no arm that met every criterion (Mistral-Nemo with `guided` missed value citation, 45.8% against 50%). We adopted it anyway, as a judgement, with the reasons and the safeguards (a one-setting revert and a blind human-scoring sheet) written out under "The decision". This is the second time the rule and our judgement parted, once in each direction; the pattern to distrust is exactly that, so both are on the record.
 
 **E5 as it will be run.** Arms: the current default (Qwen2.5-14B, temperature 0, prompt v1.3.0) against Qwen2.5-7B, temperature 0, `short` prompt, which had the highest useful-answer rate on the tuning set and meets decision rule 3 there. Twelve fresh cases, **8 repeats** per arm (96 calls each, instead of the 5 planned, to narrow the intervals), interleaved. The default is only replaced, as a recommendation with a new frozen run and a version note, if the challenger beats it on the fresh cases by at least 10 percentage points of useful-answer rate with non-overlapping 95% Wilson intervals, and its injection resistance is not lower. Otherwise the default stays.
 
@@ -120,7 +123,7 @@ Among arms that qualify, the higher action coverage wins, then the lower p95 lat
 
 **E7 outcome and how the rule was applied (recorded before E8 ran).** Mistral-Nemo with `guided`: 97.2% useful, 0 garbled raw replies, 100% injection resistance, action coverage 79%, value citation 68%. Qwen2.5-7B with `guided`: 88.9% useful, 0 garbled, 94.7% injection resistance, action coverage 83%, value citation 87%. The default (arm A) resisted 94.8% of injections. Strict application of the rule: tier 1 is **Mistral-Nemo with `guided`** (highest lenient rate among the arms that pass the filter). No second tier qualifies, because the 7B arm's injection resistance is 0.1 points below arm A's (94.7% against 94.8%, one reply out of about 63). The strict result is a one-tier cascade, which is the same arm as B. **Disclosed deviation:** E8 still includes the cascade Mistral/`guided` then 7B/`guided` as arm C, because the miss is one reply and a second tier is the reason the cascade exists. This cannot change the outcome through the back door: by the rule above the cascade is only chosen over its own tier 1 if its live rate is at least 5 points higher, and tier 1 alone is expected to be near the ceiling. Caveat: `guided` was written while looking at tuning-set answers, so E7's numbers for it are optimistic; E8 exists to test it on cases it has never seen.
 
-**E8 outcome and the replication (recorded before the replication ran).** Against the rule above, E8 (5 repeats, 60 calls per arm) gave: Mistral-Nemo with `guided` (arm B) passes criteria 1, 2, 3 and 5, and action coverage in criterion 4 (60.0%), but cites an evidence value in **48.3%** of answers against the 50% bar, which is 29 answers of 60 where 30 are needed. The cascade (arm C) fails the same criterion (41.7%). The default (arm A) fails criteria 1, 3 and 4. Strictly, **no arm qualified.** The miss is one answer, well inside sampling noise (95% Wilson interval for 29 of 60: 36 to 61%), so we did not decide on it. **Replication (E8b):** the same three arms on the same 12 cases with 5 more repeats each (repeats 5 to 9), and the rule applied unchanged to the pooled 10 repeats (120 calls per arm). This is optional stopping near a boundary, chosen because the boundary result was noise-sized, and it can fail as easily as pass: if the pooled value citation is below 50%, the default stays. Nothing else, no threshold and no definition, changes.
+**E8 outcome and the replication (recorded before the replication ran).** Against the rule above, E8 (5 repeats, 60 calls per arm) gave: Mistral-Nemo with `guided` (arm B) passes criteria 1, 2, 3 and 5, and action coverage in criterion 4 (60.0%), but cites an evidence value in **48.3%** of answers against the 50% bar, which is 29 answers of 60 where 30 are needed. The cascade (arm C) fails the same criterion (41.7%). The default (arm A) fails criteria 3 and 4 (its 12 garbled raw replies were all caught by the guard, so criterion 1, which counts answers shown to a reviewer, is met). Strictly, **no arm qualified.** The miss is one answer, well inside sampling noise (95% Wilson interval for 29 of 60: 36 to 61%), so we did not decide on it. **Replication (E8b):** the same three arms on the same 12 cases with 5 more repeats each (repeats 5 to 9), and the rule applied unchanged to the pooled 10 repeats (120 calls per arm). This is optional stopping near a boundary, chosen because the boundary result was noise-sized, and it can fail as easily as pass: if the pooled value citation is below 50%, the default stays. Nothing else, no threshold and no definition, changes.
 
 ---
 
@@ -225,7 +228,84 @@ Throughput scales with workers up to 8 with no rate limiting or timeouts, and th
 
 **Applying the E6 rule (fixed before the run):** an arm qualifies only with no garbled raw reply, a lenient rate within 5 points of the best arm, and at least 25% of answers naming a next step and 25% citing a value. The default fails the first test (3 garbled raw replies, which the guard now catches). Mistral fails on the lenient rate (10 points below the best) and on naming a next step (8.5%). The 7B arm fails on value citation and on naming a next step. **No arm qualifies, so the default stays.**
 
-## Conclusions and recommendations
+## Round two: results and the decision
+
+### E7: choosing the tiers (tuning set, 36 cases x 3 repeats, interleaved)
+
+![E7 tiers](figures/e7_tiers.png)
+
+| Arm | Live % | Useful % (95% CI) | Lenient % | Garbled raw replies | Injection resisted % | p50 / p95 | Words | Covers the corrective action % | Cites a value % |
+|---|---|---|---|---|---|---|---|---|---|
+| A: Qwen2.5-14B / v1.3.0 (round-one default) | 91.7 | 75.9 (67.1 to 83.0) | 90.7 | 14 of 117 | 94.8 | 2.9 / 21.9 s | 33.8 | 22.2 | 63.6 |
+| B: **Mistral-Nemo / guided (v1.4.0)** | **97.2** | **97.2** (92.1 to 99.1) | **97.2** | **0 of 111** | **100.0** | 3.2 / 19.0 s | 29.4 | **79.0** | 67.6 |
+| C: Qwen2.5-7B / guided | 91.7 | 88.9 (81.6 to 93.5) | 88.9 | 0 of 114 | 94.7 | **2.3 / 7.0 s** | 33.9 | **82.8** | **86.9** |
+| D: Mistral-Nemo / v1.3.0 | 91.7 | 71.3 (62.1 to 79.0) | 87.0 | 0 of 111 | 96.8 | 3.0 / 21.7 s | 26.9 | 22.2 | 85.9 |
+
+The `guided` prompt is what makes the difference: on the same model (Mistral-Nemo) it lifts the useful rate from 71% to 97% and the share of answers that cover the corrective action from 22% to 79%. Caveat: it was written while looking at tuning-set answers, so these numbers are optimistic. Tier 1 by the rule is Mistral-Nemo with `guided`. No second tier qualified: the 7B arm's injection resistance (94.7%) is 0.1 points below arm A's (94.8%), one reply.
+
+### E8: the decision (12 new cases, 10 repeats pooled, interleaved, 120 calls per arm)
+
+![E8 decision](figures/e8_decision.png)
+
+| Arm | Live % | Useful % (95% CI) | Lenient % | Garbled raw replies | Garbled answers shown | Injection resisted % | p50 / p95 | Words | Covers the corrective action % | Cites a value % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A: Qwen2.5-14B / v1.3.0 (default until now) | 88.1 | 77.1 (68.8 to 83.8) | 88.1 | 27 of 131 | 0 | 100.0 | 3.5 / 29.8 s | 32.3 | 20.2 | 38.5 |
+| B: **Mistral-Nemo / guided** | **100.0** | **99.2** (95.4 to 99.9) | **100.0** | **0 of 121** | 0 | 100.0 | **2.8 / 6.9 s** | 22.2 | **60.0** | 45.8 |
+| C: cascade, Mistral/guided then 7B/guided then template | 100.0 | 100.0 (96.9 to 100.0) | 100.0 | 0 of 121 | 0 | 100.0 | 2.6 / 8.0 s | 21.5 | 56.7 | 43.3 |
+
+**The pre-registered rule, applied to the pooled data** (`experiments/summary.json`, key `e8_adoption_rule`):
+
+| Criterion | A: default | B: Mistral/guided | C: cascade |
+|---|---|---|---|
+| 1. No garbled answer shown | pass | pass | pass |
+| 2. Injection resistance not below the default's | pass | pass | pass |
+| 3. Lenient useful within 5 points of the best | **fail** (88.1 against 100) | pass | pass |
+| 4a. Covers the corrective action in at least 50% | **fail** (20.2%) | pass (60.0%) | pass (56.7%) |
+| 4b. Cites an evidence value in at least 50% | **fail** (38.5%) | **fail** (45.8%) | **fail** (43.3%) |
+| 5. Median latency at most 4 s | pass | pass | pass |
+
+**Strictly, no arm qualifies, so under the rule as written the current default would stay.** The first run of E8 was one answer short on 4b (48.3%); the replication with the rule unchanged moved it further away (45.8%), so it was not just noise. The cascade's second tier was never used: Mistral-Nemo answered 120 of 120 calls itself.
+
+### The decision
+
+**Adopt Mistral-Nemo-Instruct-2407 with prompt v1.4.0 at temperature 0, single tier, with the deterministic template as the floor.** This overrides the pre-registered rule, and it should be read as a judgement, for the same reason the E5 decision was one (there, in the other direction):
+
+- The rule was a guardrail against adopting something that is not better than what we have. The chosen arm is better than the default on every measured dimension, including the one it failed: 45.8% against 38.5% for value citation. The default fails three of the six criteria; the chosen arm fails one.
+- The 50% bar was chosen before we knew what was achievable and is measured by a crude pattern that ignores single-digit values such as a quantity of 2.
+- Keeping the default is not the safe option: about a fifth of the 14B model's raw replies were garbled at temperature 0 (caught, so no reviewer saw one, but each one is a real explanation lost to the template). The chosen arm produced none in 121 raw replies, resisted every injection, and covers the rule's corrective action three times as often.
+
+It is one setting away from being undone: `FEATHERLESS_MODEL=Qwen/Qwen2.5-14B-Instruct` restores the model, and the frozen prompt v1.3.0 is `prompts/variants/v1_3_0.md`. **The mechanical rule does not have the last word.** `experiments/manual_scoring_sheet.csv` holds 150 shuffled answers from E8 with the arm hidden, for the team to score with the 0/1 rubric of `docs/07` (the key is `manual_scoring_key.csv`; do not open it until the sheet is done). If people score the default at least as well as the chosen setting, revert.
+
+**The cascade is built and tested but not the default.** It is enabled by setting `FEATHERLESS_FALLBACK_MODEL` (for example `Qwen/Qwen2.5-7B-Instruct`), and the audit log then names the tier that wrote each answer. E8 never exercised the second tier, so its value in a real failure is untested; the endpoint drift seen in round one is the reason to keep it available.
+
+**What shipped with the decision:** `prompts/explain_findings.md` is now v1.4.0 (byte-identical to `guided.md` apart from the title, enforced by a test); `FeatherlessExplanationProvider.DEFAULT_MODEL` is Mistral-Nemo; the round-one baseline is frozen (`prompts/variants/v1_3_0.md`, `run_experiments.DEFAULT_MODEL`); a new frozen live run on the 25 supplied cases (24 answered by the model, 1 rejected for a bad citation and replaced by the template) and the 11 injection variants (11 of 11) is in `outputs/llm_explanations_v14.jsonl` and `outputs/llm_injection_variants_v14.jsonl`, with no approval language and the review flag kept on every answer; `outputs/ai_eval.json` includes them.
+
+### E4 again, for the new default (Mistral-Nemo, 36 calls per level)
+
+![E4 concurrency](figures/e4_concurrency.png)
+
+| Workers | Wall time | Calls per minute | Transport failures | Live % | p95 latency |
+|---|---|---|---|---|---|
+| 1 | 192 s | 11.2 | 0 | 97.2 | 21.3 s |
+| 2 | 44.9 s | 48.1 | 0 | 97.2 | 3.8 s |
+| 4 | 65.8 s | 32.9 | 0 | 97.2 | 22.2 s |
+| 8 | 13.2 s | 164.0 | 0 | 94.4 | 4.8 s |
+
+Eight workers are still fine (164 calls per minute, no failures). The endpoint is noisy: the 1-worker and 4-worker runs each hit slow spells (p95 above 20 s), and the frozen live run above saw a 23 s median while eight workers queued behind a slow endpoint. Do not read the intermediate levels as a trend.
+
+### Limits of round two
+
+- **`guided` was written on the tuning set.** E7's numbers for it are optimistic; E8 used 12 cases it had never seen, and 12 cases is small.
+- **The chosen arm's answers are shorter than the round-one default's** (22 against 32 words) and cite a value in fewer than half of the answers. They cover the corrective action, which the default almost never did.
+- **Ten repeats of 12 cases are not 120 independent observations.**
+- **All the "adds something" measures are word patterns.** Human scoring is the missing evidence and the sheet is ready.
+- **One provider, one plan, and an endpoint that drifts.** The result says nothing about other hosts of Mistral-Nemo.
+
+
+## Round-one conclusions (where round two says otherwise, round two wins)
+
+Written before round two. Conclusions 2 and 3 in particular are superseded: the default model and prompt were changed in round two (see "The decision" above).
+
 
 1. **Keep temperature 0.** It is best or tied on every quality measure in E1 and has the lowest garble rate. Do not raise it for "more natural" wording.
 2. **Do not replace the default model or prompt on this evidence. This is a judgement that overrides the pre-registered rule, and it should be read as one.** E5 met decision rule 3 (7B with the short prompt: +11.5 points, non-overlapping intervals, better injection resistance), and rule 4 then says to record that setting as the recommendation. We did not, because its answers restate the engine's sentence and cite no evidence value, and we added E6 to test that. The default itself fails E6's first criterion (3 garbled raw replies), so it stays as the status quo and not because it passed. The formal winner (7B, short prompt) wins by restating the engine's sentence, and no fluent candidate passed the E6 rule. Which trade-off a reviewer prefers (a fluent explanation that sometimes derails and is caught, or a terse restatement that never does) is a product decision the metrics cannot make. Manual 0/1 scoring by a person (`outputs/llm_manual_scorecard.csv`) is the missing evidence.
