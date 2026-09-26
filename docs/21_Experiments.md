@@ -125,6 +125,25 @@ Among arms that qualify, the higher action coverage wins, then the lower p95 lat
 
 **E8 outcome and the replication (recorded before the replication ran).** Against the rule above, E8 (5 repeats, 60 calls per arm) gave: Mistral-Nemo with `guided` (arm B) passes criteria 1, 2, 3 and 5, and action coverage in criterion 4 (60.0%), but cites an evidence value in **48.3%** of answers against the 50% bar, which is 29 answers of 60 where 30 are needed. The cascade (arm C) fails the same criterion (41.7%). The default (arm A) fails criteria 3 and 4 (its 12 garbled raw replies were all caught by the guard, so criterion 1, which counts answers shown to a reviewer, is met). Strictly, **no arm qualified.** The miss is one answer, well inside sampling noise (95% Wilson interval for 29 of 60: 36 to 61%), so we did not decide on it. **Replication (E8b):** the same three arms on the same 12 cases with 5 more repeats each (repeats 5 to 9), and the rule applied unchanged to the pooled 10 repeats (120 calls per arm). This is optional stopping near a boundary, chosen because the boundary result was noise-sized, and it can fail as easily as pass: if the pooled value citation is below 50%, the default stays. Nothing else, no threshold and no definition, changes.
 
+## Round three: improving how often the answer covers the corrective action (pre-registered here, before any of these runs)
+
+**Why.** The adopted setting (Mistral-Nemo, prompt v1.4.0) covered the rule's corrective action in only 60% of answers on the E8 confirmation cases. Reading the answers showed a clear pattern (analysis of the 120 recorded E8 answers, no new calls): the model followed the three-sentence shape for rules with rich findings (R003, R004, R010 to R013: 10 of 10 answers) but wrote a single sentence, with no closing instruction, for the rules whose findings are short (R005 1 of 10, R008 0 of 10, R009 0 of 10, R014 1 of 10, R006 3 of 10, R002 7 of 10). The action already reaches the reviewer in the finding's own `corrective_action` field, so this is about the explanation pointing at it.
+
+**Candidate.** `prompts/variants/guided2.md` (v1.5.0). It makes the shape mandatory ("exactly three sentences, even when the finding is short; a shorter reply is incomplete and will be rejected"), names the three parts (WHY, EVIDENCE, ACTION) with their opening words, asks for at least one evidence value with its path, tells the model to start the last sentence with the verb of the rule's `corrective_action` and reuse its key words, and adds a second worked example with a **short** finding. It was checked by eye on twelve tuning-set cases in one iteration (10 of 10 live answers had the closing action; two replies were rejected by the safety net, one for a bad citation and one for an injection variant that flipped the review flag). No fresh case was used to write it.
+
+**E9a (sanity check, tuning set, 36 cases x 3 repeats, interleaved):** v1.4.0 against v1.5.0 on Mistral-Nemo at temperature 0. Reported, not decisive, because the prompt was written while looking at these cases.
+
+**E9b (the decision, 12 new cases, 10 repeats, interleaved, 120 calls per arm).** The twelve cases in `exercises/fresh3_variants.jsonl` (`FZ-01` to `FZ-12`) come from validation and stress claims that appear in no earlier set (checked: 0 overlap), with four new injection phrasings. **v1.5.0 replaces v1.4.0 only if all of these hold:**
+
+1. Action coverage is at least 80% and at least 15 percentage points above v1.4.0's on the same cases.
+2. The lenient useful rate is not more than 3 points below v1.4.0's.
+3. Value citation is not more than 5 points below v1.4.0's.
+4. Injection resistance is not lower than v1.4.0's.
+5. No garbled answer is shown to a reviewer.
+6. Median latency of a live answer is at most 4 seconds.
+
+If any fails, v1.4.0 stays and we say so. If it passes, the change is made deliberately: `prompts/explain_findings.md` becomes v1.5.0 (byte-identical to `guided2.md` apart from the title, enforced by the existing test pattern), the pinned defaults and tests change in the same commit, and a new frozen live run on the 25 supplied and 11 variant cases is recorded. Unlike round two, no part of this rule is a soft bar: if it fails, it fails.
+
 ---
 
 ## Results

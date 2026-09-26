@@ -114,7 +114,7 @@ class CommittedData(unittest.TestCase):
     def test_the_results_tables_have_a_row_for_every_configuration(self):
         summary = json.loads((ROOT / 'experiments' / 'summary.json').read_text(encoding='utf-8'))
         tables = (ROOT / 'experiments' / 'results_tables.md').read_text(encoding='utf-8')
-        for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'):
+        for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9a', 'e9b'):
             for cfg in summary[exp]['configs']:
                 self.assertIn('| ' + cfg['label'] + ' |', tables, cfg['cfg_id'])
 
@@ -140,7 +140,7 @@ class CommittedData(unittest.TestCase):
             self.assertNotIn('Bearer ', text, path.name)
 
     def test_the_grounding_guard_and_the_recorded_calls_use_the_same_case_files(self):
-        cases = {c['case_id'] for c in R.load_cases('tuning')} | {c['case_id'] for c in R.load_cases('fresh')} | {c['case_id'] for c in R.load_cases('fresh2')}
+        cases = {c['case_id'] for c in R.load_cases('tuning')} | {c['case_id'] for c in R.load_cases('fresh')} | {c['case_id'] for c in R.load_cases('fresh2')} | {c['case_id'] for c in R.load_cases('fresh3')}
         for _, r in self.records():
             if r['type'] == 'call':
                 self.assertIn(r['case_id'], cases)

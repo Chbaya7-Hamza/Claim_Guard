@@ -57,7 +57,7 @@ def load(exp):
 
 def all_cases():
     cases = {}
-    for which in ('tuning', 'fresh', 'fresh2'):
+    for which in ('tuning', 'fresh', 'fresh2', 'fresh3'):
         for c in load_cases(which):
             cases[c['case_id']] = c
     return cases
@@ -355,13 +355,15 @@ def figures(summary, data):
                               ('e5', 'E5: confirmation on fresh cases', 'e5_confirmation.png'),
                               ('e6', 'E6: fluent candidates, fresh cases', 'e6_candidates.png'),
                               ('e7', 'E7: choosing tiers (tuning set)', 'e7_tiers.png'),
-                              ('e8', 'E8: the decision (new cases)', 'e8_decision.png')):
+                              ('e8', 'E8: the decision (new cases)', 'e8_decision.png'),
+                              ('e9a', 'E9a: v1.5.0 vs v1.4.0 (tuning set)', 'e9a_prompt_v15.png'),
+                              ('e9b', 'E9b: v1.5.0 vs v1.4.0 (new cases)', 'e9b_prompt_v15.png')):
         block = summary.get(exp)
         if not block:
             continue
         cfgs = block['configs']
         labels = [c['label'] for c in cfgs]
-        fig, axes = plt.subplots(1, 3 if exp in ('e5', 'e6', 'e7', 'e8') else 2, figsize=(13 if exp in ('e5', 'e6', 'e7', 'e8') else 9, 4))
+        fig, axes = plt.subplots(1, 3 if exp in ('e5', 'e6', 'e7', 'e8', 'e9a', 'e9b') else 2, figsize=(13 if exp in ('e5', 'e6', 'e7', 'e8', 'e9a', 'e9b') else 9, 4))
         u = [c['stats']['useful_rate'] for c in cfgs]
         lo = [c['stats']['useful_rate'] - c['stats']['useful_ci95'][0] for c in cfgs]
         hi = [c['stats']['useful_ci95'][1] - c['stats']['useful_rate'] for c in cfgs]
@@ -369,7 +371,7 @@ def figures(summary, data):
         axes[0].set_ylim(0, 105); axes[0].set_ylabel('useful answers %  (95% CI)'); axes[0].set_title(title)
         axes[1].bar(labels, [(c['stats']['latency_p50_ms'] or 0) / 1000 for c in cfgs], color=colors['incomplete'])
         axes[1].set_ylabel('p50 latency (s)'); axes[1].set_title('latency')
-        if exp in ('e5', 'e6', 'e7', 'e8'):  # the primary metric cannot see whether an answer adds anything: show the added-value measures
+        if exp in ('e5', 'e6', 'e7', 'e8', 'e9a', 'e9b'):  # the primary metric cannot see whether an answer adds anything: show the added-value measures
 
             w = 0.38
 
@@ -487,11 +489,13 @@ def markdown_tables(summary):
               'e5': 'E5: confirmation on 12 fresh cases (interleaved)',
               'e6': 'E6: fluent candidates on 12 fresh cases (interleaved)',
               'e7': 'E7: choosing the cascade tiers, tuning set (interleaved)',
-              'e8': 'E8: the decision, 12 new confirmation cases (interleaved)'}
+              'e8': 'E8: the decision, 12 new confirmation cases (interleaved)',
+              'e9a': 'E9a: prompt v1.5.0 against v1.4.0, tuning set (interleaved)',
+              'e9b': 'E9b: prompt v1.5.0 against v1.4.0, 12 new confirmation cases (interleaved)'}
 
     out = []
 
-    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'):
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9a', 'e9b'):
 
         block = summary.get(exp)
 
@@ -603,7 +607,7 @@ def label_of(cfg_id):
 
 def main():
     summary, data, all_calls = {}, {}, []
-    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'):
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9a', 'e9b'):
         calls, batches, manifests = load(exp)
         if not calls:
             continue
@@ -621,6 +625,7 @@ def main():
                               'e5': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]} / T={r0["temperature"]}',
                               'e6': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
                               'e7': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
+                              'e9a': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}', 'e9b': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
                               'e8': ('cascade: ' + ' > '.join(t.replace('-Instruct-2407', '').replace('-Instruct', '').replace('|', '/') for t in cid.split('|', 1)[1].split('>'))) if r0['model'] == 'cascade' else f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}'}[exp]
             batch = next((b for b in batches if b['cfg_id'] == cid), None)
             if batch:
@@ -658,7 +663,7 @@ def main():
         figures(summary, data)
     except ImportError:
         print('matplotlib not installed: skipping figures (uv pip install -r experiments/requirements-experiments.txt)')
-    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'):
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9a', 'e9b'):
         for c in summary.get(exp, {}).get('configs', []):
             s = c['stats']
             print(f'{exp} {c["label"]:<38} n={s["calls"]:>3} transport={s["transport_failures"]:>2} live={s["live_rate"]}% '

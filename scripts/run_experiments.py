@@ -41,7 +41,8 @@ WORKERS_GRID = [1, 2, 4, 8]
 # 'current' is the round-one baseline, prompt v1.3.0, frozen under prompts/variants/. 'production' is whatever
 # prompts/explain_findings.md holds now (v1.4.0 since round two, byte-identical to 'guided' except for the title line).
 PROMPTS = {'current': ROOT / 'prompts' / 'variants' / 'v1_3_0.md', 'production': None, 'short': ROOT / 'prompts' / 'variants' / 'short.md',
-           'fewshot': ROOT / 'prompts' / 'variants' / 'fewshot.md', 'guided': ROOT / 'prompts' / 'variants' / 'guided.md'}
+           'fewshot': ROOT / 'prompts' / 'variants' / 'fewshot.md', 'guided': ROOT / 'prompts' / 'variants' / 'guided.md',
+           'guided2': ROOT / 'prompts' / 'variants' / 'guided2.md'}
 TRANSPORT = {'APITimeoutError', 'APIConnectionError', 'RateLimitError', 'InternalServerError', 'TransientProviderError',
              'TimeoutError', 'ConnectionError', 'ReadTimeout', 'ConnectTimeout'}
 CONFIG_ERRORS = {'NotFoundError', 'PermissionDeniedError', 'AuthenticationError', 'BadRequestError',
@@ -83,7 +84,7 @@ class RecordingCascade(CascadeExplanationProvider):
 
 def load_cases(which):
     names = {'tuning': ['llm_explanation_cases.jsonl', 'injection_variants.jsonl'], 'fresh': ['fresh_variants.jsonl'],
-             'fresh2': ['fresh2_variants.jsonl']}[which]
+             'fresh2': ['fresh2_variants.jsonl'], 'fresh3': ['fresh3_variants.jsonl']}[which]
     cases = []
     for name in names:
         for line in (ROOT / 'exercises' / name).read_text(encoding='utf-8').split(chr(10)):
@@ -250,7 +251,7 @@ def probe(models, temperature):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('experiment', choices=['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'probe'])
+    p.add_argument('experiment', choices=['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9a', 'e9b', 'probe'])
     p.add_argument('--model', default=DEFAULT_MODEL)
     p.add_argument('--models', default='')
     p.add_argument('--temperature', type=float, default=0)
@@ -306,13 +307,17 @@ def main():
 
         cases, reps = load_cases('fresh2'), a.reps
 
+    elif a.experiment in ('e9a', 'e9b'):  # round three: does prompt v1.5.0 improve on the adopted v1.4.0? (same model, temperature 0)
+        m = 'mistralai/Mistral-Nemo-Instruct-2407'
+        grid = [cfg(a.experiment, m, 0, 'guided', a.workers), cfg(a.experiment, m, 0, 'guided2', a.workers)]
+        cases, reps = load_cases('tuning' if a.experiment == 'e9a' else 'fresh3'), a.reps
     else:  # e5: current defaults against the chosen setting, on cases nothing was tuned on
         grid = [cfg('e5', DEFAULT_MODEL, 0, 'current', a.workers)]
         chosen = cfg('e5', a.model, a.temperature, a.prompt, a.workers)
         if chosen['cfg_id'] != grid[0]['cfg_id']:
             grid.append(chosen)
         cases, reps = load_cases('fresh'), a.reps
-    run_grid(a.experiment, grid, cases, reps, RAW / f'{a.experiment}.jsonl', interleave=a.experiment in ('e5', 'e6', 'e7', 'e8'))
+    run_grid(a.experiment, grid, cases, reps, RAW / f'{a.experiment}.jsonl', interleave=a.experiment in ('e5', 'e6', 'e7', 'e8', 'e9a', 'e9b'))
 
 
 if __name__ == '__main__':
