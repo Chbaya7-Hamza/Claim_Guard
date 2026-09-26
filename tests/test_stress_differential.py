@@ -64,7 +64,8 @@ def mutate(claim, rng):
             or kk in ('quantity', 'unit_price', 'net_amount', 'max_quantity')
         if isinstance(cur, str) and cur[:4].isdigit() and cur[4:5] == '-':
             v = rng.choice([shift(cur, n) for n in (-1, 0, 1, 30, 31, 60, 61)]
-                           + [None, '2026-02-30', '2026-13-01', ' ' + cur, cur + ' ', '', claim['submission_date']])
+                           + [None, '2026-02-30', '2026-13-01', ' ' + cur, cur + ' ', '', claim['submission_date'],
+                              cur.replace('-', ''), '2026-W24-3', cur + 'T00:00:00'])
         elif numeric:
             near = [round(float(cur) + d, 3) for d in (-0.02, -0.01, 0.005, 0.01, 0.02, 1, -1)] \
                 if isinstance(cur, (int, float)) and not isinstance(cur, bool) and cur == cur and abs(cur) < 1e15 else []

@@ -59,12 +59,14 @@ def _records(path):
     """Yield (source_ref, parsed_json_or_None, parse_error_or_None). Handles JSONL,
     and a JSON array; one malformed line is reported, not fatal."""
     p = Path(path)
-    try:
-        text = p.read_text(encoding='utf-8-sig')
-    except UnicodeDecodeError as e:
-        yield p.name, None, f'Invalid UTF-8: {e}'
-        return
-    if text.lstrip().startswith('['):
+    with open(p, 'rb') as f:
+        head = f.read(4096).removeprefix(b'\xef\xbb\xbf').lstrip()
+    if head.startswith(b'['):  # one JSON array: it can only be read (and lost) as a whole
+        try:
+            text = p.read_text(encoding='utf-8-sig')
+        except UnicodeDecodeError as e:
+            yield p.name, None, f'Invalid UTF-8: {e}'
+            return
         value, error = parse_json(text)
         if error or not isinstance(value, list):
             yield p.name, None, error or 'Invalid JSON: expected an array'
@@ -108,12 +110,17 @@ def ingest(path, fmt=None):
         if err:
             yield Ingested(fmt, ref, error=err)
             continue
+        if not isinstance(rec, dict):  # null, a number, an array: nothing to map, but it must be counted
+            yield Ingested(fmt, ref, error=f'Expected a JSON object, got {type(rec).__name__}', raw=rec)
+            continue
         if fmt == FHIR:
             try:
                 claim, report = bundle_to_claim(rec)
                 yield _finish(Ingested(fmt, ref, claim=claim, report=report, raw=rec))
             except FhirMappingError as e:
                 yield Ingested(fmt, ref, error=f'FHIR mapping failed: {e}', raw=rec)
+            except Exception as e:  # any other shape a malformed bundle takes: quarantine this record, keep going
+                yield Ingested(fmt, ref, error=f'FHIR mapping failed: {type(e).__name__}: {e}', raw=rec)
         else:
             yield _finish(Ingested(fmt, ref, claim=rec, report={'source_format': fmt}, raw=rec))
 

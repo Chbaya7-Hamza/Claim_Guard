@@ -7,9 +7,22 @@ all from one pass over the claim, so the tags YARA sees and the result fields
 assembled afterward can never drift apart. yara_engine.evaluate() builds the
 combined facts blob directly from these functions' output.
 """
+import re
 from decimal import Context, Decimal, ROUND_HALF_UP, localcontext
 
-from engine_core import empty, valid_date
+from engine_core import empty, valid_date as _lenient_date
+
+
+_ISO_DAY = re.compile(r'[0-9]{4}-[0-9]{2}-[0-9]{2}')
+
+
+def valid_date(v):
+    """A calendar day written exactly YYYY-MM-DD, else None.
+
+    date.fromisoformat() is stricter on Python 3.10 than on 3.11+, where '20261231' and the week date
+    '2026-W52-4' also parse. Rule verdicts must not depend on the interpreter a judge happens to run.
+    """
+    return _lenient_date(v) if isinstance(v, str) and _ISO_DAY.fullmatch(v) else None
 
 
 def r001_details(c):

@@ -20,7 +20,7 @@ from pathlib import Path
 
 PASS, FAIL, UNABLE, NA = 'PASS', 'FAIL', 'UNABLE_TO_ASSESS', 'NOT_APPLICABLE'
 CENT = Decimal('0.01')
-_ISO = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+_ISO = re.compile(r'[0-9]{4}-[0-9]{2}-[0-9]{2}')
 
 
 def load_rules_pack(root):
@@ -30,7 +30,7 @@ def load_rules_pack(root):
 
 def day(v):
     """A calendar day, or None when the value is not a well-formed ISO date (no trimming, no repair)."""
-    if not isinstance(v, str) or not _ISO.match(v):
+    if not isinstance(v, str) or not _ISO.fullmatch(v):
         return None
     try:
         return date.fromisoformat(v)

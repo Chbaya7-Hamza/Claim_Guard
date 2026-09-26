@@ -1,11 +1,15 @@
 """Losslessly rebuild this pack's normalized JSONL from its relational CSV export."""
 from pathlib import Path
-import csv,json,argparse
+import csv,json,argparse,math
 def read(path):
-    with open(path,newline='',encoding='utf-8') as f:return list(csv.DictReader(f))
+    with open(path,newline='',encoding='utf-8-sig') as f:return list(csv.DictReader(f))  # utf-8-sig: Excel writes a BOM
 def number(v):
     if v=='':return None
-    n=float(v);return int(n) if n.is_integer() else n
+    if not v.isascii():return v  # float() would read Arabic-Indic or full-width digits; that is a silent repair
+    try:n=float(v)
+    except ValueError:return v  # not a number: keep the text so this one claim fails transport validation and is quarantined alone
+    if not math.isfinite(n):return v
+    return int(n) if n.is_integer() else n
 def convert(folder):
     d=Path(folder);claims=read(d/'claims.csv');by={c['claim_id']:c for c in claims}
     for c in claims:
@@ -17,6 +21,7 @@ def convert(folder):
     for name in nums:
         for row in read(d/(name+'.csv')):
             cid=row.pop('claim_id')
+            if cid not in by:continue  # a row for a claim that claims.csv does not list has nothing to attach to
             for k,v in row.items():row[k]=number(v) if k in nums[name] else None if v=='' else v
             if name=='coverage':by[cid][name]=row
             else:by[cid][name].append(row)
