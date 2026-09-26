@@ -87,7 +87,8 @@ class AuditLogTests(Base):
         self.run_claim(self.clean)
         n1 = self.log.count
         self.run_claim(self.clean, log=AuditLog(self.path))
-        self.assertEqual(verify(self.path)[1], 2 * n1)
+        # the same claim_id again is a resubmission, so the second run also records one duplicate_submission event
+        self.assertEqual(verify(self.path)[1], 2 * n1 + 1)
 
     def test_editing_an_event_is_detected(self):
         self.run_claim(self.failing_claim())

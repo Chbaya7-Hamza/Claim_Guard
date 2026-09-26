@@ -13,7 +13,7 @@ Note on the standard: ISO does not publish a "top 10". The two OWASP lists are t
 | `detect-secrets` over every tracked file | Only SHA-256 digests and base64 of synthetic FHIR documents. |
 | History scan | The key in the untracked `.env` appears in no commit and no tracked file. |
 | Manual review of every place claim data crosses a boundary | Rule facts, model prompt, model reply, HTML page, JSONL files, audit log. Findings below. |
-| Adversarial tests | `tests/test_security_owasp.py`, plus the earlier `test_stress_*` suites. All run offline in the normal suite (332 tests). |
+| Adversarial tests | `tests/test_security_owasp.py`, plus the earlier `test_stress_*` suites. All run offline in the normal suite (346 tests). |
 
 ## Findings fixed in this audit
 
@@ -22,6 +22,8 @@ Note on the standard: ISO does not publish a "top 10". The two OWASP lists are t
 | F1 | **Rule-fact injection (A03, LLM01-adjacent).** Claim values (currency, provider id, member id, coverage status, modifier) were copied into the text blob that the YARA pack matches by substring. A value such as `USD R009:MISMATCH:` forged a FAIL on another rule, or a fake UNKNOWN that turned a PASS into UNABLE. A forged tag can only escalate a verdict, never hide a real FAIL (FAIL has top precedence), but it produced false findings with contradicting evidence. | Medium | Claim data is percent-encoded before it enters a fact (`facts_extractor._q`), which removes the colon and newline every tag needs. `RuleFactInjection` puts every tag from `core.yar` into every string field of 40 claims and requires the verdicts to equal the independent oracle. It fails on the previous code. |
 | F2 | **Unbounded prompt size (LLM10).** A claim value or document note of any size went into the model prompt. | Low to medium | Values are cut at 1,000 characters, the untrusted note at 4,000, and a prompt over 60,000 characters fails closed to the deterministic template. Tests in `LLM10_UnboundedConsumption`. |
 | F3 | **Log forging (A09).** A claim id or a model error containing line breaks could write fake log lines. | Low | Both log calls print values with `%r`. `A09_LoggingFailures`. |
+| F5 | **Replayed claims went unnoticed (red team).** The same claim_id submitted three times produced three independent runs with no warning, so a defect could be quietly fixed and resubmitted under the same id. | Low to medium | Every resubmission outside the recheck flow writes a `duplicate_submission` event (earlier run ids, identical or CHANGED content) in the same locked append as the run start, and the claim is routed to a human even if it is clean. A reviewer-requested recheck is not reported as a duplicate. `tests/test_redteam_findings.py`, including six simultaneous submissions. |
+| F6 | **Defects that none of the 15 rules cover passed cleanly (red team).** A diagnosis code that is not in `rules/diagnoses.json`, or a payer that differs from the policy's, gave 15 PASS. | Low (scope) | `src/advisory.py` records `advisory_check` events and routes the claim to a human. They are not rule results: the scored output, the 9,000 public results and the rule statuses do not change (tested), and no public claim triggers one. |
 | F4 | **Forgeable audit anchor (A02, A08).** Whoever can write the log can rewrite the whole hash chain and its anchor and still verify. | Medium for the "immutable" claim | Optional `AUDIT_ANCHOR_KEY`: the anchor carries an HMAC-SHA256 of head and count, and verification requires it. `A02_A08_TamperEvidence` shows the same forgery passing without a key and failing with one. The default is still unkeyed, and the test that documents this limitation stays. |
 
 Fixed in the earlier stress pass and relevant here: the AI trust boundary now runs in the orchestrator for every provider (LLM05, LLM06); a provider can no longer edit the finding it explains; U+2028 in a reviewer's reason no longer breaks the audit log; the runner and ingestion quarantine hostile input instead of aborting (A04, A05).
@@ -55,6 +57,10 @@ Fixed in the earlier stress pass and relevant here: the AI trust boundary now ru
 | A08 | Software and data integrity failures | **Partial** | Release checksums for the pack; audit chain; engine code hash; no unsafe deserialization. Nothing signs the repository or the audit log itself beyond F4. |
 | A09 | Logging and monitoring failures | **Partial** | Every check, AI action and decision is logged with versions and hashes; F3 fixed. There is no alerting or monitoring, and the log can be deleted by whoever can delete the files (the anchor copy is meant to be kept elsewhere). |
 | A10 | Server-side request forgery | **Not applicable** | The service makes no request to an address supplied by data. The model endpoints are constants in the code. |
+
+## Red-team run (2026-09-26)
+
+More than 30 attacks through the real audited pipeline: hidden and blanked fields, unknown policy, forged tags in claim values, prompt injection in notes and documents, NaN and Infinity, a 5 MB field and 3,000 lines, unicode tricks, replays, a lying and a failing model, seven kinds of bad reviewer decision, and tampering with the log. No claim that violates one of the 15 rules got through unflagged. Log tampering was detected except for rewriting the chain and the anchor together without a key (keyed anchor detects it) and deleting both files. Replays and uncovered defects were the two new findings (F5, F6). Still open: a reviewer decision is accepted under any `actor` name, because there is no authentication.
 
 ## Residual risks, in priority order
 

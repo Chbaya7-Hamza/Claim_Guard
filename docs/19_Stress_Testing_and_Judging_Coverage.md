@@ -1,6 +1,6 @@
 # 19 | Stress testing and judging coverage
 
-Written 2026-09-26. Everything below is reproducible offline: `python -m unittest discover -s tests` (332 tests, about 60 s, no API key). The suite was also run on Python 3.12 and 3.14 in clean environments.
+Written 2026-09-26. Everything below is reproducible offline: `python -m unittest discover -s tests` (346 tests, about 60 s, no API key). The suite was also run on Python 3.12 and 3.14 in clean environments.
 
 ## 1. What the judges score, and where it is checked
 

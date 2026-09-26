@@ -54,6 +54,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from advisory import advisory_checks
 from audit import digest, verify
 
 if os.name == 'nt':
@@ -85,6 +86,10 @@ _REQUIRED = {
     'system_decision': {'run_id', 'claim_id', 'decision', 'reason'},
     'run_finished': {'run_id', 'claim_id', 'rule_pack_hash', 'tool_errors'},
     'recheck_run': {'claim_id', 'prior_run_id', 'new_run_id', 'prior_input_hash', 'new_input_hash'},
+    # a claim_id that was already reviewed, submitted again outside the recheck flow
+    'duplicate_submission': {'run_id', 'claim_id', 'prior_run_ids', 'same_input'},
+    # a defect none of the 15 rules covers (src/advisory.py); never a rule result
+    'advisory_check': {'run_id', 'claim_id', 'check_id', 'detail'},
 }
 
 
@@ -197,6 +202,88 @@ class AuditLog:
             self.head, self.count = verify_with_anchor(self.path, self.anchor_path)
         else:
             self.head, self.count = verify(self.path)
+
+    def _sync_index(self):
+
+        """Incrementally read what has been appended since the last call: which runs each claim_id already has, and
+
+        which run ids came from the recheck flow. Called under the lock. The log is append-only, so an offset is enough."""
+
+        if not hasattr(self, '_idx_offset'):
+
+            self._idx_offset, self._runs, self._recheck_ids = 0, {}, set()
+
+        if not self.path.exists():
+
+            return
+
+        with open(self.path, 'rb') as f:
+
+            f.seek(self._idx_offset)
+
+            data = f.read()
+
+        end = data.rfind(bytes([10]))
+
+        if end < 0:
+
+            return
+
+        self._idx_offset += end + 1
+
+        for raw in data[:end].split(bytes([10])):
+
+            if not raw.strip():
+
+                continue
+
+            event = json.loads(raw.decode('utf-8'))['event']
+
+            if event.get('event_type') == 'run_started':
+
+                self._runs.setdefault(event['claim_id'], []).append((event['run_id'], event['input_hash']))
+
+            elif event.get('event_type') == 'recheck_run':
+
+                self._recheck_ids.add(event['new_run_id'])
+
+
+
+    def append_run_start(self, events, claim_id, run_id, input_hash):
+
+        """Write a run's opening events. If this claim_id was already reviewed and this run is not a reviewer-requested
+
+        recheck, a duplicate_submission event is written in the same locked append, so two concurrent submissions of
+
+        one claim cannot both miss each other. Returns the duplicate details, or None."""
+
+        for e in events:
+
+            _validate_system_event(e)
+
+        with self._locked():
+
+            self._sync_index()
+
+            prior = self._runs.get(claim_id, [])
+
+            duplicate = None
+
+            if prior and run_id not in self._recheck_ids:
+
+                duplicate = {'prior_run_ids': [r for r, _ in prior], 'same_input': any(h == input_hash for _, h in prior)}
+
+                event = {'event_type': 'duplicate_submission', 'run_id': run_id, 'claim_id': claim_id, **duplicate}
+
+                _validate_system_event(event)
+
+                events = events + [event]
+
+            self._write(events, durable=False)
+
+            return duplicate
+
+
 
     @contextlib.contextmanager
     def _locked(self):
@@ -331,15 +418,16 @@ class AuditHooks:
         self.log = log
         self.source_format = source_format
         self.report = ingestion_report or {}
+        self.duplicate = None
 
     def on_start(self, run_id, claim, input_hash, started_at):
-        self.log.append_system_events([
+        self.duplicate = self.log.append_run_start([
             {'event_type': 'ingestion', 'claim_id': claim['claim_id'], 'source_format': self.source_format,
              'outcome': 'accepted', 'warnings': self.report.get('warnings', []),
              'not_carried_by_source': self.report.get('not_carried_by_fhir', [])},
             {'event_type': 'run_started', 'run_id': run_id, 'claim_id': claim['claim_id'],
              'input_hash': input_hash, 'started_at': started_at},
-        ])
+        ], claim['claim_id'], run_id, input_hash)
 
     def on_checks(self, run_id, claim, rule_results):
         self.log.append_system_events([{
@@ -396,11 +484,26 @@ def audited_review(log, claim, cfg, provider=None, fallback=None, untrusted_note
         ])
         return rule_results, ai, trace
     needs_review = [r for r in rule_results if r['requires_human_review']]
+    # Beyond the 15 rules: defects no rule covers. Recorded, never scored, and they only ever add a reason to look.
+    advisories = advisory_checks(claim, cfg)
+    trace['advisories'] = advisories
+    if advisories:
+        log.append_system_events([{'event_type': 'advisory_check', 'run_id': run_id, 'claim_id': claim_id, **a}
+                                  for a in advisories])
+    duplicate = hooks.duplicate
+    reasons = []
+    if needs_review:
+        reasons.append(f"{len(needs_review)} finding(s) require human review: "
+                       + ', '.join(f"{r['rule_id']}={r['status']}" for r in needs_review))
+    if duplicate:
+        reasons.append(f"duplicate submission: claim_id already reviewed in {len(duplicate['prior_run_ids'])} earlier run(s), "
+                       + ('identical content' if duplicate['same_input'] else 'CHANGED content'))
+    if advisories:
+        reasons.append('advisory checks outside the 15 rules: ' + ', '.join(a['check_id'] for a in advisories))
     log.append_system_events([
         {'event_type': 'system_decision', 'run_id': run_id, 'claim_id': claim_id,
-         'decision': 'route_to_human_review' if needs_review else 'no_findings_for_review',
-         'reason': (f"{len(needs_review)} finding(s) require human review: "
-                    + ', '.join(f"{r['rule_id']}={r['status']}" for r in needs_review)) if needs_review
+         'decision': 'route_to_human_review' if reasons else 'no_findings_for_review',
+         'reason': '; '.join(reasons) if reasons
                    else 'No FAIL or UNABLE_TO_ASSESS findings. This is not an approval.'},
         {'event_type': 'run_finished', 'run_id': run_id, 'claim_id': claim_id,
          'rule_pack_hash': trace['rule_pack_hash'], 'engine_code_hash': trace['engine_code_hash'],
