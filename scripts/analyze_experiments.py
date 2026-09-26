@@ -340,7 +340,7 @@ def figures(summary, data):
             continue
         cfgs = block['configs']
         labels = [c['label'] for c in cfgs]
-        fig, axes = plt.subplots(1, 2, figsize=(9, 4))
+        fig, axes = plt.subplots(1, 3 if exp in ('e5', 'e6') else 2, figsize=(13 if exp in ('e5', 'e6') else 9, 4))
         u = [c['stats']['useful_rate'] for c in cfgs]
         lo = [c['stats']['useful_rate'] - c['stats']['useful_ci95'][0] for c in cfgs]
         hi = [c['stats']['useful_ci95'][1] - c['stats']['useful_rate'] for c in cfgs]
@@ -348,8 +348,24 @@ def figures(summary, data):
         axes[0].set_ylim(0, 105); axes[0].set_ylabel('useful answers %  (95% CI)'); axes[0].set_title(title)
         axes[1].bar(labels, [(c['stats']['latency_p50_ms'] or 0) / 1000 for c in cfgs], color=colors['incomplete'])
         axes[1].set_ylabel('p50 latency (s)'); axes[1].set_title('latency')
+        if exp in ('e5', 'e6'):  # the primary metric cannot see whether an answer adds anything: show the added-value measures
+
+            w = 0.38
+
+            xs = list(range(len(cfgs)))
+
+            axes[2].bar([i - w / 2 for i in xs], [c['stats']['names_next_step_rate'] for c in cfgs], w, label='names a next step', color=colors['useful'])
+
+            axes[2].bar([i + w / 2 for i in xs], [c['stats']['cites_evidence_value_rate'] for c in cfgs], w, label='cites an evidence value', color='#5b4b9a')
+
+            axes[2].set_xticks(xs); axes[2].set_xticklabels(labels); axes[2].set_ylim(0, 105); axes[2].set_ylabel('% of live answers')
+
+            axes[2].set_title('what the answer adds (crude word patterns)'); axes[2].legend(fontsize=8)
+
         for ax in axes:
+
             ax.tick_params(axis='x', labelrotation=20, labelsize=8)
+
         save(fname)
 
     e2 = summary.get('e2')
@@ -430,8 +446,10 @@ def figures(summary, data):
         fig, axes = plt.subplots(1, 2, figsize=(9, 4))
         axes[0].plot(ws, [c['throughput_calls_per_min'] for c in e4['configs']], marker='o', color=colors['useful'])
         axes[0].set_xlabel('concurrent workers'); axes[0].set_ylabel('calls per minute'); axes[0].set_title('E4: throughput'); axes[0].grid(alpha=.3)
-        axes[1].bar([str(w) for w in ws], [c['stats']['transport_failures'] for c in e4['configs']], color=colors['transport'])
-        axes[1].set_xlabel('concurrent workers'); axes[1].set_ylabel('transport failures (of 36)'); axes[1].set_title('E4: rate limiting / timeouts')
+        axes[1].bar([str(w) for w in ws], [c['wall_s'] for c in e4['configs']], color=colors['incomplete'])
+        for i, c in enumerate(e4['configs']):
+            axes[1].text(i, c['wall_s'] + 1, f"{c['stats']['transport_failures']} failures", ha='center', fontsize=8)
+        axes[1].set_xlabel('concurrent workers'); axes[1].set_ylabel('seconds for 36 calls'); axes[1].set_title('E4: wall time (no rate limiting or timeouts)')
         save('e4_concurrency.png')
 
 

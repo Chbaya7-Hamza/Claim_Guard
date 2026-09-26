@@ -1,3 +1,5 @@
+> This is the previous top-level README, kept in full (the organizers' starter-pack text plus our early additions). The current README is `../README.md`. Commands below are written for the repository root, not for this folder.
+
 # ClaimGuard AI | Student starter pack
 
 **Start here.** Build a trustworthy copilot that pre-validates synthetic healthcare claims and supports human review.

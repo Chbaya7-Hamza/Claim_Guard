@@ -75,7 +75,7 @@ def load_cases(which):
 
 
 def git_head():
-    """Commit id read from .git without running git (this folder may not use subprocess)."""
+    """Commit id read from .git directly, without running an external command."""
     g = ROOT / '.git'
     if g.is_file():
         g = Path(g.read_text(encoding='utf-8').split('gitdir:', 1)[1].strip())

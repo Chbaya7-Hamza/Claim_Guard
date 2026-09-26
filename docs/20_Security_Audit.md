@@ -13,7 +13,7 @@ Note on the standard: ISO does not publish a "top 10". The two OWASP lists are t
 | `detect-secrets` over every tracked file | Only SHA-256 digests and base64 of synthetic FHIR documents. |
 | History scan | The key in the untracked `.env` appears in no commit and no tracked file. |
 | Manual review of every place claim data crosses a boundary | Rule facts, model prompt, model reply, HTML page, JSONL files, audit log. Findings below. |
-| Adversarial tests | `tests/test_security_owasp.py`, plus the earlier `test_stress_*` suites. All run offline in the normal suite (346 tests). |
+| Adversarial tests | `tests/test_security_owasp.py`, plus the earlier `test_stress_*` suites. All run offline in the normal suite (364 tests). |
 
 ## Findings fixed in this audit
 
