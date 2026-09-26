@@ -9,6 +9,7 @@ falls back to the deterministic MockExplanationProvider and is logged, per
 docs/05_Architecture_and_AI.md's "On model failure, retain deterministic
 findings and mark the fallback."
 """
+import copy
 import json
 import logging
 import os
@@ -322,7 +323,11 @@ def explain_with_fallback(provider, fallback, finding, rule, untrusted_note=None
     Returns (output, used_fallback: bool, error: str | None, latency_ms: float)."""
     t0 = time.monotonic()
     try:
-        output = provider.explain(finding, rule, untrusted_note)
+        # The trust boundary is enforced here, not left to each provider class (a judge may plug in their own):
+        # the provider gets private copies, so it cannot edit the deterministic result it is explaining, and its
+        # reply must pass the same schema and grounding checks as the built-in providers or the template is used.
+        output = provider.explain(copy.deepcopy(finding), copy.deepcopy(rule), untrusted_note)
+        output = check_grounding(validate_explanation(output, finding), finding, rule)
         return output, False, None, (time.monotonic() - t0) * 1000
     except Exception as e:
         latency_ms = (time.monotonic() - t0) * 1000
