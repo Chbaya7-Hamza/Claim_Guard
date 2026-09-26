@@ -28,19 +28,21 @@ class ProductionDefaultsAreUnchanged(unittest.TestCase):
         self.assertEqual(FeatherlessExplanationProvider.DEFAULT_MODEL, 'mistralai/Mistral-Nemo-Instruct-2407')
         self.assertEqual(R.DEFAULT_MODEL, 'Qwen/Qwen2.5-14B-Instruct')
 
-    def test_the_shipped_prompt_is_v1_4_0_and_is_the_prompt_that_was_measured(self):
+    def test_the_shipped_prompt_is_v1_5_0_and_is_the_prompt_that_was_measured(self):
 
         shipped = (ROOT / 'prompts' / 'explain_findings.md').read_text(encoding='utf-8').replace(chr(13) + chr(10), chr(10))
 
-        measured = (ROOT / 'prompts' / 'variants' / 'guided.md').read_text(encoding='utf-8').replace(chr(13) + chr(10), chr(10))
+        measured = (ROOT / 'prompts' / 'variants' / 'guided2.md').read_text(encoding='utf-8').replace(chr(13) + chr(10), chr(10))
 
-        self.assertTrue(shipped.startswith('# Explanation helper prompt v1.4.0' + chr(10)))
+        self.assertTrue(shipped.startswith('# Explanation helper prompt v1.5.0' + chr(10)))
 
         self.assertEqual(shipped.split(chr(10), 1)[1], measured.split(chr(10), 1)[1])  # only the title line differs
 
         frozen = (ROOT / 'prompts' / 'variants' / 'v1_3_0.md').read_text(encoding='utf-8')
 
         self.assertTrue(frozen.startswith('# Explanation helper prompt v1.3.0'))
+        frozen_14 = (ROOT / 'prompts' / 'variants' / 'v1_4_0.md').read_text(encoding='utf-8')
+        self.assertTrue(frozen_14.startswith('# Explanation helper prompt v1.4.0'))
 
         self.assertIn('Mistral-Nemo', (ROOT / 'src' / 'llm_adapter.py').read_text(encoding='utf-8'))
 

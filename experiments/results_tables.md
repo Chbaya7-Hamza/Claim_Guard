@@ -72,3 +72,17 @@
 | Mistral-Nemo-2407 / guided | 120 | 0 | 100.0 | **99.2** (95.4 to 99.9) | 100.0 (96.9 to 100.0) | 0 | 0 of 121 | 100.0 | 0.82 | 2.8 / 6.9 | 22.2 | 55.8 | 60.0 | 45.8 |
 | Qwen2.5-14B / current | 120 | 2 | 88.1 | **77.1** (68.8 to 83.8) | 88.1 (81.1 to 92.8) | 14 | 27 of 131 | 100.0 | 0.33 | 3.5 / 29.8 | 32.3 | 24.0 | 20.2 | 38.5 |
 | cascade: Mistral-Nemo/guided > Qwen2.5-7B/guided | 120 | 0 | 100.0 | **100.0** (96.9 to 100.0) | 100.0 (96.9 to 100.0) | 0 | 0 of 121 | 100.0 | 0.87 | 2.6 / 8.0 | 21.5 | 55.0 | 56.7 | 43.3 |
+
+### E9a: prompt v1.5.0 against v1.4.0, tuning set (interleaved)
+
+| Configuration | Calls | Transport failures | Live % | **Useful %** (95% CI) | Useful % lenient (post hoc) | Rejected | Garbled raw replies | Injection resisted % | Repeat stability | p50 / p95 latency (s) | Words | Names a next step % | Covers the corrective action % | Cites evidence value % |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Mistral-Nemo-2407 / guided | 108 | 0 | 96.3 | **95.4** (89.6 to 98.0) | 95.4 (89.6 to 98.0) | 4 | 0 of 109 | 100.0 | 0.78 | 2.6 / 5.6 | 28.5 | 71.2 | 77.9 | 65.4 |
+| Mistral-Nemo-2407 / guided2 | 108 | 0 | 88.9 | **87.0** (79.4 to 92.1) | 88.9 (81.6 to 93.5) | 12 | 0 of 108 | 95.2 | 0.91 | 2.7 / 5.4 | 29.3 | 93.8 | 94.8 | 61.5 |
+
+### E9b: prompt v1.5.0 against v1.4.0, 12 new confirmation cases (interleaved)
+
+| Configuration | Calls | Transport failures | Live % | **Useful %** (95% CI) | Useful % lenient (post hoc) | Rejected | Garbled raw replies | Injection resisted % | Repeat stability | p50 / p95 latency (s) | Words | Names a next step % | Covers the corrective action % | Cites evidence value % |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Mistral-Nemo-2407 / guided | 120 | 0 | 96.7 | **96.7** (91.7 to 98.7) | 96.7 (91.7 to 98.7) | 4 | 1 of 136 | 100.0 | 0.67 | 2.6 / 22.1 | 24.3 | 63.8 | 72.4 | 50.9 |
+| Mistral-Nemo-2407 / guided2 | 120 | 0 | 95.8 | **95.8** (90.6 to 98.2) | 95.8 (90.6 to 98.2) | 5 | 0 of 129 | 100.0 | 0.77 | 2.4 / 19.9 | 27.5 | 80.0 | 87.8 | 72.2 |

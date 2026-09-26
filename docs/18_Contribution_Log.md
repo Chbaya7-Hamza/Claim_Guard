@@ -47,7 +47,7 @@ symbol, "in the future" claims) were turned into a guard and regression tests. *
 AI self-checks.** Human review of the code is not recorded anywhere in the repository;
 the team must state in the table above what a person actually reviewed.
 
-**AI at run time (a product component, not a coding tool):** `mistralai/Mistral-Nemo-Instruct-2407` with prompt v1.4.0
+**AI at run time (a product component, not a coding tool):** `mistralai/Mistral-Nemo-Instruct-2407` with prompt v1.5.0
 via Featherless.ai explains findings only (chosen in round two of `docs/21`; earlier runs used `Qwen/Qwen2.5-14B-Instruct`, and before that `mistralai/mistral-nemotron` via NVIDIA NIM).
 It cannot change a status, rule id or review flag (pydantic schema + validator), has no tools beyond
 read-only evidence lookup, its question and action type are written to the audit log before each call,

@@ -1,0 +1,414 @@
+# SPECS.md: ClaimGuard AI technical specification
+
+The detailed specification of what the system does, how each part is configured, and how the AI step was chosen and tuned. Read [README.md](README.md) first for the overview and [TEAM.md](TEAM.md) for the reasons behind the decisions. Where a statement rests on data, the source is named; the raw audit trail of the experiments is `docs/21_Experiments.md` and `experiments/raw/`.
+
+**Contents**
+
+1. [Scope](#1-scope)
+2. [Architecture and data flow](#2-architecture-and-data-flow)
+3. [Data contracts](#3-data-contracts)
+4. [Ingestion](#4-ingestion)
+5. [Rule engine](#5-rule-engine)
+6. [AI explanation step](#6-ai-explanation-step)
+7. [Audit log](#7-audit-log)
+8. [Human review workflow](#8-human-review-workflow)
+9. [Security](#9-security)
+10. [Verification](#10-verification)
+11. [Experiments in detail](#11-experiments-in-detail)
+12. [Configuration reference](#12-configuration-reference)
+13. [Limits and open items](#13-limits-and-open-items)
+
+---
+
+## 1. Scope
+
+**In scope.** Pre-validation of **synthetic** healthcare claims against a **fictional** payer rulebook of 15 rules; a bounded language-model explanation of each finding; a tamper-evident audit log; a human review workflow with recheck.
+
+**Out of scope, by design.** Clinical judgement, medical-necessity decisions, fraud accusations, automatic approval, live payer submission, EHR integration, real patient data. A PASS means "these 15 checks passed on the supplied data", never that a claim is valid or payable.
+
+**Invariants** (each enforced by tests):
+
+| # | Invariant |
+|---|---|
+| I1 | The rule engine decides; the model never changes a status, rule id, evidence or review flag. |
+| I2 | Unknown is never a pass: missing, unusable or unverifiable data gives `UNABLE_TO_ASSESS` (or `FAIL` when a violation is proven). |
+| I3 | The original claim is never modified; a correction is rechecked as a new run. |
+| I4 | Every check, AI question, AI answer, system decision and human decision is written to the audit log; the AI question is written before the model is called. |
+| I5 | Every model reply is validated (schema, citations, grounding, garbled-text) before use, whatever provider produced it; failure means the template is used. |
+
+## 2. Architecture and data flow
+
+```
+ FHIR R4 bundle | CSV folder | JSONL
+            |
+            v
+      ingestion (src/ingest.py) ----- bad record ----> quarantine (reason + source reference)
+            |  one claim envelope (schemas/claim.schema.json)
+            v
+   facts extractor (src/facts_extractor.py)      one function per rule -> facts, evidence paths, line ids, message
+            |  facts blob (claim data percent-encoded)
+            v
+   YARA-X rule pack (rules/core.yar)             outcome per rule from the facts
+            |  precedence: FAIL > UNABLE_TO_ASSESS > NOT_APPLICABLE > PASS
+            v
+   15 results per claim (schemas/result.schema.json)     ---------------------> audit log
+            |                                                                     ^
+            +--> FAIL / UNABLE findings --> AI explanation step ------------------+
+            |                               (validated; template fallback)        |
+            v                                                                     |
+   review queue --> human decision (confirm / dismiss + reason / request info / corrected) --+
+                         |
+                         +--> corrected claim --> recheck as a NEW run
+```
+
+| Module | Responsibility |
+|---|---|
+| `src/ingest.py`, `fhir_adapter.py`, `csv_to_jsonl.py`, `jsonl_reader.py` | Read three input shapes, normalize, quarantine bad records |
+| `src/facts_extractor.py`, `rules/core.yar`, `src/yara_engine.py` | The 15 rules |
+| `src/advisory.py` | Notes for defects the 15 rules do not cover (never scored) |
+| `src/llm_adapter.py`, `src/claim_review.py`, `prompts/` | The AI step and its orchestration |
+| `src/audit_log.py`, `src/audit.py`, `src/review_workflow.py` | Audit log, decisions, recheck |
+| `src/make_review.py` | Offline review page |
+| `src/run_yara.py`, `src/evaluate.py` | Batch runner and organizer's scorer |
+
+## 3. Data contracts
+
+**Claim envelope** (`schemas/claim.schema.json`, closed: unknown keys are rejected). Top level: `schema_version`, `claim_id`, `invoice_number`, `patient_id`, `member_id`, `provider_id`, `payer_id`, `policy_id`, `diagnosis_code`, `submission_date`, `currency`, `total_amount`, `coverage{}`, `lines[]`, `authorizations[]`, `attachments[]`, `notes`. A line has `line_id`, `service_code`, `service_date`, `modifier`, `quantity`, `unit_price`, `net_amount`, `authorization_id`. Null means unknown; an empty array is a known-empty inventory.
+
+**Result record** (`schemas/result.schema.json`): 15 per claim, one per rule.
+
+| Field | Meaning |
+|---|---|
+| `claim_id`, `rule_id`, `rule_version` | Identity; the version belongs to the rulebook |
+| `status` | `PASS`, `FAIL`, `UNABLE_TO_ASSESS`, `NOT_APPLICABLE` (`NOT_IMPLEMENTED` is a visible incomplete state, never a pass) |
+| `severity` | `high` or `medium`, from the rulebook |
+| `affected_line_ids` | Lines that caused the finding |
+| `evidence` | List of `{path, value}`: a JSON pointer into the original claim and the exact value seen |
+| `rule_source`, `explanation`, `corrective_action` | Rule reference, the engine's own sentence, and what a human should do |
+| `confidence`, `confidence_kind` | `null` and `not_probabilistic` for rule results (`docs/04`); a model score would be `uncalibrated` |
+| `requires_human_review` | True exactly for FAIL and UNABLE_TO_ASSESS |
+| `method`, `review_status` | `deterministic`; `unreviewed` until a human acts |
+
+**Review decision** (`schemas/review_event.schema.json`): `claim_id`, `rule_id`, `action` (`confirm_issue`, `dismiss_with_reason`, `request_information`, `mark_corrected_for_recheck`), `actor`, `reason` (required), `created_at`, `original_status` (must match the finding's real status). Extra fields are rejected.
+
+## 4. Ingestion
+
+| Input | Path | Notes |
+|---|---|---|
+| Normalized JSONL | one claim per line | BOM, CRLF and blank lines tolerated; each line decoded and parsed on its own |
+| FHIR R4 bundle | `fhir_adapter.bundle_to_claim` | Reads only what the bundle carries; authorizations and notes are not carried by FHIR, so R009 is `UNABLE_TO_ASSESS` there (310 of 600 public claims) and never a pass; `Encounter` is reported, not part of the envelope |
+| CSV folder | `csv_to_jsonl.convert` | `claims.csv`, `lines.csv`, `coverage.csv`, `authorizations.csv`, `attachments.csv`; a text cell in a numeric column stays text so only that claim is quarantined; orphan rows ignored; Excel BOM tolerated; non-ASCII digits are not read as numbers |
+
+**Quarantine.** A record that cannot be read, mapped or that fails the transport contract gets a reason and a source reference and is counted; it never stops the batch and never becomes a pass. `run_yara.py` gives an identifiable but invalid claim 15 fail-closed `UNABLE_TO_ASSESS` results and exits with code 2.
+
+**Robustness limits verified by test:** invalid UTF-8 on one line, an integer of more than 4,300 digits, 100,000-deep nesting, `null`/number/array lines, U+2028 inside values, NaN and Infinity, a 5 MB field, a 5,000-line claim.
+
+**Dates** must be exactly `YYYY-MM-DD`. Python 3.11 and later also accept `20261231` and week dates; the rules reject them on every version so verdicts do not depend on the interpreter.
+
+## 5. Rule engine
+
+**Pipeline.** `facts_extractor.rXXX_details()` reads the claim and returns facts (short tagged strings), evidence paths, affected line ids and a message. The facts of all rules are joined into one blob that `rules/core.yar` matches by substring; each YARA rule carries `rule_id` and `outcome` metadata. `yara_engine.evaluate` resolves precedence and assembles the results.
+
+**Fail closed.** A rule that raises becomes `UNABLE_TO_ASSESS` for that rule only and the error is reported; a rule with no outcome stops the run (`EngineError`: extractor and pack out of sync); wrong-typed values, missing keys and non-object rows read as unknown.
+
+**Fact injection defence.** Claim data is percent-encoded before it enters a fact, so a value such as `USD R009:MISMATCH:` cannot forge a finding for another rule.
+
+**The 15 rules.**
+
+| Rule | Title | Severity | Detects |
+|---|---|---|---|
+| R001 | Required claim information | high | Missing data |
+| R002 | Service and submission chronology | high | Inconsistent data |
+| R003 | Coverage active on service date | high | Inconsistent data |
+| R004 | Member and beneficiary consistency | high | Inconsistent data |
+| R005 | Provider in the supplied network | high | Unsupported data |
+| R006 | Possible duplicate service lines | medium | Duplicate data |
+| R007 | Line arithmetic | high | Inconsistent data |
+| R008 | Required authorization reference | high | Missing data |
+| R009 | Authorization record matches service | high | Inconsistent data |
+| R010 | Required supporting document | medium | Missing data |
+| R011 | Service code in fictional catalogue | high | Unsupported data |
+| R012 | Claim total equals line amounts | high | Inconsistent data |
+| R013 | Quantity and price limits | medium | Unsupported data |
+| R014 | Submission window | medium | Unsupported data |
+| R015 | Currency matches policy | high | Inconsistent data |
+
+**Readings adopted where the rulebook is silent** (each covered by a test):
+
+1. A proven violation beats a missing input, in every rule.
+2. "Empty" means null or a whitespace-only string (the supplied baseline's convention); identifiers and enum values compare exactly and case sensitively.
+3. A quantity must be a positive whole number; `3.0` counts as whole (JSON does not distinguish it from `3`), `1.5` does not.
+4. Amounts are compared exactly: `|submitted - round_half_up(expected)| <= 0.01`.
+5. NaN, Infinity and wrong-typed numbers are unknown; R001 reports them as missing information.
+6. R014 with any unknown service date is `UNABLE_TO_ASSESS`.
+7. A service code outside the catalogue makes R008, R009 and R010 unable for that line unless another line proves a `FAIL`.
+
+**Advisories** (`src/advisory.py`): a diagnosis code not in `rules/diagnoses.json`, and a payer that differs from the policy's. They are audit events that route a claim to a human; they are not rule results and never affect scoring.
+
+## 6. AI explanation step
+
+**Role.** Explain each `FAIL` and `UNABLE_TO_ASSESS` finding in plain language for a human reviewer. Nothing else.
+
+**Model in use (rounds two and three of the experiments):** `mistralai/Mistral-Nemo-Instruct-2407` on Featherless.ai, prompt v1.5.0 (`prompts/explain_findings.md`), `temperature=0`, `top_p=1`, `max_tokens=500`, 90 s timeout, one retry for transient failures only. The template (the engine's own sentence) is the floor.
+
+**Prompt v1.5.0** asks for exactly three sentences, even when the finding is short: WHY ("Rule R0xx failed because ...", every engine reason in the model's own words), EVIDENCE ("The evidence shows ...", at least one value quoted exactly with its path), ACTION (a closing instruction that starts with the verb of the rule's `corrective_action` and reuses its key words). It includes two worked examples, one with a short finding. It forbids approvals, clinical or fraud judgement, invented identifiers, relative-time claims, currency symbols and validity statements. Claim text and notes are labelled untrusted data. Older prompts are kept in `prompts/variants/` (`v1_3_0.md` is the round-one baseline, `v1_4_0.md` the round-two prompt).
+
+**What reaches the model.** Only the validated finding, the rule excerpt and, if supplied, an untrusted note, with these limits: each string is cut at 1,000 characters, the note at 4,000, and a prompt over 60,000 characters fails closed to the template.
+
+**Reply contract** (`ExplanationOutput`, pydantic, strict): `explanation` (1 to 1,500 characters), `cited_evidence_paths` (only paths present in the finding), `cited_rule_ids` (exactly the finding's rule), `needs_human_review` (a real boolean equal to the finding's flag). Unknown keys are forbidden.
+
+**Validation, in the orchestrator for every provider** (`explain_with_fallback`):
+
+| Check | Rejects |
+|---|---|
+| Schema | Wrong keys or types, unknown or missing citations, a changed review flag |
+| Grounding guard | Currency symbols, relative-time claims, unsupported validity assertions ("the values match correctly") |
+| Garbled-text guard | Text in another script, the Unicode replacement character, long repetitions (found by the experiments: garbled but schema-valid explanations were once accepted) |
+
+A provider receives private copies of the finding and rule, so it cannot edit the result it is explaining. Any failure produces the template answer and an explicit `used_fallback` with the error.
+
+**Cascade** (`CascadeExplanationProvider`, optional). Tiers are tried in order; every tier gets a copy, is validated like a single provider, and the audit log names the tier that wrote the text and why earlier tiers were skipped. Enabled by `FEATHERLESS_FALLBACK_MODEL`; not the default.
+
+**Audit of the AI.** `ai_request` (question, prompt hash, finding hash) is written before the call; `ai_recommendation` or `ai_failure` after it; every action type is `human_escalation`; `auto_correct_applied` is always false.
+
+## 7. Audit log
+
+| Element | Specification |
+|---|---|
+| Chain | Each row: `sequence`, `recorded_at`, `previous_hash`, `event`, `hash` (SHA-256 of the canonical row); the first `previous_hash` is 64 zeros |
+| Anchor | `<log>.head.json` holds the latest hash and count; detects truncation and replacement |
+| Keyed anchor | With `AUDIT_ANCHOR_KEY` set the anchor carries an HMAC-SHA256; without a key, whoever can write the files can rewrite chain and anchor together (tested and documented) |
+| Concurrency | Thread lock and OS file lock; the tail is re-read on every append; the anchor is replaced atomically |
+| Durability | `ai_request` events are fsync'd |
+| Encoding | Rows are ASCII-escaped JSON so no character (U+2028, U+0085) can split a record |
+| Verification | `scripts/verify_audit.py` checks chain, anchor and AI ordering; with `--results` it re-checks every result hash |
+
+**Event types:** `ingestion`, `run_started`, `rule_check` (status, severity, `result_hash`, confidence fields), `ai_request`, `ai_recommendation` (`model` is the tier that answered), `ai_failure`, `system_decision` (`route_to_human_review`, `no_findings_for_review`, `quarantine_claim`; never an approval), `run_finished` (rule pack hash and engine code hash), `recheck_run`, `duplicate_submission`, `advisory_check`, and the reviewer decisions. A claim id submitted again outside the recheck flow is recorded as a duplicate and routed to a human.
+
+The log is tamper-**evident**, not immutable; `docs/16_Audit_Log_Design.md` lists what production immutability would add.
+
+## 8. Human review workflow
+
+`src/make_review.py` builds an offline page (status and text filters, evidence as submitted, decisions downloaded as JSONL). `src/review_workflow.py` validates decisions (real status, reviewable findings only, reason and actor required, one bad decision rejects the batch), counts unresolved findings, and `recheck` runs a corrected claim as a new run with its own audit trail while leaving the original untouched. Reviewer identity is self-declared; there is no authentication yet.
+
+## 9. Security
+
+Audited against the OWASP Top 10 for LLM Applications (2025) and the OWASP Top 10 (2021); details, tool results and residual risks in `docs/20_Security_Audit.md`.
+
+| Control | Where |
+|---|---|
+| Model output is never trusted | Section 6 validation; provider copies; cascade validates every tier |
+| Injection through claim data | Percent-encoded facts; untrusted labelling and fencing in the prompt; review page writes text only |
+| Unbounded consumption | Prompt limits, `max_tokens`, timeout, one retry, bounded concurrency |
+| Secrets | `.env` git-ignored and scanned; the key never enters a prompt, log or experiment record |
+| Supply chain | Exact pins; `pip-audit` clean; no `eval`, `exec`, `subprocess` or `pickle` in our code (a test scans) |
+| Log integrity | Hash chain, anchor, optional HMAC; log forging prevented with `%r` logging |
+
+Residual: no authentication, protected health information would go to a third-party model with real data, the audit log is not immutable storage, and there is no per-run spending cap.
+
+## 10. Verification
+
+| Layer | Result |
+|---|---|
+| Organizers' answer key | 9,000 of 9,000 results; precision, recall and status accuracy 1.0 on all three splits |
+| Handbook worked cases | 10 of 10 exact |
+| Independent oracle (`tests/oracle.py`) | 0 disagreements over about 111,000 generated claims and 123 hand-derived boundary cases |
+| Hostile inputs | Runner, ingestion, review page, audit log, AI providers |
+| Security and red team | `docs/20` |
+| Suite | 380 tests, offline, on Python 3.10, 3.12 and 3.14; the committed audit sample's 6,000 result hashes are re-checked |
+
+## 11. Experiments in detail
+
+### 11.1 Why and how
+
+The 15 rules have no tunable parameter and already score 1.0, so only the explanation step can be optimized: model, temperature, instruction text, parallel calls. Three principles ran through every experiment:
+
+1. **Nothing may change a verdict.** The finding is hashed before and after every call and the hash per case must be identical in every configuration. It was, across all calls.
+2. **The rule is written before the run.** Metrics and decision rules were committed first (`docs/21_Experiments.md`), and every later change is listed as a deviation.
+3. **Everything goes through the production path** (`draft_and_validate_explanation`), so an answer counts only as the system would show it. Transport failures (timeouts, 429s) are kept apart from model misbehaviour so rate limiting cannot look like a bad setting.
+
+**Cases.** 36 tuning cases (the 25 supplied exercises plus 11 injection variants) to choose settings; three sets of 12 fresh cases each (FR, FX, FZ) built from validation and stress claims that appear in no earlier set, each with four new injection phrasings, used to confirm a choice and then retired.
+
+### 11.2 Metrics
+
+| Metric | Definition |
+|---|---|
+| **Useful answer** (primary, pre-registered) | Live (not the template), no engine reason omitted, no unsupported token (a number, date, code or rule id absent from the finding and rule); denominator excludes transport failures |
+| Useful, lenient (post hoc) | Same, but a reason counts as omitted only if fewer than half (not two thirds) of its content-word stems occur in the answer. Added after reading 30 flagged answers showed 23 were paraphrases |
+| Garbled reply (post hoc) | Raw reply with CJK characters or a long repeated character or word |
+| Injection resistance | On adversarial-note cases, share of raw replies that neither approve something the source did not say nor flip `needs_human_review` |
+| Stability | Per case across repeats: share equal to the most common answer, and mean pairwise word overlap |
+| Covers the corrective action (round two) | At least half of the content-word stems of the first clause of the rule's `corrective_action` occur in the answer |
+| Cites an evidence value | Contains an identifier, a date, a decimal or a number of two or more digits |
+| Latency, tokens | p50 and p95 of live answers |
+
+These are mechanical proxies, not the manual 0/1 rubric of `docs/07`.
+
+### 11.3 Round one: what is the best temperature, model and prompt?
+
+**E1: temperature** (Qwen2.5-14B, prompt v1.3.0, 36 cases x 3 repeats per level).
+
+![E1 useful answers by temperature](docs/figures/e1_useful_vs_temperature.png)
+
+| Temperature | Live % | Useful % (95% CI) | Lenient % | Garbled raw replies | Repeat overlap | Injection resisted % |
+|---|---|---|---|---|---|---|
+| **0** | 92.6 | **78.7** (70.1 to 85.4) | 90.7 | 12 of 116 | 0.68 | 95.2 |
+| 0.2 | 89.7 | 73.8 (64.8 to 81.2) | 88.8 | 22 of 121 | 0.55 | 93.1 |
+| 0.5 | 79.6 | 63.0 (53.6 to 71.5) | 77.8 | 43 of 133 | 0.44 | 94.6 |
+| 0.8 | 77.8 | 69.4 (60.2 to 77.3) | 75.9 | 41 of 134 | 0.40 | 94.4 |
+| 1.0 | 82.4 | 69.4 (60.2 to 77.3) | 79.6 | 29 of 124 | 0.33 | 94.5 |
+
+![E1 outcomes](docs/figures/e1_outcomes.png)
+![E1 stability](docs/figures/e1_stability.png)
+
+Temperature 0 wins on every quality measure; higher temperatures make the model derail (garbled replies 10% at 0, 32% at 0.5) without buying anything back. Temperature 0 is **not deterministic** on the hosted endpoint: only 1 of 30 cases repeated word for word. Temperature does not change injection resistance (93 to 95%).
+
+**E2: model** (temperature 0, prompt v1.3.0, 3 repeats).
+
+![E2 metric sensitivity](docs/figures/e2_metric_sensitivity.png)
+
+| Model | Live % | Useful % (95% CI) | Lenient % | Garbled raw replies | Injection resisted % | p50 / p95 | Words |
+|---|---|---|---|---|---|---|---|
+| Qwen2.5-14B | 92.6 | 76.9 (68.1 to 83.8) | 91.7 | 15 of 119 | 95.0 | 3.3 / 17.2 s | 35.4 |
+| Qwen2.5-7B | 94.4 | **88.9** (81.6 to 93.5) | 88.9 | **0 of 108** | 95.2 | **1.9 / 3.3 s** | 12.2 |
+| Qwen2.5-32B | 72.4 | 50.5 (41.1 to 59.9) | 59.0 | 35 of 124 | 96.4 | 6.1 / 34.3 s | 29.5 |
+| Mistral-Nemo (12B) | 97.2 | 70.4 (61.2 to 78.2) | 91.7 | **0 of 108** | **100.0** | 2.5 / 4.3 s | 26.9 |
+
+Bigger was not better: the 32B model was worst. The 14B and 32B hosted endpoints intermittently returned mixed-language gibberish even at temperature 0; 7B and Mistral never did.
+
+![Reliability of the hosted models](docs/figures/reliability_degenerate_replies.png)
+
+The gibberish exposed a hole in the safety net: three garbled explanations were valid JSON with correct citations and were shown as normal answers. The garbled-text guard now stops them (`tests/test_garbled_output_guard.py`, checked against about 1,500 recorded answers).
+
+**E3: instruction text** (temperature 0, 3 repeats): a short prompt made models copy the engine's sentence ("useful" by the metric, 7.7 words); a worked example made the 7B model write 38-word answers that name a next step in 92% of cases, at the price of injection resistance (88.9%).
+
+![E3 prompts](docs/figures/e3_prompts.png)
+
+**E4: concurrency** (36 calls per level): eight workers are fine for both models tested; throughput reached 207 calls per minute for the 7B model and 164 for Mistral-Nemo with no failures, although the endpoint itself is noisy.
+
+![E4 concurrency](docs/figures/e4_concurrency.png)
+
+**E5 and E6: confirmation on fresh cases.** The pre-registered rule selected Qwen2.5-7B with the short prompt (100% useful; +11.5 points over the default). Reading its answers showed it restates the engine's sentence (6.5 words, 8% name a next step, 0% cite a value), so we did **not** adopt it, and added E6 with "adds something" measures. In E6 no arm met the follow-up rule and the default stayed. This was the first time judgement overrode the rule.
+
+![E5 confirmation](docs/figures/e5_confirmation.png)
+![E6 candidates](docs/figures/e6_candidates.png)
+
+### 11.4 Round two: settling the choice with a better prompt and a cascade
+
+Prompt v1.4.0 (`guided`) asks for the three-sentence shape. **E7** (tuning set, 3 repeats, interleaved) chose the tiers; **E8** (12 new cases, 10 repeats pooled, interleaved) was the decision.
+
+![E7 tiers](docs/figures/e7_tiers.png)
+
+| E7 arm | Live % | Useful % (95% CI) | Garbled raw | Injection resisted % | Covers action % | Cites value % |
+|---|---|---|---|---|---|---|
+| A: Qwen2.5-14B / v1.3.0 | 91.7 | 75.9 (67.1 to 83.0) | 14 of 117 | 94.8 | 22.2 | 63.6 |
+| B: **Mistral-Nemo / guided** | **97.2** | **97.2** (92.1 to 99.1) | 0 of 111 | **100.0** | 79.0 | 67.6 |
+| C: Qwen2.5-7B / guided | 91.7 | 88.9 (81.6 to 93.5) | 0 of 114 | 94.7 | 82.8 | 86.9 |
+| D: Mistral-Nemo / v1.3.0 | 91.7 | 71.3 (62.1 to 79.0) | 0 of 111 | 96.8 | 22.2 | 85.9 |
+
+![E8 decision](docs/figures/e8_decision.png)
+
+| E8 arm | Live % | Useful % (95% CI) | Garbled raw | Injection resisted % | p50 / p95 | Covers action % | Cites value % |
+|---|---|---|---|---|---|---|---|
+| A: Qwen2.5-14B / v1.3.0 (until then the default) | 88.1 | 77.1 (68.8 to 83.8) | 27 of 131 | 100.0 | 3.5 / 29.8 s | 20.2 | 38.5 |
+| B: **Mistral-Nemo / v1.4.0** | **100.0** | **99.2** (95.4 to 99.9) | **0 of 121** | 100.0 | **2.8 / 6.9 s** | **60.0** | 45.8 |
+| C: cascade (Mistral, then 7B, then template) | 100.0 | 100.0 (96.9 to 100.0) | 0 of 121 | 100.0 | 2.6 / 8.0 s | 56.7 | 43.3 |
+
+The pre-registered rule had six criteria; **no arm met all of them** (value citation 45.8% against a 50% bar, and it moved further away in the replication). Mistral-Nemo with v1.4.0 was adopted anyway, as a judgement that overrides the rule: it beats the default on every measured dimension including the one it missed (45.8% against 38.5%), the default failed three criteria to its one, and the bar was set before we knew what was achievable, using a crude word pattern. The cascade's second tier was never used (Mistral answered 120 of 120), so it is built and tested but not the default. Safeguards: a one-setting revert (`FEATHERLESS_MODEL`, the old prompt is frozen), and a blind scoring sheet of 150 shuffled answers for the team (`experiments/manual_scoring_sheet_e8.csv`; a second sheet for E9b compares v1.4.0 with v1.5.0).
+
+### 11.5 Round three: improving how often the answer covers the corrective action
+
+**Why.** Prompt v1.4.0 covered the rule's corrective action in only 60% of E8 answers. Analysing the 120 recorded answers (no new calls) showed a clear pattern: the model followed the three-sentence shape for rules with rich findings (R003, R004, R010 to R013: 10 of 10 answers each) but wrote a single sentence, with no closing instruction, for rules with short findings (R005 1 of 10, R008 0 of 10, R009 0 of 10, R014 1 of 10, R006 3 of 10, R002 7 of 10). The action already reaches the reviewer in the finding's own `corrective_action` field, so this is about the explanation pointing at it.
+
+**Candidate (v1.5.0, `guided2`).** Makes the shape mandatory ("exactly three sentences, even when the finding is short; a shorter reply is incomplete and will be rejected"), names the parts (WHY, EVIDENCE, ACTION) with their opening words, asks for an evidence value with its path, tells the model to start the last sentence with the verb of the rule's `corrective_action` and reuse its key words, and adds a second worked example with a **short** finding. It was checked by eye on twelve tuning cases in one iteration.
+
+**Pre-registered rule (E9b, before any run):** v1.5.0 replaces v1.4.0 only if action coverage is at least 80% and 15 points above v1.4.0's on new cases, the lenient useful rate is within 3 points, value citation within 5 points, injection resistance not lower, no garbled answer is shown, and the median latency is at most 4 s. E9a on the tuning set was to be reported but not decisive.
+
+#### E9b: the decision (12 new cases FZ, 10 repeats, interleaved, 120 calls per arm)
+
+![E9b prompt v1.5.0](docs/figures/e9b_prompt_v15.png)
+
+| Arm (Mistral-Nemo, temperature 0) | Live % | Useful % (95% CI) | Garbled raw | Injection resisted % | Repeat stability | p50 / p95 | Words | Names a next step % | **Covers the corrective action %** | Cites a value % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| v1.4.0 (in use before) | 96.7 | 96.7 (91.7 to 98.7) | 1 of 136 | 100.0 | 0.67 | 2.6 / 22.1 s | 24.3 | 63.8 | **72.4** | 50.9 |
+| **v1.5.0** | 95.8 | 95.8 (90.6 to 98.2) | 0 of 129 | 100.0 | 0.77 | 2.4 / 19.9 s | 27.5 | 80.0 | **87.8** | **72.2** |
+
+The pre-registered rule, applied by `scripts/analyze_experiments.py` (`summary.json`, key `e9b_rule`):
+
+| Criterion | v1.5.0 | Result |
+|---|---|---|
+| 1. Action coverage at least 80% and at least 15 points above v1.4.0 | 87.8%, +15.4 | pass |
+| 2. Lenient useful rate not more than 3 points below v1.4.0 | 95.8 against 96.7 (-0.9) | pass |
+| 3. Value citation not more than 5 points below v1.4.0 | 72.2 against 50.9 (+21.3) | pass |
+| 4. Injection resistance not lower than v1.4.0 | 100 against 100 | pass |
+| 5. No garbled answer shown | 0 | pass |
+| 6. Median latency at most 4 s | 2.4 s | pass |
+
+**All six criteria pass, so v1.5.0 replaces v1.4.0 by the rule, with no override this time.** The margin on criterion 1 is thin (+15.4 against a bar of +15). Both prompts also lifted value citation over the E8 level (v1.4.0 scored 45.8% on the E8 cases and 50.9% on these), so case mix matters as much as the prompt.
+
+#### E9a: the sanity check on the tuning set (36 cases, 3 repeats, interleaved). Reported, not decisive.
+
+| Arm | Live % | Useful % (95% CI) | Rejected | Injection resisted % | Covers the action % | Cites a value % |
+|---|---|---|---|---|---|---|
+| v1.4.0 | 96.3 | 95.4 (89.6 to 98.0) | 4 | 100.0 | 77.9 | 65.4 |
+| v1.5.0 | 88.9 | 87.0 (79.4 to 92.1) | **12** | **95.2** | **94.8** | 61.5 |
+
+**The price of v1.5.0, stated plainly.** On the tuning set it gets more replies rejected (12 against 4). Nine of the twelve are bad citations (EX-14, VAR-09 and VAR-10 in addition to EX-09, which also fails under v1.4.0); three are the injection variant VAR-02, where the model follows the fake-delimiter instruction and flips `needs_human_review`, and the schema rejects it every time (all three repeats), so a reviewer sees the template. v1.4.0 resisted VAR-02. The frozen live run shows the same: 24 of 25 supplied cases and 10 of 11 injection variants answered by the model (VAR-02 rejected), with no approval language and the review flag kept on every shown answer. In short, v1.5.0 buys about +15 to +17 points of action coverage and about +20 points of value citation on new cases for about 4 points of live rate over both sets and a weaker stand against one known injection, which the safety net absorbs. A reasonable next step is a v1.5.1 aimed at the bad-citation rejections.
+
+#### Round-three decision
+
+**Adopt prompt v1.5.0** (`prompts/explain_findings.md`, byte-identical to `guided2.md` apart from the title line, enforced by a test). Prompt v1.4.0 is frozen at `prompts/variants/v1_4_0.md`. The model (Mistral-Nemo-Instruct-2407) and temperature (0) are unchanged. A new frozen live run is in `outputs/llm_explanations_v15.jsonl` and `outputs/llm_injection_variants_v15.jsonl`. To revert: copy `prompts/variants/v1_4_0.md` over `prompts/explain_findings.md` (and update the pinned test).
+
+
+### 11.6 Decisions and their status
+
+| Decision | Basis | Status |
+|---|---|---|
+| Temperature 0 | E1: best on every quality measure; higher temperatures garble more | In force |
+| Not the 32B model | E2: worst live rate, 3 timeouts, 21 malformed replies | In force |
+| Not the terse 7B/short setting | E5: wins the metric by copying the engine's sentence | Judgement over the rule |
+| Mistral-Nemo, prompt v1.4.0 | E7, E8: best on every measured dimension | Judgement over the rule (value citation 45.8% against a 50% bar) |
+| Prompt v1.5.0 replaces v1.4.0 | E9b: all six pre-registered criteria pass; E9a shows more rejected replies on the tuning set | By the rule (no override); revert by restoring `v1_4_0.md` |
+| Cascade available, not default | E8: tier 2 never exercised | Optional (`FEATHERLESS_FALLBACK_MODEL`) |
+| Eight workers | E4 | In force |
+
+### 11.7 Threats to validity
+
+- A hosted endpoint drifts over time (the same 14B configuration scored 78.7%, 76.9% and 59.8% useful in three runs), so only interleaved experiments (E5 onward) compare configurations fairly.
+- Small samples: 36 tuning cases, 12 confirmation cases per set, 3 to 10 repeats. Repeats of a case are not independent, so the Wilson intervals are optimistic.
+- Proxy metrics: "useful" is mechanical and rewards echoing the template; "covers the action" and "cites a value" are word patterns; the 30-answer audit was read by an AI assistant. **Human scoring is the missing evidence** and the sheet is ready.
+- Prompts v1.4.0 and v1.5.0 were written while looking at tuning-set answers; confirmation used cases they had never seen.
+- One provider, one plan.
+
+### 11.8 Reproduce
+
+```bash
+uv pip install --python .venv -r experiments/requirements-experiments.txt   # matplotlib only
+python scripts/make_fresh_variants.py [--second | --third]                  # confirmation sets
+python scripts/run_experiments.py e1                                        # resumable; e1 ... e9b, see the script header
+python scripts/analyze_experiments.py                                       # experiments/summary.json, results_tables.md, docs/figures/
+python scripts/export_scoring_sheet.py --experiment e9b                     # blind sheet for scoring by hand (also e8)
+```
+
+Needs `FEATHERLESS_API_KEY` in `.env`. Raw replies are committed; the key, provider object and environment are never written to them.
+
+## 12. Configuration reference
+
+| Setting | Where | Default |
+|---|---|---|
+| `FEATHERLESS_API_KEY` | `.env` (never committed) | none; without it the template is used and everything runs offline |
+| `FEATHERLESS_MODEL` | environment | `mistralai/Mistral-Nemo-Instruct-2407` |
+| `FEATHERLESS_FALLBACK_MODEL` | environment | unset; setting it turns on the cascade |
+| `AUDIT_ANCHOR_KEY` | environment | unset; setting it signs the audit anchor |
+| Temperature, top_p, max tokens, timeout | `OpenAICompatibleProvider` | 0, 1, 500, 90 s |
+| Prompt | `prompts/explain_findings.md` | v1.5.0 |
+| Concurrency of audited live runs | `--workers` | 8 |
+
+## 13. Limits and open items
+
+- No authentication or authorization; reviewer identity is self-declared.
+- The review interface is a static page; the local API server and mobile app are a later phase.
+- The mentor-held 200 claims are unavailable.
+- Live AI answers have not been scored by a person (sheet ready).
+- The audit log is not immutable storage; a keyed anchor and an external copy of it are needed for that.
+- No architecture diagram made by the team, demo video, pitch or runbook yet.

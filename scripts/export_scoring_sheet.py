@@ -7,7 +7,7 @@ the scorer must not open until the sheet is finished.
 
     python scripts/export_scoring_sheet.py --experiment e8 --per-arm 50 --seed 7
 
-Writes experiments/manual_scoring_sheet.csv and experiments/manual_scoring_key.csv. Scores are entered by hand; nothing here
+Writes experiments/manual_scoring_sheet_<experiment>.csv and experiments/manual_scoring_key_<experiment>.csv. Scores are entered by hand; nothing here
 scores anything.
 """
 import argparse
@@ -30,7 +30,7 @@ def main():
     p.add_argument('--per-arm', type=int, default=50)
     p.add_argument('--seed', type=int, default=7)
     a = p.parse_args()
-    cases = {c['case_id']: c for which in ('tuning', 'fresh', 'fresh2') for c in load_cases(which)}
+    cases = {c['case_id']: c for which in ('tuning', 'fresh', 'fresh2', 'fresh3') for c in load_cases(which)}
     calls = [json.loads(l) for l in (ROOT / 'experiments' / 'raw' / f'{a.experiment}.jsonl').read_text(encoding='utf-8').split(chr(10))
              if l.strip()]
     calls = [r for r in calls if r['type'] == 'call' and r['outcome'] == 'live']
@@ -41,8 +41,8 @@ def main():
         rng.shuffle(rows)
         picked += rows[:a.per_arm]
     rng.shuffle(picked)
-    sheet = ROOT / 'experiments' / 'manual_scoring_sheet.csv'
-    key = ROOT / 'experiments' / 'manual_scoring_key.csv'
+    sheet = ROOT / 'experiments' / f'manual_scoring_sheet_{a.experiment}.csv'
+    key = ROOT / 'experiments' / f'manual_scoring_key_{a.experiment}.csv'
     with sheet.open('w', newline='', encoding='utf-8') as fs, key.open('w', newline='', encoding='utf-8') as fk:
         ws = csv.writer(fs)
         wk = csv.writer(fk)

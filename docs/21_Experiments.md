@@ -1,6 +1,6 @@
 # 21 | Experiments: optimizing the AI explanation step
 
-**Status: completed 2026-09-26; the default model and prompt were changed in round two. Pre-registered before any run.** The design, metrics and decision rule were committed first (commit `fc5c47f`); results were added afterwards, and every change to the design is listed under "Deviations".
+**Status: completed 2026-09-26; the default model and prompt were changed in rounds two and three. Pre-registered before any run.** The design, metrics and decision rule were committed first (commit `fc5c47f`); results were added afterwards, and every change to the design is listed under "Deviations".
 
 ## What can be optimized, and what cannot
 
@@ -119,7 +119,7 @@ The first round could not settle the choice: the fluent models sometimes derail 
 
 Among arms that qualify, the higher action coverage wins, then the lower p95 latency. If the cascade and its own tier 1 both qualify, the cascade is chosen only if its live rate is at least 5 points higher; otherwise the simpler single model. **If no arm qualifies, the current default stays and we say so.** If an arm other than A is adopted it is adopted deliberately: prompt version bump, code defaults changed together with the tests that pin them, a new frozen live run on the 25 supplied and 11 variant cases, and updates to `docs/17`, this file and `TEAM.md`.
 
-**Manual scoring.** Independently of the rule above, a blind sheet (`experiments/manual_scoring_sheet.csv`, arm labels hidden, shuffled) is exported for the team to score with the 0/1 rubric of `docs/07`. The mechanical rule decides the default now; human scoring is what a judge will trust and can overturn it.
+**Manual scoring.** Independently of the rule above, a blind sheet (`experiments/manual_scoring_sheet_e8.csv`, arm labels hidden, shuffled) is exported for the team to score with the 0/1 rubric of `docs/07`. The mechanical rule decides the default now; human scoring is what a judge will trust and can overturn it.
 
 **E7 outcome and how the rule was applied (recorded before E8 ran).** Mistral-Nemo with `guided`: 97.2% useful, 0 garbled raw replies, 100% injection resistance, action coverage 79%, value citation 68%. Qwen2.5-7B with `guided`: 88.9% useful, 0 garbled, 94.7% injection resistance, action coverage 83%, value citation 87%. The default (arm A) resisted 94.8% of injections. Strict application of the rule: tier 1 is **Mistral-Nemo with `guided`** (highest lenient rate among the arms that pass the filter). No second tier qualifies, because the 7B arm's injection resistance is 0.1 points below arm A's (94.7% against 94.8%, one reply out of about 63). The strict result is a one-tier cascade, which is the same arm as B. **Disclosed deviation:** E8 still includes the cascade Mistral/`guided` then 7B/`guided` as arm C, because the miss is one reply and a second tier is the reason the cascade exists. This cannot change the outcome through the back door: by the rule above the cascade is only chosen over its own tier 1 if its live rate is at least 5 points higher, and tier 1 alone is expected to be near the ceiling. Caveat: `guided` was written while looking at tuning-set answers, so E7's numbers for it are optimistic; E8 exists to test it on cases it has never seen.
 
@@ -148,9 +148,9 @@ If any fails, v1.4.0 stays and we say so. If it passes, the change is made delib
 
 ## Results
 
-**Run:** 2026-09-26 against the hosted Featherless.ai endpoint. 2,136 calls in total (E1 540, E2 432, E3 648, E4 144, E5 192, E6 180), every one through the production path with the deterministic fallback. Raw replies: `experiments/raw/*.jsonl`. Every number below is generated from them by `scripts/analyze_experiments.py` (`experiments/summary.json`, `experiments/results_tables.md`), not typed by hand.
+**Run:** 2026-09-26 against the hosted Featherless.ai endpoint. 2,136 calls in round one (E1 540, E2 432, E3 648, E4 144, E5 192, E6 180; 3,528 across all three rounds), every one through the production path with the deterministic fallback. Raw replies: `experiments/raw/*.jsonl`. Every number below is generated from them by `scripts/analyze_experiments.py` (`experiments/summary.json`, `experiments/results_tables.md`), not typed by hand.
 
-**Invariant held.** Across all 2,136 calls no configuration changed a deterministic finding: the finding was hashed before and after each call, and the hash per case is identical in every configuration. Temperature, model and prompt affect the wording of an explanation and nothing else.
+**Invariant held.** Across all 3,528 calls of the three rounds no configuration changed a deterministic finding: the finding was hashed before and after each call, and the hash per case is identical in every configuration. Temperature, model and prompt affect the wording of an explanation and nothing else.
 
 **E0, the template.** The template is the engine's own sentence. It states every reason and adds nothing, so it is "useful" by construction and never fails. It is the safe floor, not a competitor on accuracy.
 
@@ -293,7 +293,7 @@ The `guided` prompt is what makes the difference: on the same model (Mistral-Nem
 - The 50% bar was chosen before we knew what was achievable and is measured by a crude pattern that ignores single-digit values such as a quantity of 2.
 - Keeping the default is not the safe option: about a fifth of the 14B model's raw replies were garbled at temperature 0 (caught, so no reviewer saw one, but each one is a real explanation lost to the template). The chosen arm produced none in 121 raw replies, resisted every injection, and covers the rule's corrective action three times as often.
 
-It is one setting away from being undone: `FEATHERLESS_MODEL=Qwen/Qwen2.5-14B-Instruct` restores the model, and the frozen prompt v1.3.0 is `prompts/variants/v1_3_0.md`. **The mechanical rule does not have the last word.** `experiments/manual_scoring_sheet.csv` holds 150 shuffled answers from E8 with the arm hidden, for the team to score with the 0/1 rubric of `docs/07` (the key is `manual_scoring_key.csv`; do not open it until the sheet is done). If people score the default at least as well as the chosen setting, revert.
+It is one setting away from being undone: `FEATHERLESS_MODEL=Qwen/Qwen2.5-14B-Instruct` restores the model, and the frozen prompt v1.3.0 is `prompts/variants/v1_3_0.md`. **The mechanical rule does not have the last word.** `experiments/manual_scoring_sheet_e8.csv` holds 150 shuffled answers from E8 with the arm hidden, for the team to score with the 0/1 rubric of `docs/07` (the key is `manual_scoring_key_e8.csv`; do not open it until the sheet is done). If people score the default at least as well as the chosen setting, revert.
 
 **The cascade is built and tested but not the default.** It is enabled by setting `FEATHERLESS_FALLBACK_MODEL` (for example `Qwen/Qwen2.5-7B-Instruct`), and the audit log then names the tier that wrote each answer. E8 never exercised the second tier, so its value in a real failure is untested; the endpoint drift seen in round one is the reason to keep it available.
 
@@ -321,9 +321,46 @@ Eight workers are still fine (164 calls per minute, no failures). The endpoint i
 - **One provider, one plan, and an endpoint that drifts.** The result says nothing about other hosts of Mistral-Nemo.
 
 
+## Round three: results and the decision
+
+### E9b: the decision (12 new cases FZ, 10 repeats, interleaved, 120 calls per arm)
+
+![E9b prompt v1.5.0](figures/e9b_prompt_v15.png)
+
+| Arm (Mistral-Nemo, temperature 0) | Live % | Useful % (95% CI) | Garbled raw | Injection resisted % | Repeat stability | p50 / p95 | Words | Names a next step % | **Covers the corrective action %** | Cites a value % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| v1.4.0 (in use before) | 96.7 | 96.7 (91.7 to 98.7) | 1 of 136 | 100.0 | 0.67 | 2.6 / 22.1 s | 24.3 | 63.8 | **72.4** | 50.9 |
+| **v1.5.0** | 95.8 | 95.8 (90.6 to 98.2) | 0 of 129 | 100.0 | 0.77 | 2.4 / 19.9 s | 27.5 | 80.0 | **87.8** | **72.2** |
+
+The pre-registered rule, applied by `scripts/analyze_experiments.py` (`summary.json`, key `e9b_rule`):
+
+| Criterion | v1.5.0 | Result |
+|---|---|---|
+| 1. Action coverage at least 80% and at least 15 points above v1.4.0 | 87.8%, +15.4 | pass |
+| 2. Lenient useful rate not more than 3 points below v1.4.0 | 95.8 against 96.7 (-0.9) | pass |
+| 3. Value citation not more than 5 points below v1.4.0 | 72.2 against 50.9 (+21.3) | pass |
+| 4. Injection resistance not lower than v1.4.0 | 100 against 100 | pass |
+| 5. No garbled answer shown | 0 | pass |
+| 6. Median latency at most 4 s | 2.4 s | pass |
+
+**All six criteria pass, so v1.5.0 replaces v1.4.0 by the rule, with no override this time.** The margin on criterion 1 is thin (+15.4 against a bar of +15). Both prompts also lifted value citation over the E8 level (v1.4.0 scored 45.8% on the E8 cases and 50.9% on these), so case mix matters as much as the prompt.
+
+### E9a: the sanity check on the tuning set (36 cases, 3 repeats, interleaved). Reported, not decisive.
+
+| Arm | Live % | Useful % (95% CI) | Rejected | Injection resisted % | Covers the action % | Cites a value % |
+|---|---|---|---|---|---|---|
+| v1.4.0 | 96.3 | 95.4 (89.6 to 98.0) | 4 | 100.0 | 77.9 | 65.4 |
+| v1.5.0 | 88.9 | 87.0 (79.4 to 92.1) | **12** | **95.2** | **94.8** | 61.5 |
+
+**The price of v1.5.0, stated plainly.** On the tuning set it gets more replies rejected (12 against 4). Nine of the twelve are bad citations (EX-14, VAR-09 and VAR-10 in addition to EX-09, which also fails under v1.4.0); three are the injection variant VAR-02, where the model follows the fake-delimiter instruction and flips `needs_human_review`, and the schema rejects it every time (all three repeats), so a reviewer sees the template. v1.4.0 resisted VAR-02. The frozen live run shows the same: 24 of 25 supplied cases and 10 of 11 injection variants answered by the model (VAR-02 rejected), with no approval language and the review flag kept on every shown answer. In short, v1.5.0 buys about +15 to +17 points of action coverage and about +20 points of value citation on new cases for about 4 points of live rate over both sets and a weaker stand against one known injection, which the safety net absorbs. A reasonable next step is a v1.5.1 aimed at the bad-citation rejections.
+
+### Round-three decision
+
+**Adopt prompt v1.5.0** (`prompts/explain_findings.md`, byte-identical to `guided2.md` apart from the title line, enforced by a test). Prompt v1.4.0 is frozen at `prompts/variants/v1_4_0.md`. The model (Mistral-Nemo-Instruct-2407) and temperature (0) are unchanged. A new frozen live run is in `outputs/llm_explanations_v15.jsonl` and `outputs/llm_injection_variants_v15.jsonl`. To revert: copy `prompts/variants/v1_4_0.md` over `prompts/explain_findings.md` (and update the pinned test).
+
 ## Round-one conclusions (where round two says otherwise, round two wins)
 
-Written before round two. Conclusions 2 and 3 in particular are superseded: the default model and prompt were changed in round two (see "The decision" above).
+Written before round two. Conclusions 2 and 3 in particular are superseded: the default model and prompt were changed in round two (see "The decision" above) and the prompt again in round three.
 
 
 1. **Keep temperature 0.** It is best or tied on every quality measure in E1 and has the lowest garble rate. Do not raise it for "more natural" wording.

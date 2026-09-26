@@ -4,7 +4,7 @@ A pre-validation copilot for **synthetic** healthcare claims. It ingests claims 
 
 Built for the CSTAM-VELODOC challenge (mentor: Dr. Wael Hilali). All data, codes, prices and payer rules are invented. Nothing here is a real reimbursement system.
 
-> **New to the project? Read [TEAM.md](TEAM.md)** for what we built, why each decision was made, and what the experiments showed.
+> **New to the project? Read [TEAM.md](TEAM.md)** for what we built and why each decision was made. **[SPECS.md](SPECS.md)** is the detailed specification, including every experiment.
 
 ## How it works
 
@@ -90,10 +90,67 @@ On Windows use `.venv\Scripts\python.exe`. Without an API key the AI step uses a
 | Status accuracy, issue precision and recall, all 15 rules | **1.0** on the development, validation and stress splits (9,000 of 9,000 results) |
 | Independent oracle agreement (rules written again from the rulebook text alone) | 0 disagreements over about 111,000 generated claims and 123 hand-derived edge cases |
 | Tests | 380, all offline, on Python 3.10, 3.12 and 3.14 (last verified on all three at the commit named in `docs/19`) |
-| Live AI explanations (Mistral-Nemo-Instruct-2407 via Featherless.ai, prompt v1.4.0, temperature 0) | 99% useful, 0 garbled replies and 100% injection resistance on 12 new cases; chosen by two rounds of experiments (`docs/21_Experiments.md`), adopted by judgement after the pre-registered rule found no arm meeting every criterion |
+| Live AI explanations (Mistral-Nemo-Instruct-2407 via Featherless.ai, prompt v1.5.0, temperature 0) | On 12 new cases: 96% useful, 0 garbled replies, 100% injection resistance, and 88% of answers cover the rule's corrective action (was 20% with the first setting). Chosen by three rounds of experiments, see below |
 | Security | audited against the OWASP Top 10 for LLM Applications and the OWASP Top 10: `docs/20_Security_Audit.md` |
 
 Perfect scores on the public splits are not evidence of generalization. The mentor-held 200 claims are not available to us; the independent oracle and the stress tests are the closest substitute.
+
+## How the AI explanation was chosen: experiments
+
+
+
+The 15 rules have nothing to tune, so the experiments optimize the only part that can vary: the language model that **explains** each finding (model, temperature, instruction text, parallel calls). 3,528 live calls on the Featherless.ai endpoint over three rounds. Three rules held throughout: no setting may change a verdict (checked by hashing the finding before and after every call; it never changed), the metrics and decision rules were written **before** each run, and every answer went through the production safety net.
+
+
+
+**Temperature: 0 is best.** Higher temperatures make the model derail more (garbled replies 10% at temperature 0, 32% at 0.5) and buy nothing back. Even at 0 the hosted model is not word-for-word deterministic.
+
+
+
+![Useful answers by temperature](docs/figures/e1_useful_vs_temperature.png)
+
+
+
+**Model: reliability decided it.** The first default, Qwen2.5-14B, garbled about a fifth of its raw replies at temperature 0 (the safety net caught them, but each was a lost explanation); the 32B model was worse; Qwen2.5-7B and Mistral-Nemo never garbled. The experiments also found a hole in our safety net (three garbled but valid-looking explanations were shown), which is now closed.
+
+
+
+![Garbled replies by model, over the session](docs/figures/reliability_degenerate_replies.png)
+
+
+
+**Prompt: the biggest lever.** A new prompt that asks for the engine's reasons, the evidence values and a closing action lifted Mistral-Nemo from 71% to 97% useful answers. The final comparison on 12 cases nothing had touched:
+
+
+
+![Round two decision](docs/figures/e8_decision.png)
+
+
+
+| Setting (10 repeats each) | Case set | Useful | Garbled raw replies | Injection resisted | Covers the corrective action | Cites an evidence value |
+|---|---|---|---|---|---|---|
+| First default: Qwen2.5-14B, prompt v1.3.0 | A (12 new cases) | 77% | 27 of 131 | 100% | 20% | 39% |
+| Mistral-Nemo, prompt v1.4.0 (round two) | A | 99% | 0 of 121 | 100% | 60% | 46% |
+| Mistral-Nemo, prompt v1.4.0 | B (12 other new cases) | 97% | 1 of 136 | 100% | 72% | 51% |
+| **Mistral-Nemo, prompt v1.5.0 (in use)** | B | 96% | 0 of 129 | 100% | **88%** | **72%** |
+
+The two case sets differ, so compare rows within a set (the same prompt scores 60% and 72% on the action measure on sets A and B).
+
+Round three improved "covers the corrective action" (the closing instruction) after we found the model skipped it for rules with short findings; the new prompt makes the three-sentence shape mandatory.
+
+
+
+![Prompt v1.5.0 against v1.4.0](docs/figures/e9b_prompt_v15.png)
+
+
+
+**What it cost, and what to distrust.** On the 36 tuning cases the v1.5.0 prompt gets more replies rejected (12 against 4, mostly bad citations) and the model follows one known injection (the safety net rejects it every time, so a reviewer sees the template). Two decisions were judgement calls that overrode our own pre-registered rule, once in each direction, and both are documented. A hosted endpoint drifts over time, the confirmation sets are small (12 cases), and the "adds something" measures are word patterns. **Nobody has scored the answers by hand yet**: `experiments/manual_scoring_sheet_e8.csv` and `manual_scoring_sheet_e9b.csv` hold shuffled answers with the setting hidden, ready for the team. If people prefer the old settings, they can be restored with one environment variable and one file (`SPECS.md` section 12).
+
+
+
+Also built and tested, but off by default: a **cascade** (fluent model, then a reliable one, then the template) with an audit log that names the model that wrote each answer (`FEATHERLESS_FALLBACK_MODEL`). Every experiment, table and figure is in [SPECS.md](SPECS.md) section 11; the raw record is `docs/21_Experiments.md` and `experiments/raw/`.
+
+
 
 ## Repository map
 
@@ -108,13 +165,14 @@ Perfect scores on the public splits are not evidence of generalization. The ment
 | `experiments/` | Raw experiment data and `summary.json`; figures are in `docs/figures/` |
 | `outputs/` | Frozen evidence: metrics, audit samples, recorded live AI runs |
 | `docs/` | Numbered documents; see the index below |
-| `prompts/`, `exercises/` | The AI prompt (v1.3.0) and its variants; the 25 supplied and our own test cases |
+| `prompts/`, `exercises/` | The AI prompt (v1.5.0) and its earlier versions and variants; the 25 supplied and our own test cases |
 
 ## Documents
 
 | Read | For |
 |---|---|
 | [TEAM.md](TEAM.md) | What we built and why; onboarding for teammates |
+| [SPECS.md](SPECS.md) | Detailed specification: contracts, rules, the AI step, audit log, security, and every experiment |
 | `docs/04_Rulebook.md` | The 15 fictional rules |
 | `docs/16_Audit_Log_Design.md` | Audit log design and what real immutability would need |
 | `docs/17_Evaluation_Report.md` | Metrics, error analysis, AI evaluation, limitations |

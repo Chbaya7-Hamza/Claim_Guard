@@ -2188,6 +2188,275 @@
       }
     ]
   },
+  "e9a": {
+    "manifest": {
+      "commit": "39329ff103f0c0defad05ef2ca8c04199a3d6e9b",
+      "engine_code_hash": "4abb200e5b757f45ba1742af543c9e7812ebe0f35cd67fed51f112c806926c3d",
+      "n_cases": 36,
+      "reps": 3,
+      "prompt_sha256": {
+        "current": "8ef1934158ab50d19ca6bfcdbe9b48707262286d3ab8c439b0392c6bfba7432a",
+        "production": "d921ba027b8991eda70a0dcf5636a99e878684669b4c21cc9d2454508b40cc9f",
+        "short": "34a48ba5ea1cf6632734e4c477ae2a8ca3e5e5ceb5e51b8ffc4df4d107958839",
+        "fewshot": "6ee6965cf985f3b97ce339aa8613a0a5d5c17d7d3aa793633edbe1abdc58fcbe",
+        "guided": "652f34107b0e9f08b21a34d6be195673d6c87316bfae50b5c6a19b4a7c1915c0",
+        "guided2": "f3517c53e355cf84eaf68e16d3ef2f9b07c176e0a5d01e38437788595c2ca2f6"
+      }
+    },
+    "configs": [
+      {
+        "cfg_id": "Mistral-Nemo-Instruct-2407|T0|p1|guided",
+        "model": "mistralai/Mistral-Nemo-Instruct-2407",
+        "temperature": 0,
+        "top_p": 1,
+        "prompt": "guided",
+        "workers": 4,
+        "stats": {
+          "calls": 108,
+          "transport_failures": 0,
+          "answered": 108,
+          "live": 104,
+          "live_rate": 96.3,
+          "useful": 103,
+          "useful_rate": 95.4,
+          "useful_ci95": [
+            89.6,
+            98.0
+          ],
+          "live_but_not_useful": 1,
+          "useful_lenient_posthoc_rate": 95.4,
+          "useful_lenient_posthoc_ci95": [
+            89.6,
+            98.0
+          ],
+          "omitted_reason_rate": 1.0,
+          "unsupported_token_rate": 0.0,
+          "mean_words": 28.5,
+          "engine_text_overlap": 0.261,
+          "garbled_shown": 0,
+          "action_coverage_rate": 77.9,
+          "answered_by": {
+            "mistralai/Mistral-Nemo-Instruct-2407": 104,
+            "template": 4
+          },
+          "names_next_step_rate": 71.2,
+          "cites_evidence_value_rate": 65.4,
+          "replies_seen": 109,
+          "degenerate_replies": 0,
+          "model_rejected": 4,
+          "rejection_reasons": {
+            "bad_citation": 4
+          },
+          "injection_replies_judged": 63,
+          "injection_obeyed": 0,
+          "injection_resistance_rate": 100.0,
+          "stability_modal_share": 0.781,
+          "stability_word_overlap": 0.872,
+          "stability_cases": 35,
+          "latency_p50_ms": 2609.0,
+          "latency_p95_ms": 5625.0,
+          "mean_total_tokens": 1545,
+          "provider_retries_used": 1,
+          "runner_retries_used": 0
+        },
+        "label": "Mistral-Nemo-2407 / guided"
+      },
+      {
+        "cfg_id": "Mistral-Nemo-Instruct-2407|T0|p1|guided2",
+        "model": "mistralai/Mistral-Nemo-Instruct-2407",
+        "temperature": 0,
+        "top_p": 1,
+        "prompt": "guided2",
+        "workers": 4,
+        "stats": {
+          "calls": 108,
+          "transport_failures": 0,
+          "answered": 108,
+          "live": 96,
+          "live_rate": 88.9,
+          "useful": 94,
+          "useful_rate": 87.0,
+          "useful_ci95": [
+            79.4,
+            92.1
+          ],
+          "live_but_not_useful": 2,
+          "useful_lenient_posthoc_rate": 88.9,
+          "useful_lenient_posthoc_ci95": [
+            81.6,
+            93.5
+          ],
+          "omitted_reason_rate": 2.1,
+          "unsupported_token_rate": 0.0,
+          "mean_words": 29.3,
+          "engine_text_overlap": 0.247,
+          "garbled_shown": 0,
+          "action_coverage_rate": 94.8,
+          "answered_by": {
+            "mistralai/Mistral-Nemo-Instruct-2407": 96,
+            "template": 12
+          },
+          "names_next_step_rate": 93.8,
+          "cites_evidence_value_rate": 61.5,
+          "replies_seen": 108,
+          "degenerate_replies": 0,
+          "model_rejected": 12,
+          "rejection_reasons": {
+            "bad_citation": 9,
+            "review_flag_changed": 3
+          },
+          "injection_replies_judged": 63,
+          "injection_obeyed": 3,
+          "injection_resistance_rate": 95.2,
+          "stability_modal_share": 0.906,
+          "stability_word_overlap": 0.978,
+          "stability_cases": 32,
+          "latency_p50_ms": 2688.0,
+          "latency_p95_ms": 5391.0,
+          "mean_total_tokens": 1751,
+          "provider_retries_used": 0,
+          "runner_retries_used": 0
+        },
+        "label": "Mistral-Nemo-2407 / guided2"
+      }
+    ]
+  },
+  "e9b": {
+    "manifest": {
+      "commit": "39329ff103f0c0defad05ef2ca8c04199a3d6e9b",
+      "engine_code_hash": "4abb200e5b757f45ba1742af543c9e7812ebe0f35cd67fed51f112c806926c3d",
+      "n_cases": 12,
+      "reps": 10,
+      "prompt_sha256": {
+        "current": "8ef1934158ab50d19ca6bfcdbe9b48707262286d3ab8c439b0392c6bfba7432a",
+        "production": "d921ba027b8991eda70a0dcf5636a99e878684669b4c21cc9d2454508b40cc9f",
+        "short": "34a48ba5ea1cf6632734e4c477ae2a8ca3e5e5ceb5e51b8ffc4df4d107958839",
+        "fewshot": "6ee6965cf985f3b97ce339aa8613a0a5d5c17d7d3aa793633edbe1abdc58fcbe",
+        "guided": "652f34107b0e9f08b21a34d6be195673d6c87316bfae50b5c6a19b4a7c1915c0",
+        "guided2": "f3517c53e355cf84eaf68e16d3ef2f9b07c176e0a5d01e38437788595c2ca2f6"
+      }
+    },
+    "configs": [
+      {
+        "cfg_id": "Mistral-Nemo-Instruct-2407|T0|p1|guided",
+        "model": "mistralai/Mistral-Nemo-Instruct-2407",
+        "temperature": 0,
+        "top_p": 1,
+        "prompt": "guided",
+        "workers": 4,
+        "stats": {
+          "calls": 120,
+          "transport_failures": 0,
+          "answered": 120,
+          "live": 116,
+          "live_rate": 96.7,
+          "useful": 116,
+          "useful_rate": 96.7,
+          "useful_ci95": [
+            91.7,
+            98.7
+          ],
+          "live_but_not_useful": 0,
+          "useful_lenient_posthoc_rate": 96.7,
+          "useful_lenient_posthoc_ci95": [
+            91.7,
+            98.7
+          ],
+          "omitted_reason_rate": 0.0,
+          "unsupported_token_rate": 0.0,
+          "mean_words": 24.3,
+          "engine_text_overlap": 0.341,
+          "garbled_shown": 0,
+          "action_coverage_rate": 72.4,
+          "answered_by": {
+            "mistralai/Mistral-Nemo-Instruct-2407": 116,
+            "template": 4
+          },
+          "names_next_step_rate": 63.8,
+          "cites_evidence_value_rate": 50.9,
+          "replies_seen": 136,
+          "degenerate_replies": 1,
+          "model_rejected": 4,
+          "rejection_reasons": {
+            "bad_citation": 2,
+            "bad_keys_or_types": 1,
+            "not_json": 1
+          },
+          "injection_replies_judged": 40,
+          "injection_obeyed": 0,
+          "injection_resistance_rate": 100.0,
+          "stability_modal_share": 0.669,
+          "stability_word_overlap": 0.846,
+          "stability_cases": 12,
+          "latency_p50_ms": 2609.0,
+          "latency_p95_ms": 22125.0,
+          "mean_total_tokens": 1520,
+          "provider_retries_used": 15,
+          "runner_retries_used": 0
+        },
+        "label": "Mistral-Nemo-2407 / guided"
+      },
+      {
+        "cfg_id": "Mistral-Nemo-Instruct-2407|T0|p1|guided2",
+        "model": "mistralai/Mistral-Nemo-Instruct-2407",
+        "temperature": 0,
+        "top_p": 1,
+        "prompt": "guided2",
+        "workers": 4,
+        "stats": {
+          "calls": 120,
+          "transport_failures": 0,
+          "answered": 120,
+          "live": 115,
+          "live_rate": 95.8,
+          "useful": 115,
+          "useful_rate": 95.8,
+          "useful_ci95": [
+            90.6,
+            98.2
+          ],
+          "live_but_not_useful": 0,
+          "useful_lenient_posthoc_rate": 95.8,
+          "useful_lenient_posthoc_ci95": [
+            90.6,
+            98.2
+          ],
+          "omitted_reason_rate": 0.0,
+          "unsupported_token_rate": 0.0,
+          "mean_words": 27.5,
+          "engine_text_overlap": 0.286,
+          "garbled_shown": 0,
+          "action_coverage_rate": 87.8,
+          "answered_by": {
+            "mistralai/Mistral-Nemo-Instruct-2407": 115,
+            "template": 5
+          },
+          "names_next_step_rate": 80.0,
+          "cites_evidence_value_rate": 72.2,
+          "replies_seen": 129,
+          "degenerate_replies": 0,
+          "model_rejected": 5,
+          "rejection_reasons": {
+            "bad_citation": 2,
+            "bad_keys_or_types": 1,
+            "not_json": 2
+          },
+          "injection_replies_judged": 38,
+          "injection_obeyed": 0,
+          "injection_resistance_rate": 100.0,
+          "stability_modal_share": 0.77,
+          "stability_word_overlap": 0.893,
+          "stability_cases": 12,
+          "latency_p50_ms": 2437.0,
+          "latency_p95_ms": 19907.0,
+          "mean_total_tokens": 1730,
+          "provider_retries_used": 7,
+          "runner_retries_used": 0
+        },
+        "label": "Mistral-Nemo-2407 / guided2"
+      }
+    ]
+  },
   "e8_adoption_rule": {
     "rows": [
       {
@@ -2263,8 +2532,41 @@
     "winner": null,
     "verdict": "no arm qualifies: the current default stays"
   },
+  "e9b_rule": {
+    "criteria": {
+      "1 action coverage at least 80% and at least 15 points above v1.4.0": true,
+      "2 lenient useful rate not more than 3 points below v1.4.0": true,
+      "3 value citation not more than 5 points below v1.4.0": true,
+      "4 injection resistance not lower than v1.4.0": true,
+      "5 no garbled answer shown": true,
+      "6 median latency at most 4 s": true
+    },
+    "passes": true,
+    "v1.4.0": {
+      "calls": 120,
+      "live_rate": 96.7,
+      "useful_lenient_posthoc_rate": 96.7,
+      "action_coverage_rate": 72.4,
+      "cites_evidence_value_rate": 50.9,
+      "injection_resistance_rate": 100.0,
+      "garbled_shown": 0,
+      "latency_p50_ms": 2609.0,
+      "latency_p95_ms": 22125.0
+    },
+    "v1.5.0": {
+      "calls": 120,
+      "live_rate": 95.8,
+      "useful_lenient_posthoc_rate": 95.8,
+      "action_coverage_rate": 87.8,
+      "cites_evidence_value_rate": 72.2,
+      "injection_resistance_rate": 100.0,
+      "garbled_shown": 0,
+      "latency_p50_ms": 2437.0,
+      "latency_p95_ms": 19907.0
+    }
+  },
   "invariant_verdicts_unchanged": {
-    "calls_checked": 3072,
+    "calls_checked": 3528,
     "changed_by_a_call": [],
     "cases_with_differing_findings": [],
     "holds": true
@@ -2286,9 +2588,9 @@
       "rate": 0.28225806451612906
     },
     "Mistral-Nemo-2407": {
-      "bad": 0,
-      "seen": 665,
-      "rate": 0.0
+      "bad": 1,
+      "seen": 1147,
+      "rate": 0.0008718395815170009
     },
     "cascade": {
       "bad": 0,
