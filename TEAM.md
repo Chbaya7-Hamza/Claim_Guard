@@ -137,6 +137,8 @@ We ran four rounds of experiments on the Featherless.ai endpoint (2026-09-26, 4,
 
 **Changing a rule.** The rulebook (`docs/04`, `rules/rules.json`) is the authority, not the code. Change `facts_extractor.py` and `rules/core.yar` together, add the case to the boundary table in `tests/test_stress_boundaries.py`, and run the differential tests: if the oracle disagrees, re-read the rulebook and decide which side is wrong before editing either. Then re-run `python scripts/verify_audit.py --log outputs/audit_dev/audit.jsonl --results outputs/yara_dev_predictions.jsonl` (after `run_yara.py`); a mismatch means you changed a result's content and the frozen audit sample needs regenerating on purpose.
 
+**Contributing.** `main` is protected: nobody pushes to it directly. Work on a branch, open a pull request, and wait for the CI checks (build, tests on Python 3.10, 3.12 and 3.14, rule accuracy against the answer key, and a security job with the adversarial suites, bandit, pip-audit and a secret scan) and for the owner's approval. The workflow is `.github/workflows/ci.yml`; `scripts/protect_main.py` applies the protection rules. The security job is an automated regression and static-analysis gate, not a substitute for a human penetration test.
+
 **Do not:**
 - edit `SHA256SUMS.json` (it is the organizers' integrity record; `validate_pack.py` failing on it is expected),
 - commit `.env` or any key (a test scans tracked files),
