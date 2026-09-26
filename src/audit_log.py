@@ -455,6 +455,7 @@ class AuditHooks:
             # a cascade names the tier that actually answered; a single provider is its own model
             'model': 'deterministic-template' if from_template else (drafted.get('answered_by') or request['model']),
             'tier_errors': drafted.get('tier_errors', []),
+            'citation_repairs': drafted.get('citation_repairs', []),
             'prompt_version': request['prompt_version'], 'used_fallback': used_fallback,
             'source': 'deterministic_template' if from_template else 'model',
             'error': drafted['error'], 'latency_ms': drafted['latency_ms'], 'usage': drafted['usage'],

@@ -81,6 +81,126 @@ _FIELD_MESSAGES = {
 }
 
 
+_repairs = threading.local()
+
+
+
+
+
+def _edit_distance(a, b):
+
+    previous = list(range(len(b) + 1))
+
+    for i, ca in enumerate(a, 1):
+
+        current = [i]
+
+        for j, cb in enumerate(b, 1):
+
+            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb)))
+
+        previous = current
+
+    return previous[-1]
+
+
+
+
+
+def take_citation_repairs():
+
+    """Return, and clear, the citation repairs made on this thread since the last call (see repair_citations)."""
+
+    items, _repairs.items = getattr(_repairs, 'items', []), []
+
+    return items
+
+
+
+
+
+def repair_citations(output, finding):
+
+    """Fix formatting slips in cited_evidence_paths, and nothing else.
+
+
+
+    Recorded experiment data (docs/21) showed the largest cause of rejected replies was a path that was not exactly one of the
+
+    finding's evidence paths: a dropped character ("/coverage/end_ate"), a stray space ("/lines/0/ service_date"), or a more
+
+    specific path under an allowed one ("/authorizations/0/max_quantity" under "/authorizations/0"). A cited path is metadata about
+
+    which evidence the text used, so a slip is mapped to the one allowed path it obviously means: whitespace removed; else the
+
+    longest allowed path it lies under; else the single allowed path within two edits. Anything else is left alone and the schema
+
+    rejects it. The explanation text, the rule id and the review flag are never touched, and every repair is recorded
+
+    (take_citation_repairs) so the audit log can show it."""
+
+    if not isinstance(output, dict):
+
+        return output
+
+    paths = output.get('cited_evidence_paths')
+
+    if not isinstance(paths, list) or not all(isinstance(p, str) for p in paths):
+
+        return output
+
+    allowed = [e['path'] for e in finding.get('evidence', []) if isinstance(e, dict) and 'path' in e]
+
+    fixed, notes = [], []
+
+    for path in paths:
+
+        target = None
+
+        if path not in allowed:
+
+            squeezed = ''.join(path.split())
+
+            if squeezed in allowed:
+
+                target, kind = squeezed, 'whitespace'
+
+            else:
+
+                ancestors = [a for a in allowed if squeezed.startswith(a.rstrip('/') + '/')]
+
+                near = [a for a in allowed if _edit_distance(squeezed, a) <= 2]
+
+                if ancestors:
+
+                    target, kind = max(ancestors, key=len), 'ancestor'
+
+                elif len(near) == 1:
+
+                    target, kind = near[0], 'typo'
+
+        if target is None:
+
+            fixed.append(path)
+
+        else:
+
+            fixed.append(target)
+
+            notes.append({'from': path, 'to': target, 'kind': kind})
+
+    if not notes:
+
+        return output
+
+    _repairs.items = getattr(_repairs, 'items', []) + notes
+
+    return dict(output, cited_evidence_paths=list(dict.fromkeys(fixed)))
+
+
+
+
+
 def validate_explanation(output, finding):
     """Validate a model reply against the per-finding pydantic schema. Raises ValueError
     (chained from the pydantic error) naming the violated contract; returns a plain dict."""
@@ -324,7 +444,7 @@ class OpenAICompatibleProvider:
                 error = e
                 continue
             # A schema/grounding violation is model misbehaviour: never retried, goes to the fallback.
-            return check_grounding(validate_explanation(output, finding), finding, rule)
+            return check_grounding(validate_explanation(repair_citations(output, finding), finding), finding, rule)
         raise error
 
 
@@ -363,8 +483,9 @@ def explain_with_fallback(provider, fallback, finding, rule, untrusted_note=None
         # The trust boundary is enforced here, not left to each provider class (a judge may plug in their own):
         # the provider gets private copies, so it cannot edit the deterministic result it is explaining, and its
         # reply must pass the same schema and grounding checks as the built-in providers or the template is used.
+        take_citation_repairs()  # start clean: repairs are reported for this call only
         output = provider.explain(copy.deepcopy(finding), copy.deepcopy(rule), untrusted_note)
-        output = check_grounding(validate_explanation(output, finding), finding, rule)
+        output = check_grounding(validate_explanation(repair_citations(output, finding), finding), finding, rule)
         return output, False, None, (time.monotonic() - t0) * 1000
     except Exception as e:
         latency_ms = (time.monotonic() - t0) * 1000
@@ -436,13 +557,15 @@ class CascadeExplanationProvider:
 
             try:
 
+                take_citation_repairs()  # start clean for this tier; its own repairs are kept for the audit record
                 output = tier.explain(copy.deepcopy(finding), copy.deepcopy(rule), untrusted_note)
 
-                output = check_grounding(validate_explanation(output, finding), finding, rule)
+                output = check_grounding(validate_explanation(repair_citations(output, finding), finding), finding, rule)
 
             except Exception as e:  # noqa: BLE001 - any failure of one tier just moves on to the next
 
                 errors.append({'model': name, 'error': f'{type(e).__name__}: {e}'[:300]})
+                take_citation_repairs()  # a failed tier's repairs do not belong to the tier that answers
 
                 continue
 

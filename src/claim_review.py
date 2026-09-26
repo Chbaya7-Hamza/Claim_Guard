@@ -27,7 +27,8 @@ from pathlib import Path
 from audit import digest
 from engine_core import validate_transport
 from yara_engine import evaluate as run_rule_checks, engine_code_hash, pack_hash
-from llm_adapter import MockExplanationProvider, build_prompt, default_provider, explain_with_fallback, omitted_reasons
+from llm_adapter import (MockExplanationProvider, build_prompt, default_provider, explain_with_fallback, omitted_reasons,
+                         take_citation_repairs)
 
 ROOT = Path(__file__).resolve().parents[1]
 PROMPT_VERSION = (ROOT / 'prompts' / 'explain_findings.md').read_text(encoding='utf-8').splitlines()[0].lstrip('# ').strip()
@@ -95,6 +96,7 @@ def draft_and_validate_explanation(finding: dict, rule: dict, provider, fallback
         'latency_ms': round(latency_ms, 1),
         'usage': usage,
         # which tier of a cascade wrote the text, and why the tiers before it were skipped (None / [] for a single provider)
+        'citation_repairs': take_citation_repairs() if not used_fallback else [],
         'answered_by': getattr(provider, 'answered_by', None) if not used_fallback else None,
         'tier_errors': list(getattr(provider, 'tier_errors', []) or []) if not used_fallback else [],
         'engine_explanation': finding['explanation'],
