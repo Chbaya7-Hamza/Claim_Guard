@@ -1385,11 +1385,11 @@
     "cases_with_differing_findings": [],
     "holds": true
   },
-  "degenerate_replies_by_model": {
+  "degenerate_replies_by_model_temperature_0": {
     "Qwen2.5-14B": {
-      "bad": 313,
-      "seen": 1311,
-      "rate": 0.2387490465293669
+      "bad": 178,
+      "seen": 799,
+      "rate": 0.2227784730913642
     },
     "Qwen2.5-7B": {
       "bad": 0,

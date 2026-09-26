@@ -92,12 +92,12 @@ We ran six experiments (2,136 live calls, 2026-09-26) on the Featherless.ai endp
 | Question | Answer | Evidence |
 |---|---|---|
 | Does any setting change a verdict? | **No.** The finding was hashed before and after each of 2,136 calls; identical everywhere | `experiments/summary.json` |
-| Which temperature? | **0.** Best on every measure; live answers fall from 93% to 78 to 82% at 0.5 to 1.0 and garbled replies rise from 10% to 32% | E1, ![E1](docs/figures/e1_useful_vs_temperature.png) |
+| Which temperature? | **0.** Best on every quality measure; live answers fall from 93% to 78 to 82% at 0.5 to 1.0 and garbled replies rise from 10% to 32% | E1, ![E1](docs/figures/e1_useful_vs_temperature.png) |
 | Is temperature 0 deterministic? | **No.** On the hosted 14B model only 1 of 30 cases repeated word for word; the wording still varies | E1 |
-| Which model? | Depends on what you value. The 7B model never garbles and is fastest (1.9 s), Mistral-Nemo never garbles and is fluent, the 14B default is fluent but derails in about a quarter of raw replies, the 32B model is worst | E2, ![reliability](docs/figures/reliability_degenerate_replies.png) |
+| Which model? | Depends on what you value. The 7B model never garbles and is fastest (1.9 s), Mistral-Nemo never garbles and is fluent, the 14B default is fluent but garbles about a fifth of its raw replies at temperature 0, the 32B model is worst | E2, ![reliability](docs/figures/reliability_degenerate_replies.png) |
 | Which prompt? | A worked example makes a small model write fuller explanations (names a next step in 92% of answers) but lowers its injection resistance to 88.9%; a short prompt makes it copy the template | E3 |
 | How many parallel calls? | 8. Throughput rises from 29 to 207 calls per minute with no rate limiting | E4 |
-| Should we switch the default? | **No.** The pre-registered winner (7B, short prompt, 100% useful) wins by restating the engine's own sentence; no fluent candidate passed the follow-up rule | E5, E6 |
+| Should we switch the default? | **No, and this overrides the pre-registered rule, so read it as a judgement.** The rule selected 7B with the short prompt (100% useful). We declined to recommend it because its answers restate the engine's own sentence and never cite an evidence value, added a follow-up experiment, and no fluent candidate passed that either. The default stays as the status quo, not because it passed: it fails the follow-up's first test (garbled replies) | E5, E6 |
 
 What the experiments changed in the product: the garbled-output guard. Three garbled explanations (valid JSON, correct citations) passed the schema and grounding checks and were shown as normal live answers. `check_grounding` now rejects text in another script, a replacement character, and long repetitions, tested against about 1,500 recorded answers.
 

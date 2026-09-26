@@ -29,7 +29,7 @@ python scripts/run_llm_explanations.py                   # live model run (needs
 
 - **No split was held out from us.** Labels for development, validation and stress were all available and were used to check the engine. The rule logic was written from `docs/04_Rulebook.md`, the schema and the handbook's worked cases (`tests/test_worked_cases_equivalence.py` checks all 150 worked-case results), but we cannot claim the public splits were used only for validation.
 - **The mentor-held set was not available.** Every accuracy figure below is therefore a measure of agreement on data we developed against, not an estimate of performance on unseen claims.
-- Nothing was tuned on hidden labels, and no label file is read by the engine at run time. The AI explanation prompt was tuned only after inspecting live answers on the public exercise cases, and that change is unverified live (see AI evaluation).
+- Nothing was tuned on hidden labels, and no label file is read by the engine at run time. The AI explanation prompt was tuned only after inspecting live answers on the public exercise cases, and that change was later re-run live under prompt v1.3.0 (see AI evaluation) and compared across temperatures, models and prompts in `docs/21_Experiments.md`.
 
 ## Metrics
 
@@ -98,6 +98,26 @@ All of these passed `validate_explanation` and kept `needs_human_review: true`. 
 
 An independent oracle written only from the rulebook agrees with the engine on all 9,000 public results and on about 111,000 generated claims, and 123 hand-derived boundary cases pass. The exercise found and fixed real defects (precedence of a proven violation over a missing input in R009 and R013, exact money comparison, Python-version-dependent dates, runner and ingestion aborts, and the AI trust boundary). Method, findings, the readings adopted where the rulebook is silent, and what is still not covered are in `docs/19_Stress_Testing_and_Judging_Coverage.md`. The 600 public claims are unaffected: still 1.0 on all three splits.
 
+## AI experiments (temperature, model, prompt)
+
+
+
+This is the "AI ablations" part of the evaluation. Full design, data, figures, deviations and threats to validity are in `docs/21_Experiments.md`; raw replies are in `experiments/raw/`. Headlines, from 2,136 live calls on 2026-09-26:
+
+
+
+- No setting ever changed a deterministic finding (hash checked before and after every call).
+
+- **Temperature 0 is best** on every quality measure; higher temperatures make the model derail more (garbled raw replies 10% at 0, 32% at 0.5). Temperature 0 is still not deterministic on the hosted endpoint.
+
+- The model matters more than the temperature: Qwen2.5-7B and Mistral-Nemo never garbled, the 32B model was worst, the 14B default garbled about a fifth of its raw replies.
+
+- The pre-registered rule selected Qwen2.5-7B with a short prompt (100% "useful" on fresh cases), but its answers restate the engine's sentence and cite no evidence values. We did **not** adopt it, a judgement that overrides the rule, and the default stays. Human scoring is the missing evidence.
+
+- The experiments exposed a gap in the safety net (garbled but schema-valid explanations were accepted); the guard now rejects them.
+
+
+
 ## Human review and security
 
 Evidence is in the tests (364 passing) and the frozen runs:
@@ -117,5 +137,5 @@ Evidence is in the tests (364 passing) and the frozen runs:
 - FHIR ingestion is a teaching subset: one Claim per Bundle, no Encounter resource exists in the pack (the adapter reports any Encounter a bundle does carry, in `report['encounters']`, but the closed claim schema has no slot for it and no rule uses it), no terminology or profile validation, authorization details unavailable.
 - Audit log is tamper-evident, not immutable; reviewer identity is self-declared; no authentication.
 - The review page is an offline HTML file: decisions move through a downloaded JSONL, not a server.
-- AI explanation: unreliable provider, no human scoring yet, three known classes of unsupported statement (one unguarded), prompt v1.1.0 unverified live.
-- Next steps: human scoring of the 13 live answers with `outputs/llm_manual_scorecard.csv`; a live re-run under prompt v1.1.0; a rule-level guard for "asserts validity of an unevaluated field"; a server behind the review page with authenticated reviewers; external anchoring of the audit head hash.
+- AI explanation: the hosted endpoint is unreliable (at temperature 0 the 14B model garbled about a fifth of its raw replies; the safety net replaces them, and a garbled-text guard was added after three slipped through), no human scoring yet, and an answer can still add an unsupported "this line matches" claim about a field the finding does not mention, which neither check catches. Prompt v1.3.0 was verified live (recorded runs and `docs/21`).
+- Next steps: human scoring of the 13 live answers with `outputs/llm_manual_scorecard.csv`; manual 0/1 scoring of the E5 and E6 answers to settle the model and prompt choice (`docs/21`); a rule-level guard for "asserts validity of an unevaluated field"; a server behind the review page with authenticated reviewers; external anchoring of the audit head hash.

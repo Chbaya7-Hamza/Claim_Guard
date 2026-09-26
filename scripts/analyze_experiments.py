@@ -432,7 +432,7 @@ def figures(summary, data):
 
             axes[1].text(i, 100 * timeline['overall'][n]['rate'] + 0.3, f"{timeline['overall'][n]['bad']}/{timeline['overall'][n]['seen']}", ha='center', fontsize=8)
 
-        axes[1].set_ylabel('% of raw replies'); axes[1].set_title('Degenerate replies by model (all experiments)')
+        axes[1].set_ylabel('% of raw replies'); axes[1].set_title('Garbled replies by model (temperature 0)')
 
         axes[1].tick_params(axis='x', labelrotation=20, labelsize=8)
 
@@ -539,28 +539,18 @@ def main():
     summary['invariant_verdicts_unchanged'] = invariant(all_calls) if all_calls else None
 
     if all_calls:
-
+        # Temperature 0 only: E1 also ran the 14B model at higher temperatures, which garble more, and pooling them
+        # would flatter the models that were only run at 0.
         by_model = defaultdict(list)
-
-        for r in sorted(all_calls, key=lambda r: r['ts']):
-
+        for r in sorted((r for r in all_calls if r['temperature'] == 0), key=lambda r: r['ts']):
             for t in r['raw_replies']:
-
                 by_model[r['model'].split('/')[-1].replace('-Instruct', '')].append((r['ts'], is_degenerate(t)))
-
         series, overall = {}, {}
-
         for m, pts in by_model.items():
-
             overall[m] = {'bad': sum(b for _, b in pts), 'seen': len(pts), 'rate': sum(b for _, b in pts) / len(pts)}
-
-            step = 15
-
-            series[m] = [(pts[i][0], statistics.mean(b for _, b in pts[max(0, i - 29):i + 1])) for i in range(0, len(pts), step)]
-
+            series[m] = [(pts[i][0], statistics.mean(b for _, b in pts[max(0, i - 29):i + 1])) for i in range(0, len(pts), 15)]
         data['timeline'] = {'series': series, 'overall': overall}
-
-        summary['degenerate_replies_by_model'] = overall
+        summary['degenerate_replies_by_model_temperature_0'] = overall
     template = {'note': 'Template answer = the engine explanation itself: it states every reason and adds nothing, so it is '
                         'useful by construction. It is the safe floor the model has to beat, not a competitor on accuracy.',
                 'cases': len(load_cases('tuning'))}

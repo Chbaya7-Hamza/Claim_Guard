@@ -89,7 +89,7 @@ On Windows use `.venv\Scripts\python.exe`. Without an API key the AI step uses a
 |---|---|
 | Status accuracy, issue precision and recall, all 15 rules | **1.0** on the development, validation and stress splits (9,000 of 9,000 results) |
 | Independent oracle agreement (rules written again from the rulebook text alone) | 0 disagreements over about 111,000 generated claims and 123 hand-derived edge cases |
-| Tests | 346, all offline; suites also pass on Python 3.12 and 3.14 |
+| Tests | 364, all offline, on Python 3.10, 3.12 and 3.14 (last verified on all three at the commit named in `docs/19`) |
 | Live AI explanations (Qwen2.5-14B via Featherless.ai) | see `docs/21_Experiments.md` for temperature, model and prompt experiments |
 | Security | audited against the OWASP Top 10 for LLM Applications and the OWASP Top 10: `docs/20_Security_Audit.md` |
 
