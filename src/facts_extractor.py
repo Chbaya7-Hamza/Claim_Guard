@@ -7,9 +7,9 @@ all from one pass over the claim, so the tags YARA sees and the result fields
 assembled afterward can never drift apart. yara_engine.evaluate() builds the
 combined facts blob directly from these functions' output.
 """
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Context, Decimal, ROUND_HALF_UP, localcontext
 
-from engine_core import empty, valid_date, money
+from engine_core import empty, valid_date
 
 
 def r001_details(c):
@@ -186,6 +186,12 @@ def r005_details(c, cfg):
     return {'facts': facts, 'evidence_paths': paths, 'line_ids': [], 'message': message}
 
 
+# Money is compared exactly: the submitted amount is not rounded before the 0.01 tolerance is applied
+# (docs/04: "Do not silently trim or repair source data"), and the context is wide enough that an
+# absurdly large but valid number is a FAIL rather than a decimal overflow.
+_WIDE = Context(prec=5000, rounding=ROUND_HALF_UP, Emax=999999, Emin=-999999)
+
+
 def r007_details(c):
     paths = []
     unknown = []
@@ -197,9 +203,11 @@ def r007_details(c):
         if q is None or u is None or n is None:
             unknown.append('line amount inputs')
             continue
-        expected = (Decimal(str(q)) * Decimal(str(u))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        actual = money(n)
-        if abs(expected - actual) > Decimal('0.01'):
+        with localcontext(_WIDE):
+            expected = (Decimal(str(q)) * Decimal(str(u))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            actual = Decimal(str(n))
+            off = abs(expected - actual) > Decimal('0.01')
+        if off:
             ids.append(l['line_id'])
             facts.append(f'R007:MISMATCH:/lines/{i}/net_amount:expected={expected}:actual={actual}')
     if facts:
@@ -259,10 +267,15 @@ def r009_details(c, cfg):
     required = set(policy['auth_required_services'])
     auths_by_id = {a['authorization_id']: a for a in c['authorizations']}
     qty_by_auth = {}
+    qty_unknown_auth = set()  # a shared authorization whose total cannot be summed
     for l in c['lines']:
         aid = l['authorization_id']
-        if aid and isinstance(l['quantity'], (int, float)) and not isinstance(l['quantity'], bool):
+        if not aid:
+            continue
+        if isinstance(l['quantity'], (int, float)) and not isinstance(l['quantity'], bool):
             qty_by_auth[aid] = qty_by_auth.get(aid, 0) + l['quantity']
+        else:
+            qty_unknown_auth.add(aid)
     paths = ['/policy_id']
     unknown_lines = []
     failed_lines = []
@@ -287,20 +300,32 @@ def r009_details(c, cfg):
             continue
         sd = valid_date(l['service_date'])
         vf, vt = valid_date(auth['valid_from']), valid_date(auth['valid_to'])
-        qty = l['quantity']
-        if (not sd or vf is None or vt is None or qty is None
-                or empty(auth['patient_id']) or empty(auth['service_code']) or empty(auth['status'])
-                or auth['max_quantity'] is None):
-            unknown_lines.append(i)
-            continue
+        cap = auth['max_quantity']
+        # docs/04: a proven violation gives FAIL even when another comparison input is missing.
+        mismatch = False
+        unknown = False
+        for mine, theirs in ((c['patient_id'], auth['patient_id']), (code, auth['service_code'])):
+            if empty(theirs):
+                unknown = True
+            elif theirs != mine:
+                mismatch = True
+        if empty(auth['status']):
+            unknown = True
+        elif auth['status'] != 'approved':
+            mismatch = True
+        if sd is None or vf is None or vt is None:
+            unknown = True
+        elif sd < vf or sd > vt:
+            mismatch = True
+        if cap is None or aid in qty_unknown_auth:
+            unknown = True
+        elif qty_by_auth.get(aid, 0) > cap:
+            mismatch = True
         paths.append(f'/lines/{i}/service_date')
-        mismatch = (
-            auth['patient_id'] != c['patient_id'] or auth['service_code'] != code
-            or auth['status'] != 'approved' or sd < vf or sd > vt
-            or qty_by_auth.get(aid, qty) > auth['max_quantity']
-        )
         if mismatch:
             failed_lines.append(i)
+        elif unknown:
+            unknown_lines.append(i)
     ids = [c['lines'][i]['line_id'] for i in sorted(set(failed_lines))]
     if failed_lines:
         facts = [f'R009:MISMATCH:/lines/{i}/authorization_id' for i in sorted(set(failed_lines))]
@@ -400,16 +425,25 @@ def r012_details(c):
         facts = ['R012:UNKNOWN']
         message = 'Missing amount inputs prevent totalling.'
     else:
-        expected = sum((Decimal(str(a)) for a in amounts), Decimal('0')).quantize(
-            Decimal('0.01'), rounding=ROUND_HALF_UP)
-        actual = money(c['total_amount'])
-        if abs(expected - actual) > Decimal('0.01'):
+        with localcontext(_WIDE):
+            expected = sum((Decimal(str(a)) for a in amounts), Decimal('0')).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP)
+            actual = Decimal(str(c['total_amount']))
+            off = abs(expected - actual) > Decimal('0.01')
+        if off:
             facts = [f'R012:MISMATCH:total_amount={actual}:expected={expected}']
             message = 'Claim total does not equal the sum of line amounts.'
         else:
             facts = ['R012:OK']
             message = 'Claim total equals the sum of line amounts.'
     return {'facts': facts, 'evidence_paths': paths, 'line_ids': [], 'message': message}
+
+
+def _whole_number(q):
+    """True for 3 and for 3.0 (JSON does not distinguish them); False for 1.5, nan, inf and bool."""
+    if isinstance(q, bool):
+        return False
+    return isinstance(q, int) or (isinstance(q, float) and q.is_integer())
 
 
 def r013_details(c, cfg):
@@ -421,14 +455,12 @@ def r013_details(c, cfg):
         q, u, code = l['quantity'], l['unit_price'], l['service_code']
         paths.extend([f'/lines/{i}/quantity', f'/lines/{i}/unit_price', f'/lines/{i}/service_code'])
         line_failed = False
-        line_unknown = False
-        if q is None or u is None:
-            line_unknown = True
-        else:
-            if not (isinstance(q, int) and not isinstance(q, bool) and q > 0):
-                line_failed = True
-            if u <= 0:
-                line_failed = True
+        line_unknown = q is None or u is None
+        # docs/04: a proven violation gives FAIL even when another input is missing
+        if q is not None and not (_whole_number(q) and q > 0):
+            line_failed = True
+        if u is not None and u <= 0:
+            line_failed = True
         if empty(code) or policy is None:
             line_unknown = True
         else:
@@ -530,23 +562,21 @@ def _clean_str(v):
 
 
 def _clean_row(row, nums, strs):
+    """Wrong-typed values, missing keys and non-object rows all become None (unknown)."""
     if not isinstance(row, dict):
-        return row
+        return {k: None for k in nums + strs}
     out = dict(row)
     for k in nums:
-        if k in out:
-            out[k] = _clean_num(out[k])
+        out[k] = _clean_num(out.get(k))
     for k in strs:
-        if k in out and out[k] is not None:
-            out[k] = _clean_str(out[k])
+        out[k] = _clean_str(out.get(k))
     return out
 
 
 def rule_view(c):
     """A copy of the claim with wrong-typed values replaced by None (see above)."""
     v = _clean_row(c, _TOP_NUM, _TOP_STR)
-    if isinstance(c.get('coverage'), dict):
-        v['coverage'] = _clean_row(c['coverage'], (), _COVERAGE_STR)
+    v['coverage'] = _clean_row(c.get('coverage'), (), _COVERAGE_STR)
     for key, nums, strs in (('lines', _LINE_NUM, _LINE_STR), ('authorizations', _AUTH_NUM, _AUTH_STR),
                             ('attachments', (), _ATT_STR)):
         if isinstance(c.get(key), list):
