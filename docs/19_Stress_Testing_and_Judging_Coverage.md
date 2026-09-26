@@ -1,6 +1,6 @@
 # 19 | Stress testing and judging coverage
 
-Written 2026-09-26. Everything below is reproducible offline: `python -m unittest discover -s tests` (380 tests, about 60 s, no API key). The full suite (380 tests) passed on Python 3.10, 3.12 and 3.14, each in a clean clone, at commit `010f848` (later commits change documentation only).
+Written 2026-09-26. Everything below is reproducible offline: `python -m unittest discover -s tests` (380 tests, about 60 s, no API key). The full suite (380 tests) passed on Python 3.10, 3.12 and 3.14, each in a clean clone, at commit `fd31c41` (later commits change documentation only), and the audit cross-check of all 6,000 logged result hashes matched on all three.
 
 ## 1. What the judges score, and where it is checked
 
