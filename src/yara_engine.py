@@ -56,6 +56,17 @@ def pack_hash():
     return hashlib.sha256(PACK_PATH.read_bytes()).hexdigest()
 
 
+def engine_code_hash():
+    """Identifies the code that produced a result: the rule pack plus the two modules that feed and assemble it. rule_version
+    is the rulebook's (not ours to bump), so this is what tells two builds of the engine apart in an audit trace."""
+    here = Path(__file__).resolve().parent
+    h = hashlib.sha256()
+    for path in (PACK_PATH, here / 'facts_extractor.py', here / 'yara_engine.py'):
+        # splitlines() makes the digest the same whether git checked the file out with LF or CRLF
+        h.update(b'|'.join([path.name.encode()] + path.read_bytes().splitlines()))
+    return h.hexdigest()
+
+
 def _safe_evidence(c, paths):
     """Evidence = direct pointer lookups on the ORIGINAL claim. A path that cannot be resolved is
     dropped rather than crashing; if none resolve, /claim_id (always present) keeps the result

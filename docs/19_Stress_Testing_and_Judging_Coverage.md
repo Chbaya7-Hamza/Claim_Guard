@@ -1,6 +1,6 @@
 # 19 | Stress testing and judging coverage
 
-Written 2026-09-26. Everything below is reproducible offline: `python -m unittest discover -s tests` (314 tests, about 80 s, no API key). The suite was also run on Python 3.12 and 3.14 in clean environments.
+Written 2026-09-26. Everything below is reproducible offline: `python -m unittest discover -s tests` (317 tests, about 60 s, no API key). The suite was also run on Python 3.12 and 3.14 in clean environments.
 
 ## 1. What the judges score, and where it is checked
 
@@ -12,7 +12,7 @@ The weights are the mentor's proposals from `docs/07_Evaluation_and_Acceptance.m
 | **Grounded AI explanations (20)** | 25 supplied cases plus fresh variants; no unsupported approvals | Schema and grounding checks now run in the orchestrator for every provider (`tests/test_stress_ai_boundary.py`, 17 misbehaviour kinds). 25 supplied and 11 own injection cases were run live (`outputs/llm_*`). | Manual 0/1 scoring of the live answers is not filled in. Live runs used prompt v1.3.0 on one model. |
 | **Human review and usability (15)** | Trace a finding, dismiss with a reason, request info, trigger a recheck | `tests/test_review_workflow.py` (decisions, recheck as a new version). The review page filters by status and text and shows the evidence as submitted (`tests/test_stress_review_page.py`: hostile text stays inert). | The page records decisions in the browser and hands them over as a downloaded JSONL; applying them and running the recheck is a command-line step. There is no rule or severity dropdown. The mobile app and local API were parked. |
 | **Uncertainty and security (15)** | Unknown data, malicious document text, tool errors, access boundaries | Unknown data: every rule has an UNABLE_TO_ASSESS path and none returns PASS for an unknown. Malicious text: all 9,000 verdicts on the 600 public claims are identical with injection text in every note and attachment. Tool errors: a crashing rule becomes UNABLE_TO_ASSESS, a failing model falls back to the template. | No authentication; reviewer identity is self-declared. |
-| **Audit and reproducibility (10)** | Hashes and versions, audit history, repeatable install | Hash-chained log plus separate anchor (`tests/test_audit_log.py`). Fresh-clone install and the full suite pass with the README's own `uv` commands. Results are now the same on Python 3.10, 3.12 and 3.14. | Tamper-evident, not immutable (`docs/16`). |
+| **Audit and reproducibility (10)** | Hashes and versions, audit history, repeatable install | Hash-chained log plus separate anchor (`tests/test_audit_log.py`). Every run now also records `engine_code_hash` (rule pack plus the two engine modules), because `rule_version` belongs to the rulebook and cannot tell two builds apart. `tests/test_stress_reproducibility.py` re-runs the engine on the 400 development claims and checks that all 6,000 result hashes in the committed audit sample still match. Fresh-clone install and the full suite pass with the README's own `uv` commands. Results are now the same on Python 3.10, 3.12 and 3.14. | Tamper-evident, not immutable (`docs/16`). |
 | **Communication (5)** | Architecture, limitations, demonstration | README maps each rubric item to code and a command. | No team-authored architecture diagram, recorded demo or pitch yet. |
 
 **Non-negotiable checks (docs/07)**
@@ -61,8 +61,8 @@ Each is implemented the same way in the engine and the oracle, and covered by a 
 
 1. **Proven violation beats missing input**, in every rule (`docs/04`, shared conventions).
 2. **"Empty" means null or whitespace-only text**, the supplied baseline's own convention. Identifier and enum comparisons are exact and case sensitive (`Active` is not `active`, `sar` is not `SAR`).
-3. **Quantity must be a positive whole number.** `3.0` counts as whole, `1.5` does not. JSON does not distinguish them.
-4. **Amounts are compared exactly**, not rounded first: `|submitted - round_half_up(expected)| <= 0.01`.
+3. **Quantity must be a positive whole number.** `3.0` counts as whole, `1.5` does not. JSON does not distinguish them, and the pack's own `csv_to_jsonl.number()` turns `2.0` into `2`.
+4. **Amounts are compared exactly**, not rounded first: `|submitted - round_half_up(expected)| <= 0.01`. Counter-evidence, recorded so this reads as a choice: the supplied `engine_core.money()` rounds any value, and the previous engine applied it to the submitted amount too. The two readings differ only when the exact difference falls in (0.010, 0.015), for example 100.014 against 100.00, which no public claim contains. We kept the exact reading because `docs/04` says not to repair source data before checking.
 5. **NaN, Infinity and wrong-typed numbers are unknown**, and R001 reports them as missing information. They are not valid JSON numbers, and flagging them for a human is the conservative reading.
 6. **Dates are exactly `YYYY-MM-DD`**; compact, week and time-suffixed spellings are unknown.
 7. **R014 with any unknown service date is UNABLE_TO_ASSESS**: the unknown date could be the latest one and change the lag.

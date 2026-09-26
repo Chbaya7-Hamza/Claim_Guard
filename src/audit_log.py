@@ -368,7 +368,8 @@ def audited_review(log, claim, cfg, provider=None, fallback=None, untrusted_note
                     + ', '.join(f"{r['rule_id']}={r['status']}" for r in needs_review)) if needs_review
                    else 'No FAIL or UNABLE_TO_ASSESS findings. This is not an approval.'},
         {'event_type': 'run_finished', 'run_id': run_id, 'claim_id': claim_id,
-         'rule_pack_hash': trace['rule_pack_hash'], 'rule_versions': trace['rule_versions'],
+         'rule_pack_hash': trace['rule_pack_hash'], 'engine_code_hash': trace['engine_code_hash'],
+         'rule_versions': trace['rule_versions'],
          'tool_errors': trace['tool_errors'], 'finished_at': trace['finished_at']},
     ])
     return rule_results, ai, trace

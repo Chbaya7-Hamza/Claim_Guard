@@ -26,7 +26,7 @@ from pathlib import Path
 
 from audit import digest
 from engine_core import validate_transport
-from yara_engine import evaluate as run_rule_checks, pack_hash
+from yara_engine import evaluate as run_rule_checks, engine_code_hash, pack_hash
 from llm_adapter import MockExplanationProvider, build_prompt, default_provider, explain_with_fallback, omitted_reasons
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -203,6 +203,7 @@ def review_package(claim: dict, cfg: dict, provider=None, fallback=None,
         'claim_id': claim['claim_id'],
         'input_hash': in_hash,
         'rule_pack_hash': pack_hash(),
+        'engine_code_hash': engine_code_hash(),
         'rule_versions': sorted({r['version'] for r in cfg['rules']}),
         'policy_resolved': policy is not None,
         'model': getattr(provider, 'model', 'mock'),

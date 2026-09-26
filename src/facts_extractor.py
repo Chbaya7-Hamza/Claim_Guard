@@ -334,7 +334,8 @@ def r009_details(c, cfg):
             unknown = True
         elif qty_by_auth.get(aid, 0) > cap:
             mismatch = True
-        paths.append(f'/lines/{i}/service_date')
+        if mismatch or not unknown:  # an unknown-only line cites no date (keeps the frozen audit samples' result hashes)
+            paths.append(f'/lines/{i}/service_date')
         if mismatch:
             failed_lines.append(i)
         elif unknown:
