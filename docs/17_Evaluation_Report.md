@@ -10,7 +10,7 @@ Synthetic teaching benchmark only. Nothing here is a claim about real denial red
 Python 3.10.11 (`.venv` via uv), `yara-x==1.20.0`, `openai==3.19.0` (`requirements.txt`). Secrets live in an untracked `.env` (`.env.example` is committed).
 
 ```bash
-python -m unittest discover -s tests                     # 272 tests, all offline, no API key needed
+python -m unittest discover -s tests                     # 314 tests, all offline, no API key needed
 python src/run_yara.py --input data/development/claims.jsonl --output outputs/yara_dev_predictions.jsonl
 python src/evaluate.py --gold data/development/expected_results.jsonl \
     --pred outputs/yara_dev_predictions.jsonl --claims data/development/claims.jsonl \
@@ -94,9 +94,13 @@ All of these passed `validate_explanation` and kept `needs_human_review: true`. 
 - **Repeat variation.** The two runs of the 25 cases (no retry vs retry) differ only in the transient failures; answers at `temperature=0` were not byte-compared.
 - **Privacy.** Only synthetic claims were sent to the third-party API. Real claims would need a data-processing agreement and de-identification first.
 
+## Stress testing
+
+An independent oracle written only from the rulebook agrees with the engine on all 9,000 public results and on about 111,000 generated claims, and 123 hand-derived boundary cases pass. The exercise found and fixed real defects (precedence of a proven violation over a missing input in R009 and R013, exact money comparison, Python-version-dependent dates, runner and ingestion aborts, and the AI trust boundary). Method, findings, the readings adopted where the rulebook is silent, and what is still not covered are in `docs/19_Stress_Testing_and_Judging_Coverage.md`. The 600 public claims are unaffected: still 1.0 on all three splits.
+
 ## Human review and security
 
-Evidence is in the tests (183 passing) and the frozen runs:
+Evidence is in the tests (314 passing) and the frozen runs:
 
 - **Review workflow** (`tests/test_review_workflow.py`, 12 tests): decisions must match the finding's real status, only FAIL / UNABLE_TO_ASSESS findings are reviewable, reason and actor are required, one bad decision rejects the whole batch, decisions never modify rule results. A recheck creates a new run with a new input hash and links it to the prior run; the original claim and results are untouched; a rechecked finding that still fails returns to "unreviewed".
 - **Audit log** (`tests/test_audit_log.py`, 35 tests incl. write-ahead ordering and the verifier; systematic record `outputs/audit_dev/` = 8,598 events, 499 AI requests each logged before its answer and all `human_escalation` (offline template provider, so no live-model events in this log) for all 400 development claims, cross-checked against the results file by `scripts/verify_audit.py`, which also fails on a tampered result; workflow demo `outputs/audit_demo/`): an edited event, a truncated log and a fully replaced log are each detected; the system cannot log an approval; a fabricated confidence on a deterministic event is rejected. Tamper-evident only, not immutable (`docs/16_Audit_Log_Design.md`).

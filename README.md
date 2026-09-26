@@ -39,6 +39,8 @@ The FHIR route cannot carry authorization details or free-text notes, so R009 re
 
 **Audit log.** It records ingestion, every rule check with its confidence fields, the AI's question (written before the model is called), the AI recommendation, and system and human decisions, as a hash chain plus a separately stored head-hash anchor. This is tamper-*evident*, not immutable: `docs/16_Audit_Log_Design.md` states what production immutability would additionally need (write-once storage, an externally held anchor, authenticated reviewers).
 
+**Stress testing.** `docs/19_Stress_Testing_and_Judging_Coverage.md` maps every judged item to its test, describes the independent-oracle differential testing (`tests/oracle.py`, about 111,000 generated claims, 0 disagreements) and the defects it found, lists the readings we adopted where the rulebook is silent, and says what is not covered.
+
 ## Your first 30 minutes
 
 1. Read docs/01_Challenge_Brief.md and docs/02_Claims_Primer.md.
