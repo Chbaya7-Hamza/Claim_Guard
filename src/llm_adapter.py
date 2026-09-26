@@ -123,12 +123,25 @@ _VALIDITY = re.compile(
 _HEDGE = re.compile(r"\b(?:whether|if|not|cannot|can't|unable|unclear|impossible|determine|verify|confirm|assess)\b", re.I)
 
 
+# Garbled output. Found by the experiments in docs/21: the hosted Qwen2.5-14B endpoint sometimes derails in the middle of a reply
+# (mixed-language gibberish or a long run of one token) and the reply can still be valid JSON that passes the schema, so three
+# such explanations were accepted as live answers. The claims and rules are English, so text in another script, a Unicode
+# replacement character, or a long repetition is rejected unless the same character is already in the supplied finding or rule.
+_FOREIGN_SCRIPT = re.compile('[\u0370-\u1dff\u1f00-\u1fff\u2e80-\u9fff\ua000-\ufdff\ufe30-\uffff]')
+_REPETITION = re.compile(r'(.)\1{19,}|(\S+\s+)\2{7,}')
+
+
 def check_grounding(output, finding, rule=None):
     """Reject explanations that assert things the supplied inputs cannot support.
     Complements validate_explanation (structure/citations); a narrow, mechanical guard,
     not a semantic fact-check."""
     text = output['explanation']
     source = (json.dumps(finding, ensure_ascii=False) + (json.dumps(rule, ensure_ascii=False) if rule else '')).lower()
+    for m in _FOREIGN_SCRIPT.finditer(text):
+        if m.group(0).lower() not in source:
+            raise ValueError(f'Ungrounded statement (garbled text: character {m.group(0)!r} in an unexpected script)')
+    if _REPETITION.search(text):
+        raise ValueError('Ungrounded statement (garbled text: long repetition)')
     for pattern, why in _UNGROUNDED:
         for m in pattern.finditer(text):
             if m.group(0).lower() not in source:

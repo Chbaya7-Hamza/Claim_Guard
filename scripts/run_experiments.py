@@ -10,6 +10,7 @@ Usage (resumable: a finished (config, case, repeat) is never called twice):
     python scripts/run_experiments.py e3 --temperature 0 --model Qwen/Qwen2.5-14B-Instruct
     python scripts/run_experiments.py e4 --temperature 0 --prompt current
     python scripts/run_experiments.py e5 --temperature 0 --model Qwen/Qwen2.5-14B-Instruct --prompt fewshot --reps 5
+    python scripts/run_experiments.py e6 --reps 5              # fluent candidates vs default vs the terse winner, fresh cases
     python scripts/run_experiments.py probe --models a,b     # one call per model, to check it can answer in JSON
 
 Raw output: experiments/raw/<experiment>.jsonl. Nothing secret is written: not the key, the client or the environment.
@@ -227,7 +228,7 @@ def probe(models, temperature):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('experiment', choices=['e1', 'e2', 'e3', 'e4', 'e5', 'probe'])
+    p.add_argument('experiment', choices=['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'probe'])
     p.add_argument('--model', default=DEFAULT_MODEL)
     p.add_argument('--models', default='')
     p.add_argument('--temperature', type=float, default=0)
@@ -249,13 +250,17 @@ def main():
     elif a.experiment == 'e4':
         grid = [cfg('e4', a.model, a.temperature, a.prompt, workers=w) for w in WORKERS_GRID]
         cases, reps = load_cases('tuning'), 1
+    elif a.experiment == 'e6':  # fluent candidates against the default and the terse winner, on the fresh cases
+        grid = [cfg('e6', DEFAULT_MODEL, 0, 'current', a.workers), cfg('e6', 'mistralai/Mistral-Nemo-Instruct-2407', 0, 'current', a.workers),
+                cfg('e6', 'Qwen/Qwen2.5-7B-Instruct', 0, 'short', a.workers)]
+        cases, reps = load_cases('fresh'), a.reps
     else:  # e5: current defaults against the chosen setting, on cases nothing was tuned on
         grid = [cfg('e5', DEFAULT_MODEL, 0, 'current', a.workers)]
         chosen = cfg('e5', a.model, a.temperature, a.prompt, a.workers)
         if chosen['cfg_id'] != grid[0]['cfg_id']:
             grid.append(chosen)
         cases, reps = load_cases('fresh'), a.reps
-    run_grid(a.experiment, grid, cases, reps, RAW / f'{a.experiment}.jsonl', interleave=a.experiment == 'e5')
+    run_grid(a.experiment, grid, cases, reps, RAW / f'{a.experiment}.jsonl', interleave=a.experiment in ('e5', 'e6'))
 
 
 if __name__ == '__main__':

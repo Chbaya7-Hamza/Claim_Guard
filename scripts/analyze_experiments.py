@@ -66,6 +66,32 @@ def all_cases():
 CASES = all_cases()
 
 
+CJK = re.compile('[\u3000-\u9fff\uff00-\uffef]')
+
+REPEAT_CHAR = re.compile(r'(.)\1{19,}')
+
+REPEAT_WORD = re.compile(r'(\S+\s+)\1{7,}')
+
+
+
+
+
+def is_degenerate(text):
+
+    """POST-HOC (docs/21 Deviations, item 2): a raw reply that is gibberish rather than a wrong answer: CJK characters in an
+
+    English JSON reply, or a very long run of one character or one word."""
+
+    return bool(CJK.search(text) or REPEAT_CHAR.search(text) or REPEAT_WORD.search(text))
+
+
+
+
+
+NEXT_STEP = re.compile(r'\b(verify|check|request|review|confirm|compare|obtain|correct|ensure|resolve)\b', re.I)
+EVIDENCE_VALUE = re.compile(r'[A-Z]{2,}-[A-Z0-9-]+|\d{4}-\d{2}-\d{2}|\d+\.\d+|\b\d{2,}\b')
+
+
 def reason_of(error):
     for name, rx in REASONS:
         if rx.search(error or ''):
@@ -173,6 +199,10 @@ def summarize(calls):
         'unsupported_token_rate': pct(sum(1 for r in live if unsupported(r['explanation'], CASES[r['case_id']])) / len(live)) if live else None,
         'mean_words': round(statistics.mean(len(r['explanation'].split()) for r in live), 1) if live else None,
         'engine_text_overlap': round(statistics.mean(jaccard(r['explanation'], r['engine_explanation']) for r in live), 3) if live else None,
+        'names_next_step_rate': pct(sum(1 for r in live if NEXT_STEP.search(r['explanation'])) / len(live)) if live else None,
+        'cites_evidence_value_rate': pct(sum(1 for r in live if EVIDENCE_VALUE.search(r['explanation'])) / len(live)) if live else None,
+        'replies_seen': sum(len(r['raw_replies']) for r in calls),
+        'degenerate_replies': sum(is_degenerate(t) for r in calls for t in r['raw_replies']),
         'model_rejected': len(rejected), 'rejection_reasons': dict(Counter(reason_of(r['error']) for r in rejected)),
         'injection_replies_judged': len(obey_flags), 'injection_obeyed': sum(obey_flags),
         'injection_resistance_rate': pct(1 - sum(obey_flags) / len(obey_flags)) if obey_flags else None,
@@ -303,7 +333,8 @@ def figures(summary, data):
         save('e1_by_rule.png')
 
     for exp, title, fname in (('e2', 'E2: model', 'e2_models.png'), ('e3', 'E3: instruction text', 'e3_prompts.png'),
-                              ('e5', 'E5: confirmation on fresh cases', 'e5_confirmation.png')):
+                              ('e5', 'E5: confirmation on fresh cases', 'e5_confirmation.png'),
+                              ('e6', 'E6: fluent candidates, fresh cases', 'e6_candidates.png')):
         block = summary.get(exp)
         if not block:
             continue
@@ -361,6 +392,38 @@ def figures(summary, data):
 
 
 
+    timeline = data.get('timeline')
+
+    if timeline:
+
+        import datetime
+
+        fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+
+        for model, pts in timeline['series'].items():
+
+            axes[0].plot([datetime.datetime.fromtimestamp(t) for t, _ in pts], [100 * v for _, v in pts], marker='.', ls='-', label=model)
+
+        axes[0].set_ylabel('% degenerate replies (rolling 30 calls)'); axes[0].set_xlabel('clock time of the call'); axes[0].legend(fontsize=8)
+
+        axes[0].set_title('Hosted endpoint reliability over the session'); axes[0].tick_params(axis='x', labelrotation=25, labelsize=8)
+
+        names = list(timeline['overall'])
+
+        axes[1].bar(names, [100 * timeline['overall'][n]['rate'] for n in names], color=colors['rejected'])
+
+        for i, n in enumerate(names):
+
+            axes[1].text(i, 100 * timeline['overall'][n]['rate'] + 0.3, f"{timeline['overall'][n]['bad']}/{timeline['overall'][n]['seen']}", ha='center', fontsize=8)
+
+        axes[1].set_ylabel('% of raw replies'); axes[1].set_title('Degenerate replies by model (all experiments)')
+
+        axes[1].tick_params(axis='x', labelrotation=20, labelsize=8)
+
+        save('reliability_degenerate_replies.png')
+
+
+
     e4 = summary.get('e4')
     if e4:
         ws = [c['workers'] for c in e4['configs']]
@@ -372,13 +435,65 @@ def figures(summary, data):
         save('e4_concurrency.png')
 
 
+def markdown_tables(summary):
+
+    """experiments/results_tables.md: one table per experiment, generated from the raw data so no number is typed by hand."""
+
+    nl = chr(10)
+    titles = {'e1': 'E1: temperature (Qwen2.5-14B, prompt v1.3.0)', 'e2': 'E2: model (temperature 0, prompt v1.3.0)',
+
+              'e3': 'E3: instruction text (temperature 0)', 'e4': 'E4: concurrency (Qwen2.5-7B, temperature 0)',
+
+              'e5': 'E5: confirmation on 12 fresh cases (interleaved)',
+              'e6': 'E6: fluent candidates on 12 fresh cases (interleaved)'}
+
+    out = []
+
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6'):
+
+        block = summary.get(exp)
+
+        if not block:
+
+            continue
+
+        out.append(f'### {titles[exp]}' + nl)
+
+        out.append('| Configuration | Calls | Transport failures | Live % | **Useful %** (95% CI) | Useful % lenient (post hoc) | Rejected | Garbled raw replies | Injection resisted % | Repeat stability | p50 / p95 latency (s) | Words | Names a next step % | Cites evidence value % |')
+
+        out.append('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
+
+        for c in block['configs']:
+
+            x = c['stats']
+
+            lat = f"{x['latency_p50_ms'] / 1000:.1f} / {x['latency_p95_ms'] / 1000:.1f}" if x['latency_p50_ms'] else '-'
+
+            stab = f"{x['stability_modal_share']:.2f}" if x['stability_modal_share'] is not None else '-'
+
+            inj = x['injection_resistance_rate'] if x['injection_resistance_rate'] is not None else '-'
+
+            out.append(f"| {c['label']} | {x['calls']} | {x['transport_failures']} | {x['live_rate']} | **{x['useful_rate']}** ({x['useful_ci95'][0]} to {x['useful_ci95'][1]}) | "
+
+                       f"{x['useful_lenient_posthoc_rate']} ({x['useful_lenient_posthoc_ci95'][0]} to {x['useful_lenient_posthoc_ci95'][1]}) | {x['model_rejected']} | "
+
+                       f"{x['degenerate_replies']} of {x['replies_seen']} | {inj} | {stab} | {lat} | {x['mean_words']} | {x['names_next_step_rate']} | {x['cites_evidence_value_rate']} |")
+
+        out.append('')
+
+    return nl.join(out)
+
+
+
+
+
 def label_of(cfg_id):
     return cfg_id.split('|')[0] if cfg_id.count('|') else cfg_id
 
 
 def main():
     summary, data, all_calls = {}, {}, []
-    for exp in ('e1', 'e2', 'e3', 'e4', 'e5'):
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6'):
         calls, batches, manifests = load(exp)
         if not calls:
             continue
@@ -393,7 +508,8 @@ def main():
             parts = cid.split('|')
             entry['label'] = {'e1': f'T={r0["temperature"]}', 'e2': parts[0].replace('-Instruct', ''),
                               'e3': parts[0].replace('-Instruct', '') + ' / ' + r0['prompt'], 'e4': f'{r0["workers"]} workers',
-                              'e5': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]} / T={r0["temperature"]}'}[exp]
+                              'e5': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]} / T={r0["temperature"]}',
+                              'e6': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}'}[exp]
             batch = next((b for b in batches if b['cfg_id'] == cid), None)
             if batch:
                 entry['wall_s'] = batch['wall_s']
@@ -403,17 +519,42 @@ def main():
         summary[exp] = {'manifest': {k: manifests[0][k] for k in ('commit', 'engine_code_hash', 'n_cases', 'reps', 'prompt_sha256')} if manifests else None,
                         'configs': configs}
     summary['invariant_verdicts_unchanged'] = invariant(all_calls) if all_calls else None
+
+    if all_calls:
+
+        by_model = defaultdict(list)
+
+        for r in sorted(all_calls, key=lambda r: r['ts']):
+
+            for t in r['raw_replies']:
+
+                by_model[r['model'].split('/')[-1].replace('-Instruct', '')].append((r['ts'], is_degenerate(t)))
+
+        series, overall = {}, {}
+
+        for m, pts in by_model.items():
+
+            overall[m] = {'bad': sum(b for _, b in pts), 'seen': len(pts), 'rate': sum(b for _, b in pts) / len(pts)}
+
+            step = 15
+
+            series[m] = [(pts[i][0], statistics.mean(b for _, b in pts[max(0, i - 29):i + 1])) for i in range(0, len(pts), step)]
+
+        data['timeline'] = {'series': series, 'overall': overall}
+
+        summary['degenerate_replies_by_model'] = overall
     template = {'note': 'Template answer = the engine explanation itself: it states every reason and adds nothing, so it is '
                         'useful by construction. It is the safe floor the model has to beat, not a competitor on accuracy.',
                 'cases': len(load_cases('tuning'))}
     summary['e0_template_baseline'] = template
     (ROOT / 'experiments').mkdir(exist_ok=True)
     (ROOT / 'experiments' / 'summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+    (ROOT / 'experiments' / 'results_tables.md').write_text(markdown_tables(summary), encoding='utf-8')
     try:
         figures(summary, data)
     except ImportError:
         print('matplotlib not installed: skipping figures (uv pip install -r experiments/requirements-experiments.txt)')
-    for exp in ('e1', 'e2', 'e3', 'e4', 'e5'):
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6'):
         for c in summary.get(exp, {}).get('configs', []):
             s = c['stats']
             print(f'{exp} {c["label"]:<38} n={s["calls"]:>3} transport={s["transport_failures"]:>2} live={s["live_rate"]}% '

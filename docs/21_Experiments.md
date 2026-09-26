@@ -86,6 +86,14 @@ Recorded as they happened. Items 1 to 5 were decided after seeing E1 to E4 and b
 
 **E5 as it will be run.** Arms: the current default (Qwen2.5-14B, temperature 0, prompt v1.3.0) against Qwen2.5-7B, temperature 0, `short` prompt, which had the highest useful-answer rate on the tuning set and meets decision rule 3 there. Twelve fresh cases, **8 repeats** per arm (96 calls each, instead of the 5 planned, to narrow the intervals), interleaved. The default is only replaced, as a recommendation with a new frozen run and a version note, if the challenger beats it on the fresh cases by at least 10 percentage points of useful-answer rate with non-overlapping 95% Wilson intervals, and its injection resistance is not lower. Otherwise the default stays.
 
+## E6: added after E5 and before it was run (pre-registered here)
+
+E5 confirmed the pre-registered winner on paper (Qwen2.5-7B with the `short` prompt: 100% useful against 88.5% for the default, non-overlapping intervals, better injection resistance). Reading its answers showed why: they restate the engine's own sentence (6.5 words on average, identical on every repeat). Across the 96 answers only 8 name a next step and none cites an evidence value, against 29 of 85 and 42 of 85 for the 14B model. The primary metric cannot see that an answer adds nothing over the template. E6 asks the question the metric missed.
+
+- **Arms** (fresh cases, 12 cases x 5 repeats, interleaved, 180 calls): the default (Qwen2.5-14B, prompt v1.3.0); Mistral-Nemo-Instruct-2407 (fluent, never garbled in E2, 100% injection resistance); and the E5 winner as a reference.
+- **New descriptive metrics** (defined here, before the run): *names a next step* (the answer contains verify, check, request, review, confirm, compare, obtain, correct, ensure or resolve) and *cites an evidence value* (an identifier, a date, a decimal or a number of two or more digits). Both are crude word patterns, not judgements of quality.
+- **Decision rule.** An arm is recommended over the default only if it (a) produced no garbled raw reply, (b) has a lenient useful-answer rate within 5 percentage points of the best arm, and (c) names a next step and cites an evidence value in at least 25% of its answers each. Among arms that qualify, the fastest wins. If none qualifies, or only the default does, the default stays. The terse arm is not eligible for (c) unless it changes.
+
 ---
 
 ## Results
