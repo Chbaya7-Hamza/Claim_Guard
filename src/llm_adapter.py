@@ -372,6 +372,92 @@ def explain_with_fallback(provider, fallback, finding, rule, untrusted_note=None
         return fallback.explain(finding, rule, untrusted_note), True, error, latency_ms
 
 
+class CascadeError(RuntimeError):
+
+    """Every tier of a cascade failed or was rejected; the orchestrator then uses the deterministic template."""
+
+
+
+
+
+class CascadeExplanationProvider:
+
+    """Try several model tiers in order; the deterministic template (the orchestrator's fallback) stays the floor.
+
+
+
+    A reviewer gets a fluent answer when the first tier behaves and a reliable one when it does not, and the
+
+    template only when nothing does. Every tier goes through the same schema and grounding checks as a single
+
+    provider (a tier is never trusted), gets its own private copy of the finding, and the tier that actually
+
+    answered is recorded so the audit log can say which model wrote the text.
+
+    """
+
+
+
+    def __init__(self, tiers):
+
+        if not tiers:
+
+            raise ValueError('A cascade needs at least one tier')
+
+        self.tiers = list(tiers)
+
+        self.model = 'cascade:' + '>'.join(getattr(t, 'model', type(t).__name__) for t in self.tiers)
+
+        self._tl = threading.local()
+
+
+
+    answered_by = property(lambda self: getattr(self._tl, 'answered_by', None))
+
+    tier_errors = property(lambda self: getattr(self._tl, 'tier_errors', []))
+
+    last_usage = property(lambda self: getattr(self._tl, 'usage', None))
+
+    last_attempts = property(lambda self: getattr(self._tl, 'attempts', None))
+
+
+
+    def explain(self, finding, rule, untrusted_note=None):
+
+        errors = []
+
+        self._tl.answered_by, self._tl.usage, self._tl.attempts = None, None, None
+
+        for tier in self.tiers:
+
+            name = getattr(tier, 'model', type(tier).__name__)
+
+            try:
+
+                output = tier.explain(copy.deepcopy(finding), copy.deepcopy(rule), untrusted_note)
+
+                output = check_grounding(validate_explanation(output, finding), finding, rule)
+
+            except Exception as e:  # noqa: BLE001 - any failure of one tier just moves on to the next
+
+                errors.append({'model': name, 'error': f'{type(e).__name__}: {e}'[:300]})
+
+                continue
+
+            self._tl.answered_by, self._tl.tier_errors = name, errors
+
+            self._tl.usage, self._tl.attempts = getattr(tier, 'last_usage', None), getattr(tier, 'last_attempts', None)
+
+            return output
+
+        self._tl.tier_errors = errors
+
+        raise CascadeError('; '.join(f"{e['model']}: {e['error']}" for e in errors))
+
+
+
+
+
 def default_provider():
     """FeatherlessExplanationProvider if a key is configured, else the deterministic template."""
     _load_dotenv()

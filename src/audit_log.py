@@ -452,7 +452,9 @@ class AuditHooks:
         from_template = used_fallback or request['model'] == 'deterministic-template'
         self.log.append_system_events([{
             'event_type': 'ai_recommendation', **base,
-            'model': 'deterministic-template' if from_template else request['model'],
+            # a cascade names the tier that actually answered; a single provider is its own model
+            'model': 'deterministic-template' if from_template else (drafted.get('answered_by') or request['model']),
+            'tier_errors': drafted.get('tier_errors', []),
             'prompt_version': request['prompt_version'], 'used_fallback': used_fallback,
             'source': 'deterministic_template' if from_template else 'model',
             'error': drafted['error'], 'latency_ms': drafted['latency_ms'], 'usage': drafted['usage'],

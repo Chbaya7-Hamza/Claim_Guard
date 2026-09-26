@@ -94,6 +94,9 @@ def draft_and_validate_explanation(finding: dict, rule: dict, provider, fallback
         'error': error,
         'latency_ms': round(latency_ms, 1),
         'usage': usage,
+        # which tier of a cascade wrote the text, and why the tiers before it were skipped (None / [] for a single provider)
+        'answered_by': getattr(provider, 'answered_by', None) if not used_fallback else None,
+        'tier_errors': list(getattr(provider, 'tier_errors', []) or []) if not used_fallback else [],
         'engine_explanation': finding['explanation'],
         'omitted_engine_reasons': omitted_reasons(finding['explanation'], output['explanation']),
         'attempts': getattr(provider, 'last_attempts', None) if not used_fallback else None,
