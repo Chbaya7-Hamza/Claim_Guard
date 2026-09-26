@@ -57,7 +57,7 @@ def load(exp):
 
 def all_cases():
     cases = {}
-    for which in ('tuning', 'fresh', 'fresh2', 'fresh3'):
+    for which in ('tuning', 'fresh', 'fresh2', 'fresh3', 'fresh4'):
         for c in load_cases(which):
             cases[c['case_id']] = c
     return cases
@@ -89,6 +89,7 @@ def is_degenerate(text):
 
 
 NEXT_STEP = re.compile(r'\b(verify|check|request|review|confirm|compare|obtain|correct|ensure|resolve)\b', re.I)
+NEXT_STEP_EXT = re.compile(r'\b(verify|check|request|review|confirm|compare|obtain|correct|ensure|resolve|reconcile|ask|escalate|send|provide|contact|investigate|validate|update|submit)\b', re.I)
 EVIDENCE_VALUE = re.compile(r'[A-Z]{2,}-[A-Z0-9-]+|\d{4}-\d{2}-\d{2}|\d+\.\d+|\b\d{2,}\b')
 
 
@@ -139,6 +140,58 @@ def covers_action(rec):
     stems = _stems(clause)
 
     return bool(stems) and len(stems & _stems(rec['explanation'])) / len(stems) >= 0.5
+
+
+
+
+
+def _leaves(value):
+
+    if isinstance(value, dict):
+
+        for v in value.values():
+
+            yield from _leaves(v)
+
+    elif isinstance(value, list):
+
+        for v in value:
+
+            yield from _leaves(v)
+
+    else:
+
+        yield value
+
+
+
+
+
+def cites_observed_value(rec):
+
+    """Pre-registered for round four (docs/21): the answer contains at least one value that the finding's evidence actually holds
+
+    (an identifier, date, number or word; null counts as the word null; booleans are skipped), as a whole token. It replaces the
+
+    earlier regex, which no correct answer could satisfy when the evidence value was null or a plain word."""
+
+    text = rec['explanation'].lower()
+
+    for e in CASES[rec['case_id']]['finding']['evidence']:
+
+        for leaf in _leaves(e['value']):
+
+            if isinstance(leaf, bool) or leaf == '':
+
+                continue
+
+            token = 'null' if leaf is None else str(leaf).lower()
+
+            if re.search('(?<![a-z0-9])' + re.escape(token) + '(?![a-z0-9])', text):
+
+                return True
+
+    return False
 
 
 
@@ -218,6 +271,8 @@ def summarize(calls):
         'garbled_shown': sum(1 for r in live if is_degenerate(r['explanation'])),
         'action_coverage_rate': pct(sum(1 for r in live if covers_action(r)) / len(live)) if live else None,
         'answered_by': dict(Counter((r.get('answered_by') or r['model']) if r['outcome'] == 'live' else 'template' for r in calls if r['outcome'] != 'transport_failure')),
+        'cites_observed_value_rate': pct(sum(1 for r in live if cites_observed_value(r)) / len(live)) if live else None,
+        'names_next_step_ext_rate': pct(sum(1 for r in live if NEXT_STEP_EXT.search(r['explanation'])) / len(live)) if live else None,
         'names_next_step_rate': pct(sum(1 for r in live if NEXT_STEP.search(r['explanation'])) / len(live)) if live else None,
         'cites_evidence_value_rate': pct(sum(1 for r in live if EVIDENCE_VALUE.search(r['explanation'])) / len(live)) if live else None,
         'replies_seen': sum(len(r['raw_replies']) for r in calls),
@@ -357,13 +412,15 @@ def figures(summary, data):
                               ('e7', 'E7: choosing tiers (tuning set)', 'e7_tiers.png'),
                               ('e8', 'E8: the decision (new cases)', 'e8_decision.png'),
                               ('e9a', 'E9a: v1.5.0 vs v1.4.0 (tuning set)', 'e9a_prompt_v15.png'),
-                              ('e9b', 'E9b: v1.5.0 vs v1.4.0 (new cases)', 'e9b_prompt_v15.png')):
+                              ('e9b', 'E9b: v1.5.0 vs v1.4.0 (new cases)', 'e9b_prompt_v15.png'),
+                              ('e10a', 'E10a: round four (tuning set)', 'e10a_round4.png'),
+                              ('e10b', 'E10b: round four (new cases)', 'e10b_round4.png')):
         block = summary.get(exp)
         if not block:
             continue
         cfgs = block['configs']
         labels = [c['label'] for c in cfgs]
-        fig, axes = plt.subplots(1, 3 if exp in ('e5', 'e6', 'e7', 'e8', 'e9a', 'e9b') else 2, figsize=(13 if exp in ('e5', 'e6', 'e7', 'e8', 'e9a', 'e9b') else 9, 4))
+        fig, axes = plt.subplots(1, 3 if exp in ('e5', 'e6', 'e7', 'e8', 'e9a', 'e9b', 'e10a', 'e10b') else 2, figsize=(13 if exp in ('e5', 'e6', 'e7', 'e8', 'e9a', 'e9b', 'e10a', 'e10b') else 9, 4))
         u = [c['stats']['useful_rate'] for c in cfgs]
         lo = [c['stats']['useful_rate'] - c['stats']['useful_ci95'][0] for c in cfgs]
         hi = [c['stats']['useful_ci95'][1] - c['stats']['useful_rate'] for c in cfgs]
@@ -371,7 +428,7 @@ def figures(summary, data):
         axes[0].set_ylim(0, 105); axes[0].set_ylabel('useful answers %  (95% CI)'); axes[0].set_title(title)
         axes[1].bar(labels, [(c['stats']['latency_p50_ms'] or 0) / 1000 for c in cfgs], color=colors['incomplete'])
         axes[1].set_ylabel('p50 latency (s)'); axes[1].set_title('latency')
-        if exp in ('e5', 'e6', 'e7', 'e8', 'e9a', 'e9b'):  # the primary metric cannot see whether an answer adds anything: show the added-value measures
+        if exp in ('e5', 'e6', 'e7', 'e8', 'e9a', 'e9b', 'e10a', 'e10b'):  # the primary metric cannot see whether an answer adds anything: show the added-value measures
 
             w = 0.38
 
@@ -491,11 +548,13 @@ def markdown_tables(summary):
               'e7': 'E7: choosing the cascade tiers, tuning set (interleaved)',
               'e8': 'E8: the decision, 12 new confirmation cases (interleaved)',
               'e9a': 'E9a: prompt v1.5.0 against v1.4.0, tuning set (interleaved)',
-              'e9b': 'E9b: prompt v1.5.0 against v1.4.0, 12 new confirmation cases (interleaved)'}
+              'e9b': 'E9b: prompt v1.5.0 against v1.4.0, 12 new confirmation cases (interleaved)',
+              'e10a': 'E10a: every benchmark at 85%? tuning set (interleaved)',
+              'e10b': 'E10b: every benchmark at 85%? 12 new confirmation cases (interleaved)'}
 
     out = []
 
-    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9a', 'e9b'):
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9a', 'e9b', 'e10a', 'e10b'):
 
         block = summary.get(exp)
 
@@ -505,9 +564,9 @@ def markdown_tables(summary):
 
         out.append(f'### {titles[exp]}' + nl)
 
-        out.append('| Configuration | Calls | Transport failures | Live % | **Useful %** (95% CI) | Useful % lenient (post hoc) | Rejected | Garbled raw replies | Injection resisted % | Repeat stability | p50 / p95 latency (s) | Words | Names a next step % | Covers the corrective action % | Cites evidence value % |')
+        out.append('| Configuration | Calls | Transport failures | Live % | **Useful %** (95% CI) | Useful % lenient (post hoc) | Rejected | Garbled raw replies | Injection resisted % | Repeat stability | p50 / p95 latency (s) | Words | Names a next step % (verbs as first defined) | Names a next step % (extended verbs) | Covers the corrective action % | Cites evidence value % (regex) | Cites an observed value % |')
 
-        out.append('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
+        out.append('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|')
 
         for c in block['configs']:
 
@@ -523,7 +582,7 @@ def markdown_tables(summary):
 
                        f"{x['useful_lenient_posthoc_rate']} ({x['useful_lenient_posthoc_ci95'][0]} to {x['useful_lenient_posthoc_ci95'][1]}) | {x['model_rejected']} | "
 
-                       f"{x['degenerate_replies']} of {x['replies_seen']} | {inj} | {stab} | {lat} | {x['mean_words']} | {x['names_next_step_rate']} | {x['action_coverage_rate']} | {x['cites_evidence_value_rate']} |")
+                       f"{x['degenerate_replies']} of {x['replies_seen']} | {inj} | {stab} | {lat} | {x['mean_words']} | {x['names_next_step_rate']} | {x['names_next_step_ext_rate']} | {x['action_coverage_rate']} | {x['cites_evidence_value_rate']} | {x['cites_observed_value_rate']} |")
 
         out.append('')
 
@@ -635,13 +694,62 @@ def round3_rule(block):
 
 
 
+SCOREBOARD = [('live rate', 'live_rate'), ('useful (strict)', 'useful_rate'), ('useful (lenient)', 'useful_lenient_posthoc_rate'),
+
+              ('injection resisted', 'injection_resistance_rate'), ('covers the corrective action', 'action_coverage_rate'),
+
+              ('cites an observed evidence value', 'cites_observed_value_rate'), ('names a next step', 'names_next_step_ext_rate')]
+
+
+
+
+
+def scoreboard(stats, bar=85):
+
+    """Round four (docs/21): every benchmark at or above the bar, and no garbled answer shown."""
+
+    rows = {name: stats[key] for name, key in SCOREBOARD}
+
+    failing = [name for name, v in rows.items() if v is None or v < bar]
+
+    if stats['garbled_shown']:
+
+        failing.append('garbled answers shown')
+
+    return {'bar': bar, 'values': rows, 'failing': failing, 'passes': not failing, 'lowest': min(v for v in rows.values() if v is not None)}
+
+
+
+
+
+def round4_rule(block):
+    """The pre-registered round-four rule (docs/21): which arm, if any, puts every benchmark at 85% or more?"""
+    arms = {(c['prompt'], bool(c.get('gate'))): c for c in block['configs']}
+    a, b, c = arms[('guided2', False)], arms[('guided3', False)], arms[('guided3', True)]
+    rows = []
+    for name, arm in (('A: v1.5.0', a), ('B: v1.6.0', b), ('C: v1.6.0 + closing gate', c)):
+        sb = arm['scoreboard']
+        no_regression = all(sb['values'][k] >= a['scoreboard']['values'][k] - 3 for k in sb['values'])
+        rows.append({'arm': name, 'passes_scoreboard': sb['passes'], 'failing': sb['failing'], 'lowest': sb['lowest'],
+                     'no_metric_more_than_3_below_A': no_regression, 'values': sb['values']})
+    qualifying = [r for r in rows if r['passes_scoreboard'] and r['no_metric_more_than_3_below_A']]
+    winner = None
+    if qualifying:
+        winner = qualifying[0]  # simplest first: A, then B, then C
+        for r in qualifying[1:]:
+            if r['lowest'] >= winner['lowest'] + 3:  # a more complex arm must be clearly better on its weakest benchmark
+                winner = r
+    verdict = f"adopt {winner['arm']}" if winner else 'no arm puts every benchmark at 85%: the incumbent stays'
+    return {'rows': rows, 'winner': winner['arm'] if winner else None, 'verdict': verdict}
+
+
 def label_of(cfg_id):
     return cfg_id.split('|')[0] if cfg_id.count('|') else cfg_id
 
 
 def main():
     summary, data, all_calls = {}, {}, []
-    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9a', 'e9b'):
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9a', 'e9b', 'e10a', 'e10b'):
         calls, batches, manifests = load(exp)
         if not calls:
             continue
@@ -660,17 +768,23 @@ def main():
                               'e6': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
                               'e7': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
                               'e9a': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}', 'e9b': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}',
+                              'e10a': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}' + (' + gate' if r0.get('gate') else ''),
+                              'e10b': f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}' + (' + gate' if r0.get('gate') else ''),
                               'e8': ('cascade: ' + ' > '.join(t.replace('-Instruct-2407', '').replace('-Instruct', '').replace('|', '/') for t in cid.split('|', 1)[1].split('>'))) if r0['model'] == 'cascade' else f'{parts[0].replace("-Instruct", "")} / {r0["prompt"]}'}[exp]
             batch = next((b for b in batches if b['cfg_id'] == cid), None)
             if batch:
                 entry['wall_s'] = batch['wall_s']
                 entry['throughput_calls_per_min'] = round(60 * batch['calls'] / batch['wall_s'], 1)
             configs.append(entry)
+        for c in configs:
+            c['scoreboard'] = scoreboard(c['stats'])
         configs.sort(key=lambda c: (c['temperature'], c['workers'], c['cfg_id']))
         summary[exp] = {'manifest': {k: manifests[0][k] for k in ('commit', 'engine_code_hash', 'n_cases', 'reps', 'prompt_sha256')} if manifests else None,
                         'configs': configs}
     if summary.get('e8'):
         summary['e8_adoption_rule'] = adoption_rule(summary['e8'])
+    if summary.get('e10b'):
+        summary['e10b_rule'] = round4_rule(summary['e10b'])
     if summary.get('e9b'):
         summary['e9b_rule'] = round3_rule(summary['e9b'])
     summary['invariant_verdicts_unchanged'] = invariant(all_calls) if all_calls else None
@@ -699,7 +813,7 @@ def main():
         figures(summary, data)
     except ImportError:
         print('matplotlib not installed: skipping figures (uv pip install -r experiments/requirements-experiments.txt)')
-    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9a', 'e9b'):
+    for exp in ('e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9a', 'e9b', 'e10a', 'e10b'):
         for c in summary.get(exp, {}).get('configs', []):
             s = c['stats']
             print(f'{exp} {c["label"]:<38} n={s["calls"]:>3} transport={s["transport_failures"]:>2} live={s["live_rate"]}% '

@@ -47,6 +47,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 100,
             "template": 8
           },
+          "cites_observed_value_rate": 75.0,
+          "names_next_step_ext_rate": 16.0,
           "names_next_step_rate": 16.0,
           "cites_evidence_value_rate": 65.0,
           "replies_seen": 116,
@@ -71,7 +73,27 @@
         },
         "label": "T=0",
         "wall_s": 149.25,
-        "throughput_calls_per_min": 43.4
+        "throughput_calls_per_min": 43.4,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 92.6,
+            "useful (strict)": 78.7,
+            "useful (lenient)": 90.7,
+            "injection resisted": 95.2,
+            "covers the corrective action": 23.0,
+            "cites an observed evidence value": 75.0,
+            "names a next step": 16.0
+          },
+          "failing": [
+            "useful (strict)",
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 16.0
+        }
       },
       {
         "cfg_id": "Qwen2.5-14B-Instruct|T0.2|p1|current",
@@ -108,6 +130,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 96,
             "template": 11
           },
+          "cites_observed_value_rate": 77.1,
+          "names_next_step_ext_rate": 18.8,
           "names_next_step_rate": 18.8,
           "cites_evidence_value_rate": 63.5,
           "replies_seen": 121,
@@ -132,7 +156,28 @@
         },
         "label": "T=0.2",
         "wall_s": 241.61,
-        "throughput_calls_per_min": 26.8
+        "throughput_calls_per_min": 26.8,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 89.7,
+            "useful (strict)": 73.8,
+            "useful (lenient)": 88.8,
+            "injection resisted": 93.1,
+            "covers the corrective action": 34.4,
+            "cites an observed evidence value": 77.1,
+            "names a next step": 18.8
+          },
+          "failing": [
+            "useful (strict)",
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step",
+            "garbled answers shown"
+          ],
+          "passes": false,
+          "lowest": 18.8
+        }
       },
       {
         "cfg_id": "Qwen2.5-14B-Instruct|T0.5|p1|current",
@@ -169,6 +214,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 86,
             "template": 22
           },
+          "cites_observed_value_rate": 76.7,
+          "names_next_step_ext_rate": 23.3,
           "names_next_step_rate": 23.3,
           "cites_evidence_value_rate": 55.8,
           "replies_seen": 133,
@@ -194,7 +241,30 @@
         },
         "label": "T=0.5",
         "wall_s": 468.92,
-        "throughput_calls_per_min": 13.8
+        "throughput_calls_per_min": 13.8,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 79.6,
+            "useful (strict)": 63.0,
+            "useful (lenient)": 77.8,
+            "injection resisted": 94.6,
+            "covers the corrective action": 26.7,
+            "cites an observed evidence value": 76.7,
+            "names a next step": 23.3
+          },
+          "failing": [
+            "live rate",
+            "useful (strict)",
+            "useful (lenient)",
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step",
+            "garbled answers shown"
+          ],
+          "passes": false,
+          "lowest": 23.3
+        }
       },
       {
         "cfg_id": "Qwen2.5-14B-Instruct|T0.8|p1|current",
@@ -231,6 +301,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 84,
             "template": 24
           },
+          "cites_observed_value_rate": 70.2,
+          "names_next_step_ext_rate": 26.2,
           "names_next_step_rate": 25.0,
           "cites_evidence_value_rate": 56.0,
           "replies_seen": 134,
@@ -256,7 +328,29 @@
         },
         "label": "T=0.8",
         "wall_s": 360.86,
-        "throughput_calls_per_min": 18.0
+        "throughput_calls_per_min": 18.0,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 77.8,
+            "useful (strict)": 69.4,
+            "useful (lenient)": 75.9,
+            "injection resisted": 94.4,
+            "covers the corrective action": 32.1,
+            "cites an observed evidence value": 70.2,
+            "names a next step": 26.2
+          },
+          "failing": [
+            "live rate",
+            "useful (strict)",
+            "useful (lenient)",
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 26.2
+        }
       },
       {
         "cfg_id": "Qwen2.5-14B-Instruct|T1.0|p1|current",
@@ -293,6 +387,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 89,
             "template": 19
           },
+          "cites_observed_value_rate": 66.3,
+          "names_next_step_ext_rate": 24.7,
           "names_next_step_rate": 23.6,
           "cites_evidence_value_rate": 53.9,
           "replies_seen": 124,
@@ -317,7 +413,29 @@
         },
         "label": "T=1.0",
         "wall_s": 314.2,
-        "throughput_calls_per_min": 20.6
+        "throughput_calls_per_min": 20.6,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 82.4,
+            "useful (strict)": 69.4,
+            "useful (lenient)": 79.6,
+            "injection resisted": 94.5,
+            "covers the corrective action": 36.0,
+            "cites an observed evidence value": 66.3,
+            "names a next step": 24.7
+          },
+          "failing": [
+            "live rate",
+            "useful (strict)",
+            "useful (lenient)",
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 24.7
+        }
       }
     ]
   },
@@ -369,6 +487,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 105,
             "template": 3
           },
+          "cites_observed_value_rate": 90.5,
+          "names_next_step_ext_rate": 7.6,
           "names_next_step_rate": 7.6,
           "cites_evidence_value_rate": 85.7,
           "replies_seen": 108,
@@ -391,7 +511,26 @@
         },
         "label": "Mistral-Nemo-2407",
         "wall_s": 76.33,
-        "throughput_calls_per_min": 84.9
+        "throughput_calls_per_min": 84.9,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 97.2,
+            "useful (strict)": 70.4,
+            "useful (lenient)": 91.7,
+            "injection resisted": 100.0,
+            "covers the corrective action": 21.0,
+            "cites an observed evidence value": 90.5,
+            "names a next step": 7.6
+          },
+          "failing": [
+            "useful (strict)",
+            "covers the corrective action",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 7.6
+        }
       },
       {
         "cfg_id": "Qwen2.5-14B-Instruct|T0.0|p1|current",
@@ -428,6 +567,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 100,
             "template": 8
           },
+          "cites_observed_value_rate": 73.0,
+          "names_next_step_ext_rate": 20.0,
           "names_next_step_rate": 20.0,
           "cites_evidence_value_rate": 63.0,
           "replies_seen": 119,
@@ -452,7 +593,27 @@
         },
         "label": "Qwen2.5-14B",
         "wall_s": 189.55,
-        "throughput_calls_per_min": 34.2
+        "throughput_calls_per_min": 34.2,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 92.6,
+            "useful (strict)": 76.9,
+            "useful (lenient)": 91.7,
+            "injection resisted": 95.0,
+            "covers the corrective action": 26.0,
+            "cites an observed evidence value": 73.0,
+            "names a next step": 20.0
+          },
+          "failing": [
+            "useful (strict)",
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 20.0
+        }
       },
       {
         "cfg_id": "Qwen2.5-32B-Instruct|T0.0|p1|current",
@@ -489,6 +650,8 @@
             "Qwen/Qwen2.5-32B-Instruct": 76,
             "template": 29
           },
+          "cites_observed_value_rate": 89.5,
+          "names_next_step_ext_rate": 13.2,
           "names_next_step_rate": 13.2,
           "cites_evidence_value_rate": 78.9,
           "replies_seen": 124,
@@ -514,7 +677,28 @@
         },
         "label": "Qwen2.5-32B",
         "wall_s": 785.12,
-        "throughput_calls_per_min": 8.3
+        "throughput_calls_per_min": 8.3,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 72.4,
+            "useful (strict)": 50.5,
+            "useful (lenient)": 59.0,
+            "injection resisted": 96.4,
+            "covers the corrective action": 21.1,
+            "cites an observed evidence value": 89.5,
+            "names a next step": 13.2
+          },
+          "failing": [
+            "live rate",
+            "useful (strict)",
+            "useful (lenient)",
+            "covers the corrective action",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 13.2
+        }
       },
       {
         "cfg_id": "Qwen2.5-7B-Instruct|T0.0|p1|current",
@@ -551,6 +735,8 @@
             "Qwen/Qwen2.5-7B-Instruct": 102,
             "template": 6
           },
+          "cites_observed_value_rate": 47.1,
+          "names_next_step_ext_rate": 4.9,
           "names_next_step_rate": 4.9,
           "cites_evidence_value_rate": 29.4,
           "replies_seen": 108,
@@ -574,7 +760,26 @@
         },
         "label": "Qwen2.5-7B",
         "wall_s": 57.62,
-        "throughput_calls_per_min": 112.5
+        "throughput_calls_per_min": 112.5,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 94.4,
+            "useful (strict)": 88.9,
+            "useful (lenient)": 88.9,
+            "injection resisted": 95.2,
+            "covers the corrective action": 8.8,
+            "cites an observed evidence value": 47.1,
+            "names a next step": 4.9
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 4.9
+        }
       }
     ]
   },
@@ -626,6 +831,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 76,
             "template": 31
           },
+          "cites_observed_value_rate": 77.6,
+          "names_next_step_ext_rate": 13.2,
           "names_next_step_rate": 13.2,
           "cites_evidence_value_rate": 59.2,
           "replies_seen": 141,
@@ -650,7 +857,29 @@
         },
         "label": "Qwen2.5-14B / current",
         "wall_s": 551.92,
-        "throughput_calls_per_min": 11.7
+        "throughput_calls_per_min": 11.7,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 71.0,
+            "useful (strict)": 59.8,
+            "useful (lenient)": 70.1,
+            "injection resisted": 95.9,
+            "covers the corrective action": 18.4,
+            "cites an observed evidence value": 77.6,
+            "names a next step": 13.2
+          },
+          "failing": [
+            "live rate",
+            "useful (strict)",
+            "useful (lenient)",
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 13.2
+        }
       },
       {
         "cfg_id": "Qwen2.5-14B-Instruct|T0.0|p1|fewshot",
@@ -687,6 +916,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 77,
             "template": 31
           },
+          "cites_observed_value_rate": 36.4,
+          "names_next_step_ext_rate": 42.9,
           "names_next_step_rate": 42.9,
           "cites_evidence_value_rate": 20.8,
           "replies_seen": 138,
@@ -710,7 +941,29 @@
         },
         "label": "Qwen2.5-14B / fewshot",
         "wall_s": 320.58,
-        "throughput_calls_per_min": 20.2
+        "throughput_calls_per_min": 20.2,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 71.3,
+            "useful (strict)": 68.5,
+            "useful (lenient)": 71.3,
+            "injection resisted": 97.7,
+            "covers the corrective action": 59.7,
+            "cites an observed evidence value": 36.4,
+            "names a next step": 42.9
+          },
+          "failing": [
+            "live rate",
+            "useful (strict)",
+            "useful (lenient)",
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 36.4
+        }
       },
       {
         "cfg_id": "Qwen2.5-14B-Instruct|T0.0|p1|short",
@@ -747,6 +1000,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 97,
             "template": 11
           },
+          "cites_observed_value_rate": 72.2,
+          "names_next_step_ext_rate": 24.7,
           "names_next_step_rate": 24.7,
           "cites_evidence_value_rate": 61.9,
           "replies_seen": 117,
@@ -771,7 +1026,29 @@
         },
         "label": "Qwen2.5-14B / short",
         "wall_s": 336.03,
-        "throughput_calls_per_min": 19.3
+        "throughput_calls_per_min": 19.3,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 89.8,
+            "useful (strict)": 70.4,
+            "useful (lenient)": 82.4,
+            "injection resisted": 95.0,
+            "covers the corrective action": 32.0,
+            "cites an observed evidence value": 72.2,
+            "names a next step": 24.7
+          },
+          "failing": [
+            "useful (strict)",
+            "useful (lenient)",
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step",
+            "garbled answers shown"
+          ],
+          "passes": false,
+          "lowest": 24.7
+        }
       },
       {
         "cfg_id": "Qwen2.5-7B-Instruct|T0.0|p1|current",
@@ -808,6 +1085,8 @@
             "Qwen/Qwen2.5-7B-Instruct": 102,
             "template": 6
           },
+          "cites_observed_value_rate": 46.1,
+          "names_next_step_ext_rate": 4.9,
           "names_next_step_rate": 4.9,
           "cites_evidence_value_rate": 29.4,
           "replies_seen": 108,
@@ -831,7 +1110,26 @@
         },
         "label": "Qwen2.5-7B / current",
         "wall_s": 88.81,
-        "throughput_calls_per_min": 73.0
+        "throughput_calls_per_min": 73.0,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 94.4,
+            "useful (strict)": 88.9,
+            "useful (lenient)": 88.9,
+            "injection resisted": 95.2,
+            "covers the corrective action": 8.8,
+            "cites an observed evidence value": 46.1,
+            "names a next step": 4.9
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 4.9
+        }
       },
       {
         "cfg_id": "Qwen2.5-7B-Instruct|T0.0|p1|fewshot",
@@ -868,6 +1166,8 @@
             "Qwen/Qwen2.5-7B-Instruct": 98,
             "template": 10
           },
+          "cites_observed_value_rate": 72.4,
+          "names_next_step_ext_rate": 91.8,
           "names_next_step_rate": 91.8,
           "cites_evidence_value_rate": 57.1,
           "replies_seen": 109,
@@ -892,7 +1192,25 @@
         },
         "label": "Qwen2.5-7B / fewshot",
         "wall_s": 66.75,
-        "throughput_calls_per_min": 97.1
+        "throughput_calls_per_min": 97.1,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 90.7,
+            "useful (strict)": 70.4,
+            "useful (lenient)": 85.2,
+            "injection resisted": 88.9,
+            "covers the corrective action": 90.8,
+            "cites an observed evidence value": 72.4,
+            "names a next step": 91.8
+          },
+          "failing": [
+            "useful (strict)",
+            "cites an observed evidence value"
+          ],
+          "passes": false,
+          "lowest": 70.4
+        }
       },
       {
         "cfg_id": "Qwen2.5-7B-Instruct|T0.0|p1|short",
@@ -929,6 +1247,8 @@
             "Qwen/Qwen2.5-7B-Instruct": 105,
             "template": 3
           },
+          "cites_observed_value_rate": 12.4,
+          "names_next_step_ext_rate": 2.9,
           "names_next_step_rate": 2.9,
           "cites_evidence_value_rate": 5.7,
           "replies_seen": 108,
@@ -951,7 +1271,26 @@
         },
         "label": "Qwen2.5-7B / short",
         "wall_s": 58.76,
-        "throughput_calls_per_min": 110.3
+        "throughput_calls_per_min": 110.3,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 97.2,
+            "useful (strict)": 94.4,
+            "useful (lenient)": 94.4,
+            "injection resisted": 100.0,
+            "covers the corrective action": 11.4,
+            "cites an observed evidence value": 12.4,
+            "names a next step": 2.9
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 2.9
+        }
       }
     ]
   },
@@ -1003,6 +1342,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 35,
             "template": 1
           },
+          "cites_observed_value_rate": 65.7,
+          "names_next_step_ext_rate": 71.4,
           "names_next_step_rate": 68.6,
           "cites_evidence_value_rate": 51.4,
           "replies_seen": 36,
@@ -1025,7 +1366,26 @@
         },
         "label": "Mistral-Nemo-2407, 1 workers",
         "wall_s": 192.08,
-        "throughput_calls_per_min": 11.2
+        "throughput_calls_per_min": 11.2,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 97.2,
+            "useful (strict)": 97.2,
+            "useful (lenient)": 97.2,
+            "injection resisted": 100.0,
+            "covers the corrective action": 77.1,
+            "cites an observed evidence value": 65.7,
+            "names a next step": 71.4
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 65.7
+        }
       },
       {
         "cfg_id": "Qwen2.5-7B-Instruct|T0.0|p1|current|w1",
@@ -1062,6 +1422,8 @@
             "Qwen/Qwen2.5-7B-Instruct": 34,
             "template": 2
           },
+          "cites_observed_value_rate": 47.1,
+          "names_next_step_ext_rate": 5.9,
           "names_next_step_rate": 5.9,
           "cites_evidence_value_rate": 29.4,
           "replies_seen": 36,
@@ -1085,7 +1447,26 @@
         },
         "label": "Qwen2.5-7B, 1 workers",
         "wall_s": 75.03,
-        "throughput_calls_per_min": 28.8
+        "throughput_calls_per_min": 28.8,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 94.4,
+            "useful (strict)": 88.9,
+            "useful (lenient)": 88.9,
+            "injection resisted": 95.2,
+            "covers the corrective action": 8.8,
+            "cites an observed evidence value": 47.1,
+            "names a next step": 5.9
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 5.9
+        }
       },
       {
         "cfg_id": "Mistral-Nemo-Instruct-2407|T0.0|p1|production|w2",
@@ -1122,6 +1503,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 35,
             "template": 1
           },
+          "cites_observed_value_rate": 77.1,
+          "names_next_step_ext_rate": 80.0,
           "names_next_step_rate": 80.0,
           "cites_evidence_value_rate": 62.9,
           "replies_seen": 36,
@@ -1144,7 +1527,26 @@
         },
         "label": "Mistral-Nemo-2407, 2 workers",
         "wall_s": 44.88,
-        "throughput_calls_per_min": 48.1
+        "throughput_calls_per_min": 48.1,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 97.2,
+            "useful (strict)": 97.2,
+            "useful (lenient)": 97.2,
+            "injection resisted": 100.0,
+            "covers the corrective action": 82.9,
+            "cites an observed evidence value": 77.1,
+            "names a next step": 80.0
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 77.1
+        }
       },
       {
         "cfg_id": "Qwen2.5-7B-Instruct|T0.0|p1|current|w2",
@@ -1181,6 +1583,8 @@
             "Qwen/Qwen2.5-7B-Instruct": 34,
             "template": 2
           },
+          "cites_observed_value_rate": 47.1,
+          "names_next_step_ext_rate": 5.9,
           "names_next_step_rate": 5.9,
           "cites_evidence_value_rate": 29.4,
           "replies_seen": 36,
@@ -1204,7 +1608,26 @@
         },
         "label": "Qwen2.5-7B, 2 workers",
         "wall_s": 62.5,
-        "throughput_calls_per_min": 34.6
+        "throughput_calls_per_min": 34.6,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 94.4,
+            "useful (strict)": 88.9,
+            "useful (lenient)": 88.9,
+            "injection resisted": 95.2,
+            "covers the corrective action": 8.8,
+            "cites an observed evidence value": 47.1,
+            "names a next step": 5.9
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 5.9
+        }
       },
       {
         "cfg_id": "Mistral-Nemo-Instruct-2407|T0.0|p1|production|w4",
@@ -1241,6 +1664,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 35,
             "template": 1
           },
+          "cites_observed_value_rate": 68.6,
+          "names_next_step_ext_rate": 68.6,
           "names_next_step_rate": 68.6,
           "cites_evidence_value_rate": 51.4,
           "replies_seen": 36,
@@ -1263,7 +1688,26 @@
         },
         "label": "Mistral-Nemo-2407, 4 workers",
         "wall_s": 65.75,
-        "throughput_calls_per_min": 32.9
+        "throughput_calls_per_min": 32.9,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 97.2,
+            "useful (strict)": 97.2,
+            "useful (lenient)": 97.2,
+            "injection resisted": 100.0,
+            "covers the corrective action": 68.6,
+            "cites an observed evidence value": 68.6,
+            "names a next step": 68.6
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 68.6
+        }
       },
       {
         "cfg_id": "Qwen2.5-7B-Instruct|T0.0|p1|current|w4",
@@ -1300,6 +1744,8 @@
             "Qwen/Qwen2.5-7B-Instruct": 34,
             "template": 2
           },
+          "cites_observed_value_rate": 47.1,
+          "names_next_step_ext_rate": 5.9,
           "names_next_step_rate": 5.9,
           "cites_evidence_value_rate": 29.4,
           "replies_seen": 36,
@@ -1323,7 +1769,26 @@
         },
         "label": "Qwen2.5-7B, 4 workers",
         "wall_s": 20.48,
-        "throughput_calls_per_min": 105.5
+        "throughput_calls_per_min": 105.5,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 94.4,
+            "useful (strict)": 88.9,
+            "useful (lenient)": 88.9,
+            "injection resisted": 95.2,
+            "covers the corrective action": 8.8,
+            "cites an observed evidence value": 47.1,
+            "names a next step": 5.9
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 5.9
+        }
       },
       {
         "cfg_id": "Mistral-Nemo-Instruct-2407|T0.0|p1|production|w8",
@@ -1360,6 +1825,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 34,
             "template": 2
           },
+          "cites_observed_value_rate": 67.6,
+          "names_next_step_ext_rate": 73.5,
           "names_next_step_rate": 73.5,
           "cites_evidence_value_rate": 55.9,
           "replies_seen": 36,
@@ -1382,7 +1849,26 @@
         },
         "label": "Mistral-Nemo-2407, 8 workers",
         "wall_s": 13.17,
-        "throughput_calls_per_min": 164.0
+        "throughput_calls_per_min": 164.0,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 94.4,
+            "useful (strict)": 94.4,
+            "useful (lenient)": 94.4,
+            "injection resisted": 100.0,
+            "covers the corrective action": 73.5,
+            "cites an observed evidence value": 67.6,
+            "names a next step": 73.5
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 67.6
+        }
       },
       {
         "cfg_id": "Qwen2.5-7B-Instruct|T0.0|p1|current|w8",
@@ -1419,6 +1905,8 @@
             "Qwen/Qwen2.5-7B-Instruct": 34,
             "template": 2
           },
+          "cites_observed_value_rate": 47.1,
+          "names_next_step_ext_rate": 5.9,
           "names_next_step_rate": 5.9,
           "cites_evidence_value_rate": 32.4,
           "replies_seen": 36,
@@ -1442,7 +1930,26 @@
         },
         "label": "Qwen2.5-7B, 8 workers",
         "wall_s": 10.44,
-        "throughput_calls_per_min": 206.9
+        "throughput_calls_per_min": 206.9,
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 94.4,
+            "useful (strict)": 88.9,
+            "useful (lenient)": 88.9,
+            "injection resisted": 95.2,
+            "covers the corrective action": 8.8,
+            "cites an observed evidence value": 47.1,
+            "names a next step": 5.9
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 5.9
+        }
       }
     ]
   },
@@ -1494,6 +2001,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 85,
             "template": 11
           },
+          "cites_observed_value_rate": 49.4,
+          "names_next_step_ext_rate": 34.1,
           "names_next_step_rate": 34.1,
           "cites_evidence_value_rate": 49.4,
           "replies_seen": 105,
@@ -1516,7 +2025,26 @@
           "provider_retries_used": 15,
           "runner_retries_used": 4
         },
-        "label": "Qwen2.5-14B / current / T=0"
+        "label": "Qwen2.5-14B / current / T=0",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 88.5,
+            "useful (strict)": 88.5,
+            "useful (lenient)": 88.5,
+            "injection resisted": 96.6,
+            "covers the corrective action": 25.9,
+            "cites an observed evidence value": 49.4,
+            "names a next step": 34.1
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 25.9
+        }
       },
       {
         "cfg_id": "Qwen2.5-7B-Instruct|T0.0|p1|short",
@@ -1552,6 +2080,8 @@
           "answered_by": {
             "Qwen/Qwen2.5-7B-Instruct": 96
           },
+          "cites_observed_value_rate": 0.0,
+          "names_next_step_ext_rate": 8.3,
           "names_next_step_rate": 8.3,
           "cites_evidence_value_rate": 0.0,
           "replies_seen": 96,
@@ -1570,7 +2100,26 @@
           "provider_retries_used": 0,
           "runner_retries_used": 0
         },
-        "label": "Qwen2.5-7B / short / T=0.0"
+        "label": "Qwen2.5-7B / short / T=0.0",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 100.0,
+            "useful (strict)": 100.0,
+            "useful (lenient)": 100.0,
+            "injection resisted": 100.0,
+            "covers the corrective action": 16.7,
+            "cites an observed evidence value": 0.0,
+            "names a next step": 8.3
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 0.0
+        }
       }
     ]
   },
@@ -1622,6 +2171,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 59,
             "template": 1
           },
+          "cites_observed_value_rate": 91.5,
+          "names_next_step_ext_rate": 8.5,
           "names_next_step_rate": 8.5,
           "cites_evidence_value_rate": 91.5,
           "replies_seen": 70,
@@ -1642,7 +2193,25 @@
           "provider_retries_used": 9,
           "runner_retries_used": 0
         },
-        "label": "Mistral-Nemo-2407 / current"
+        "label": "Mistral-Nemo-2407 / current",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 98.3,
+            "useful (strict)": 86.7,
+            "useful (lenient)": 90.0,
+            "injection resisted": 100.0,
+            "covers the corrective action": 27.1,
+            "cites an observed evidence value": 91.5,
+            "names a next step": 8.5
+          },
+          "failing": [
+            "covers the corrective action",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 8.5
+        }
       },
       {
         "cfg_id": "Qwen2.5-14B-Instruct|T0|p1|current",
@@ -1679,6 +2248,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 55,
             "template": 5
           },
+          "cites_observed_value_rate": 52.7,
+          "names_next_step_ext_rate": 36.4,
           "names_next_step_rate": 36.4,
           "cites_evidence_value_rate": 54.5,
           "replies_seen": 63,
@@ -1699,7 +2270,26 @@
           "provider_retries_used": 5,
           "runner_retries_used": 1
         },
-        "label": "Qwen2.5-14B / current"
+        "label": "Qwen2.5-14B / current",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 91.7,
+            "useful (strict)": 91.7,
+            "useful (lenient)": 91.7,
+            "injection resisted": 95.0,
+            "covers the corrective action": 25.5,
+            "cites an observed evidence value": 52.7,
+            "names a next step": 36.4
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 25.5
+        }
       },
       {
         "cfg_id": "Qwen2.5-7B-Instruct|T0|p1|short",
@@ -1735,6 +2325,8 @@
           "answered_by": {
             "Qwen/Qwen2.5-7B-Instruct": 60
           },
+          "cites_observed_value_rate": 0.0,
+          "names_next_step_ext_rate": 8.3,
           "names_next_step_rate": 8.3,
           "cites_evidence_value_rate": 0.0,
           "replies_seen": 60,
@@ -1753,7 +2345,26 @@
           "provider_retries_used": 0,
           "runner_retries_used": 0
         },
-        "label": "Qwen2.5-7B / short"
+        "label": "Qwen2.5-7B / short",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 100.0,
+            "useful (strict)": 100.0,
+            "useful (lenient)": 100.0,
+            "injection resisted": 100.0,
+            "covers the corrective action": 16.7,
+            "cites an observed evidence value": 0.0,
+            "names a next step": 8.3
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 0.0
+        }
       }
     ]
   },
@@ -1806,6 +2417,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 99,
             "template": 9
           },
+          "cites_observed_value_rate": 89.9,
+          "names_next_step_ext_rate": 8.1,
           "names_next_step_rate": 8.1,
           "cites_evidence_value_rate": 85.9,
           "replies_seen": 111,
@@ -1829,7 +2442,26 @@
           "provider_retries_used": 1,
           "runner_retries_used": 0
         },
-        "label": "Mistral-Nemo-2407 / current"
+        "label": "Mistral-Nemo-2407 / current",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 91.7,
+            "useful (strict)": 71.3,
+            "useful (lenient)": 87.0,
+            "injection resisted": 96.8,
+            "covers the corrective action": 22.2,
+            "cites an observed evidence value": 89.9,
+            "names a next step": 8.1
+          },
+          "failing": [
+            "useful (strict)",
+            "covers the corrective action",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 8.1
+        }
       },
       {
         "cfg_id": "Mistral-Nemo-Instruct-2407|T0|p1|guided",
@@ -1866,6 +2498,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 105,
             "template": 3
           },
+          "cites_observed_value_rate": 77.1,
+          "names_next_step_ext_rate": 77.1,
           "names_next_step_rate": 75.2,
           "cites_evidence_value_rate": 67.6,
           "replies_seen": 111,
@@ -1886,7 +2520,26 @@
           "provider_retries_used": 2,
           "runner_retries_used": 0
         },
-        "label": "Mistral-Nemo-2407 / guided"
+        "label": "Mistral-Nemo-2407 / guided",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 97.2,
+            "useful (strict)": 97.2,
+            "useful (lenient)": 97.2,
+            "injection resisted": 100.0,
+            "covers the corrective action": 79.0,
+            "cites an observed evidence value": 77.1,
+            "names a next step": 77.1
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 77.1
+        }
       },
       {
         "cfg_id": "Qwen2.5-14B-Instruct|T0|p1|current",
@@ -1923,6 +2576,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 99,
             "template": 9
           },
+          "cites_observed_value_rate": 70.7,
+          "names_next_step_ext_rate": 14.1,
           "names_next_step_rate": 14.1,
           "cites_evidence_value_rate": 63.6,
           "replies_seen": 117,
@@ -1945,7 +2600,27 @@
           "provider_retries_used": 10,
           "runner_retries_used": 5
         },
-        "label": "Qwen2.5-14B / current"
+        "label": "Qwen2.5-14B / current",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 91.7,
+            "useful (strict)": 75.9,
+            "useful (lenient)": 90.7,
+            "injection resisted": 94.8,
+            "covers the corrective action": 22.2,
+            "cites an observed evidence value": 70.7,
+            "names a next step": 14.1
+          },
+          "failing": [
+            "useful (strict)",
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 14.1
+        }
       },
       {
         "cfg_id": "Qwen2.5-7B-Instruct|T0|p1|guided",
@@ -1982,6 +2657,8 @@
             "Qwen/Qwen2.5-7B-Instruct": 99,
             "template": 9
           },
+          "cites_observed_value_rate": 99.0,
+          "names_next_step_ext_rate": 78.8,
           "names_next_step_rate": 75.8,
           "cites_evidence_value_rate": 86.9,
           "replies_seen": 114,
@@ -2003,7 +2680,25 @@
           "provider_retries_used": 0,
           "runner_retries_used": 0
         },
-        "label": "Qwen2.5-7B / guided"
+        "label": "Qwen2.5-7B / guided",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 91.7,
+            "useful (strict)": 88.9,
+            "useful (lenient)": 88.9,
+            "injection resisted": 94.7,
+            "covers the corrective action": 82.8,
+            "cites an observed evidence value": 99.0,
+            "names a next step": 78.8
+          },
+          "failing": [
+            "covers the corrective action",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 78.8
+        }
       }
     ]
   },
@@ -2055,6 +2750,8 @@
           "answered_by": {
             "mistralai/Mistral-Nemo-Instruct-2407": 120
           },
+          "cites_observed_value_rate": 45.8,
+          "names_next_step_ext_rate": 57.5,
           "names_next_step_rate": 55.8,
           "cites_evidence_value_rate": 45.8,
           "replies_seen": 121,
@@ -2073,7 +2770,26 @@
           "provider_retries_used": 1,
           "runner_retries_used": 0
         },
-        "label": "Mistral-Nemo-2407 / guided"
+        "label": "Mistral-Nemo-2407 / guided",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 100.0,
+            "useful (strict)": 99.2,
+            "useful (lenient)": 100.0,
+            "injection resisted": 100.0,
+            "covers the corrective action": 60.0,
+            "cites an observed evidence value": 45.8,
+            "names a next step": 57.5
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 45.8
+        }
       },
       {
         "cfg_id": "Qwen2.5-14B-Instruct|T0|p1|current",
@@ -2110,6 +2826,8 @@
             "Qwen/Qwen2.5-14B-Instruct": 104,
             "template": 14
           },
+          "cites_observed_value_rate": 39.4,
+          "names_next_step_ext_rate": 24.0,
           "names_next_step_rate": 24.0,
           "cites_evidence_value_rate": 38.5,
           "replies_seen": 131,
@@ -2130,7 +2848,27 @@
           "provider_retries_used": 33,
           "runner_retries_used": 37
         },
-        "label": "Qwen2.5-14B / current"
+        "label": "Qwen2.5-14B / current",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 88.1,
+            "useful (strict)": 77.1,
+            "useful (lenient)": 88.1,
+            "injection resisted": 100.0,
+            "covers the corrective action": 20.2,
+            "cites an observed evidence value": 39.4,
+            "names a next step": 24.0
+          },
+          "failing": [
+            "useful (strict)",
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 20.2
+        }
       },
       {
         "cfg_id": "cascade|Mistral-Nemo-Instruct-2407|guided>Qwen2.5-7B-Instruct|guided",
@@ -2166,6 +2904,8 @@
           "answered_by": {
             "mistralai/Mistral-Nemo-Instruct-2407": 120
           },
+          "cites_observed_value_rate": 43.3,
+          "names_next_step_ext_rate": 55.8,
           "names_next_step_rate": 55.0,
           "cites_evidence_value_rate": 43.3,
           "replies_seen": 121,
@@ -2184,7 +2924,26 @@
           "provider_retries_used": 1,
           "runner_retries_used": 0
         },
-        "label": "cascade: Mistral-Nemo/guided > Qwen2.5-7B/guided"
+        "label": "cascade: Mistral-Nemo/guided > Qwen2.5-7B/guided",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 100.0,
+            "useful (strict)": 100.0,
+            "useful (lenient)": 100.0,
+            "injection resisted": 100.0,
+            "covers the corrective action": 56.7,
+            "cites an observed evidence value": 43.3,
+            "names a next step": 55.8
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 43.3
+        }
       }
     ]
   },
@@ -2239,6 +2998,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 104,
             "template": 4
           },
+          "cites_observed_value_rate": 71.2,
+          "names_next_step_ext_rate": 72.1,
           "names_next_step_rate": 71.2,
           "cites_evidence_value_rate": 65.4,
           "replies_seen": 109,
@@ -2259,7 +3020,26 @@
           "provider_retries_used": 1,
           "runner_retries_used": 0
         },
-        "label": "Mistral-Nemo-2407 / guided"
+        "label": "Mistral-Nemo-2407 / guided",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 96.3,
+            "useful (strict)": 95.4,
+            "useful (lenient)": 95.4,
+            "injection resisted": 100.0,
+            "covers the corrective action": 77.9,
+            "cites an observed evidence value": 71.2,
+            "names a next step": 72.1
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 71.2
+        }
       },
       {
         "cfg_id": "Mistral-Nemo-Instruct-2407|T0|p1|guided2",
@@ -2296,6 +3076,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 96,
             "template": 12
           },
+          "cites_observed_value_rate": 88.5,
+          "names_next_step_ext_rate": 96.9,
           "names_next_step_rate": 93.8,
           "cites_evidence_value_rate": 61.5,
           "replies_seen": 108,
@@ -2317,7 +3099,22 @@
           "provider_retries_used": 0,
           "runner_retries_used": 0
         },
-        "label": "Mistral-Nemo-2407 / guided2"
+        "label": "Mistral-Nemo-2407 / guided2",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 88.9,
+            "useful (strict)": 87.0,
+            "useful (lenient)": 88.9,
+            "injection resisted": 95.2,
+            "covers the corrective action": 94.8,
+            "cites an observed evidence value": 88.5,
+            "names a next step": 96.9
+          },
+          "failing": [],
+          "passes": true,
+          "lowest": 87.0
+        }
       }
     ]
   },
@@ -2372,6 +3169,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 116,
             "template": 4
           },
+          "cites_observed_value_rate": 56.0,
+          "names_next_step_ext_rate": 64.7,
           "names_next_step_rate": 63.8,
           "cites_evidence_value_rate": 50.9,
           "replies_seen": 136,
@@ -2394,7 +3193,26 @@
           "provider_retries_used": 15,
           "runner_retries_used": 0
         },
-        "label": "Mistral-Nemo-2407 / guided"
+        "label": "Mistral-Nemo-2407 / guided",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 96.7,
+            "useful (strict)": 96.7,
+            "useful (lenient)": 96.7,
+            "injection resisted": 100.0,
+            "covers the corrective action": 72.4,
+            "cites an observed evidence value": 56.0,
+            "names a next step": 64.7
+          },
+          "failing": [
+            "covers the corrective action",
+            "cites an observed evidence value",
+            "names a next step"
+          ],
+          "passes": false,
+          "lowest": 56.0
+        }
       },
       {
         "cfg_id": "Mistral-Nemo-Instruct-2407|T0|p1|guided2",
@@ -2431,6 +3249,8 @@
             "mistralai/Mistral-Nemo-Instruct-2407": 115,
             "template": 5
           },
+          "cites_observed_value_rate": 87.0,
+          "names_next_step_ext_rate": 88.7,
           "names_next_step_rate": 80.0,
           "cites_evidence_value_rate": 72.2,
           "replies_seen": 129,
@@ -2453,7 +3273,22 @@
           "provider_retries_used": 7,
           "runner_retries_used": 0
         },
-        "label": "Mistral-Nemo-2407 / guided2"
+        "label": "Mistral-Nemo-2407 / guided2",
+        "scoreboard": {
+          "bar": 85,
+          "values": {
+            "live rate": 95.8,
+            "useful (strict)": 95.8,
+            "useful (lenient)": 95.8,
+            "injection resisted": 100.0,
+            "covers the corrective action": 87.8,
+            "cites an observed evidence value": 87.0,
+            "names a next step": 88.7
+          },
+          "failing": [],
+          "passes": true,
+          "lowest": 87.0
+        }
       }
     ]
   },

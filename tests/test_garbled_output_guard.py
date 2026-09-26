@@ -76,7 +76,7 @@ class RecordedExperimentData(unittest.TestCase):
         if not files:
             self.skipTest('no recorded experiment data')
         cases = {}
-        for name in ('llm_explanation_cases.jsonl', 'injection_variants.jsonl', 'fresh_variants.jsonl', 'fresh2_variants.jsonl', 'fresh3_variants.jsonl'):
+        for name in ('llm_explanation_cases.jsonl', 'injection_variants.jsonl', 'fresh_variants.jsonl', 'fresh2_variants.jsonl', 'fresh3_variants.jsonl', 'fresh4_variants.jsonl'):
             for line in (ROOT / 'exercises' / name).read_text(encoding='utf-8').split(chr(10)):
                 if line.strip():
                     c = json.loads(line)
