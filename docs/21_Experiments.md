@@ -73,6 +73,19 @@ python scripts/analyze_experiments.py           # writes experiments/summary.jso
 
 Needs `FEATHERLESS_API_KEY` in `.env`. Raw replies are synthetic-data explanations and are committed; the key, the provider object and the environment are never written to them.
 
+## Deviations from the pre-registration
+
+Recorded as they happened. Items 1 to 5 were decided after seeing E1 to E4 and before running E5; nothing about E5's outcome was known.
+
+1. **Lenient omission check (post hoc).** After E1 we read 30 of the answers the pre-registered "omitted reason" check flagged. 23 covered the engine's reason in different words ("not present in the allowed providers list" for "Provider absent from supplied network"), 3 really dropped a reason, and 4 covered the reason but also asserted that a second line "matches", which neither check catches. (This is an assistant reading, not human scoring.) The pre-registered metric is unchanged and remains primary. A second column uses the same check with a threshold of one half instead of two thirds of content-word stems. It is always labelled post hoc.
+2. **Degenerate-reply rate (post hoc).** E2 and E3 showed the hosted 14B and 32B models occasionally return gibberish (mixed-language text, long runs of repeated tokens) even at temperature 0, which shows up as `not_json`. We count replies with CJK characters or long repeated runs separately and plot them over time.
+3. **Verbosity (post hoc).** Words per answer and word overlap with the engine's own sentence, because the primary metric cannot tell an explanation that adds something from one that copies the template.
+4. **Models probed.** Llama-3.1-8B-Instruct and gemma-2-9b-it are gated on this plan (HTTP 403). Qwen3-8B answered but was not included: a thinking-capable model changes the output shape. E2 therefore compared Qwen2.5-14B (baseline), Qwen2.5-7B, Qwen2.5-32B and Mistral-Nemo-Instruct-2407.
+5. **E3 ran on two models.** On Qwen2.5-7B, the model with the highest useful-answer rate in E2 (as registered), and additionally on Qwen2.5-14B (exploratory). E4 used the 7B model.
+6. **Runner change.** After E4 the runner gained an interleaved schedule (configurations alternate call by call) because sequential runs on a drifting endpoint confound the comparison. E1 to E4 ran sequentially.
+
+**E5 as it will be run.** Arms: the current default (Qwen2.5-14B, temperature 0, prompt v1.3.0) against Qwen2.5-7B, temperature 0, `short` prompt, which had the highest useful-answer rate on the tuning set and meets decision rule 3 there. Twelve fresh cases, **8 repeats** per arm (96 calls each, instead of the 5 planned, to narrow the intervals), interleaved. The default is only replaced, as a recommendation with a new frozen run and a version note, if the challenger beats it on the fresh cases by at least 10 percentage points of useful-answer rate with non-overlapping 95% Wilson intervals, and its injection resistance is not lower. Otherwise the default stays.
+
 ---
 
 ## Results
