@@ -115,13 +115,16 @@ class A02_A05_SecretsAndConfiguration(unittest.TestCase):
         for entry in ('.env', '.venv/'):
             self.assertIn(entry, ignore)
 
-    def test_the_only_network_endpoints_are_the_two_named_providers(self):
+    def test_the_only_network_endpoints_are_the_named_providers(self):
         urls = set()
         for p in (ROOT / 'src').glob('*.py'):
-            urls.update(re.findall(r'https?://[A-Za-z0-9./_-]+', p.read_text(encoding='utf-8')))
+            urls.update(re.findall(r'https?://[A-Za-z0-9.:/_-]+', p.read_text(encoding='utf-8')))
+        # http://localhost:11434 (OllamaExplanationProvider) is loopback only: it never leaves the machine, unlike
+        # the two hosted providers, so it is allowed here deliberately, not as a loosening of this check's intent.
         allowed = {'https://api.featherless.ai/v1', 'https://integrate.api.nvidia.com/v1'}
         unexpected = {u for u in urls if u.rstrip('/') not in allowed and 'featherless.ai' not in u
-                      and 'nvidia.com' not in u and 'hl7.org' not in u and 'example' not in u and 'docs.astral' not in u}
+                      and 'nvidia.com' not in u and 'hl7.org' not in u and 'example' not in u and 'docs.astral' not in u
+                      and not u.startswith('http://localhost:11434')}
         self.assertEqual(unexpected, set())
 
 

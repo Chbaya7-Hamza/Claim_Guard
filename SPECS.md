@@ -218,6 +218,65 @@ change only visible as a whole-file diff) — both real but secondary to the two
 
 **Audit of the AI.** `ai_request` (question, prompt hash, finding hash) is written before the call; `ai_recommendation` or `ai_failure` after it; every action type is `human_escalation`; `auto_correct_applied` is always false.
 
+### 6a. Local models
+
+`OllamaExplanationProvider` (`src/llm_adapter.py`) serves any model through a locally-running Ollama instance
+(`http://localhost:11434`), fully offline: no API key leaves the machine, no per-call cost, and it goes through the
+exact same schema, grounding and fallback path as every hosted provider — nothing about the safety net changes for a
+local model. Motivation: the hosted Mistral-Nemo default costs money per call and needs internet access; a model that
+runs entirely on the reviewer's own hardware removes both, which matters for an on-prem deployment. Three candidates
+tested so far, on the RTX 4060 (8 GB) this was developed on, GPU placement confirmed live via `ollama ps` mid-call
+(`100% GPU`, not a CPU fallback):
+
+| Model | Works at default settings? | Live rate (84-case battery) | Notes |
+|---|---|---|---|
+| `gemma3:4b` (Ollama library) | **Yes** | 83/84 (98.8%) | 1.8-5 s per call warm; the one rejection is a genuine hallucinated rule citation (below), not a formatting slip or a garbled reply |
+| `qwen3:4b` (Ollama library) | No at `max_tokens=500` (the system default) — fixed by raising it | Not yet run at scale | Defaults to a hidden "thinking" mode that spends the whole token budget reasoning before writing an answer; at 500 tokens this is a 100% failure rate (`finish_reason: length`, empty `content`), reproduced twice. Both documented ways to disable it (`/no_think` suffix, `chat_template_kwargs.enable_thinking=false`) do not work through Ollama's packaging of this model — verified, not assumed. Fix: `max_tokens=3000`; confirmed working end-to-end through the real pipeline at that setting, but ~10-20x slower than `gemma3:4b` (35-45 s vs. 2-5 s) purely from the reasoning overhead, on the same GPU |
+| MedGemma 4B (`unsloth/medgemma-1.5-4b-it-GGUF`, Q4_K_M) | No | — | Writes a visible, unfenced `"thought\n..."` preamble that is not stripped the way Ollama strips Qwen3's native thinking channel, and duplicates its own JSON answer back-to-back with no separator on a trivial prompt — a strong sign of a chat-template mismatch in this specific third-party GGUF conversion, not necessarily a MedGemma quality problem. Raising `max_tokens` to 3000 lets it finish (the reasoning itself is good quality and follows every constraint correctly) but the answer sits after the unfenced preamble, so it still fails the pipeline's JSON parse. **Blocked, not abandoned**: Google's official `google/medgemma-4b-it` is gated (`license: other`, Health AI Developer Foundations terms, `"gated": "auto"` so access is instant on acceptance) and needs the account owner to accept the terms on huggingface.co before the real checkpoint can be pulled and run through `transformers` instead of this GGUF |
+
+**Stress test, `gemma3:4b`, the largest single-model battery run in this project** (`scripts/stress_test_local_model.py`):
+all 84 exercise cases (25 supplied + 11 own injection variants + all four 12-case "fresh" confirmation rounds) run
+once, plus 10 of them re-run 3x each at identical settings to check call-to-call consistency.
+
+- **0 of 84 raw replies garbled** (checked every reply, live or rejected, against the same foreign-script/
+  long-repetition patterns the grounding guard uses — not only the ones the guard happened to reject).
+- **1 of 84 rejected**: `EX-25`/R013. The raw reply cited `"R999"` as the rule id and wrote "Rule R999 failed
+  because..." — three of four characters different from the real `R013`, a genuine hallucination, not a near-miss
+  typo `repair_citations` should or would fix. The schema's `Literal['R013']` constraint caught it and the reviewer
+  was shown the template instead. Recorded as evidence the safety net works, not patched: a prompt tweak reacting to
+  one model's one mistake on one case out of 84 is exactly the overfitting this project's grounding guards were
+  built to avoid (they were only ever added from patterns that recurred across many observed failures).
+- **9 of 10 determinism-check cases byte-identical across 3 repeats.** `EX-06` differed once; re-run 9 further times
+  (5 with raw-reply capture) came back byte-identical every time, both the raw text and the parsed fields. Most
+  likely explanation: the same `closing_retry` mechanism already documented above (a second call when the first
+  valid answer omits the closing sentence) firing on one of the three original calls and not the other two — a
+  designed, already-audited behavior, not model instability. Not conclusively provable after the fact, but it did
+  not reproduce once in 9 further tries.
+
+Reproduce: `python scripts/run_llm_explanations.py --provider ollama --model gemma3:4b --cases exercises/llm_explanation_cases.jsonl --output outputs/llm_explanations_gemma3.jsonl --no-scorecard` and
+`python scripts/stress_test_local_model.py --model gemma3:4b`. Raw data: `outputs/stress_gemma3_4b.json`,
+`outputs/llm_explanations_gemma3.jsonl`, `outputs/llm_injection_variants_gemma3.jsonl`.
+
+**Automated-metric comparison against the chosen hosted model**, same 36 tuning cases, same scorer
+(`scripts/evaluate_ai_explanations.py`), same prompt version (v1.6.0 + closing gate):
+
+| | `gemma3:4b` (local, free) | `Mistral-Nemo-Instruct-2407` (hosted, chosen) |
+|---|---|---|
+| Live answer rate | 35/36 (97.2%) | 34/36 (94.4%) |
+| Unsupported-token candidates | 0 | 0 |
+| Injection: approval language leaked | 0 | 0 |
+| Median latency | ~3.0 s | 3.6 s (25-set) / 6.7 s (variants) |
+| Worst-case latency | 10.8 s | 26.2 s |
+
+`gemma3:4b` matches or exceeds `Mistral-Nemo` on every automated metric here, and is markedly more consistent on
+worst-case latency, plausibly because it never leaves the machine (no shared, multi-tenant serverless endpoint to
+queue behind). **This table is not a verdict.** `evaluate_ai_explanations.py`'s own docstring is explicit that
+automatic checks do not replace the manual 0/1 scorecard (correct finding, correct evidence, correct rule,
+appropriate action, honest uncertainty) — that still needs a human, for `gemma3:4b` exactly as much as it still does
+for `Mistral-Nemo` (the README already notes nobody has done that pass yet). What can honestly be said today:
+`gemma3:4b` is a serious, free, fully local candidate that ties or wins on everything a script can measure; whether
+it is as good at the substance is the same open question `Mistral-Nemo` still has.
+
 ## 7. Audit log
 
 | Element | Specification |
