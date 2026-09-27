@@ -215,10 +215,20 @@ Residual: no authentication, protected health information would go to a third-pa
 |---|---|
 | Organizers' answer key | 9,000 of 9,000 results; precision, recall and status accuracy 1.0 on all three splits |
 | Handbook worked cases | 10 of 10 exact |
-| Independent oracle (`tests/oracle.py`) | 0 disagreements over about 111,000 generated claims and 123 hand-derived boundary cases |
+| Independent oracle (`tests/oracle.py`) | **0 disagreements** over 107,635 generated claims (`scripts/status_coverage.py`), plus 37,000 boundary-aware mutants and 123 hand-derived boundary cases |
 | Hostile inputs | Runner, ingestion, review page, audit log, AI providers |
 | Security and red team | `docs/20` |
 | Suite | 420 tests, offline, on Python 3.10, 3.12 and 3.14; the committed audit sample's 6,000 result hashes are re-checked |
+
+**Independent oracle at scale.** `tests/oracle.py` reimplements the 15 rules from `rules/rules.json` and `docs/04` alone; it imports nothing from `src/`, so the engine and the oracle cannot share a bug by construction — a mistake would have to be made independently, the same way, in both. `scripts/status_coverage.py` generates 107,635 claims with `tests/claim_gen.py` (half seeded from a fully valid claim then randomly damaged, half fully independent-random fields), scores each with both the engine and the oracle, and hard-fails on the first disagreement rather than only counting them, so the artifact below is either "0 disagreements" or the run did not complete:
+
+![Every rule vs. the independent oracle: 0 disagreements over 107,635 generated claims](docs/figures/oracle_agreement.png)
+
+The same run's per-rule status coverage: every rule reaches every status it can by design (PASS, FAIL, UNABLE_TO_ASSESS, and NOT_APPLICABLE only for R008/R009/R010/R014), including R009 PASS at 23,627 of 107,635 — a status a naive fuzzer that randomizes every field independently can miss even at this scale, because R009's PASS needs five fields (patient, service code, status, date range, quantity) to agree on one claim at once. Seeding half the batch from a known-valid claim first is what makes it reachable at a usable rate.
+
+![Status coverage per rule across 107,635 generated claims, with what each status means](docs/figures/status_coverage.png)
+
+Raw counts: `outputs/status_coverage.json`. Full writeup, including the fuzzer gap that motivated this: `docs/19_Stress_Testing_and_Judging_Coverage.md` section 2b.
 
 ## 11. Experiments in detail
 

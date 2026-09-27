@@ -12,6 +12,7 @@ Built for the CSTAM-VELODOC challenge (mentor: Dr. Wael Hilali). All data, codes
 | **Demo of the MVP** | Run `python scripts/demo.py` (8 scenes, about 2 seconds, offline). The recording script and shot list are in [docs/23_Demo_Video_Kit.md](docs/23_Demo_Video_Kit.md) | Demo runs; video to be recorded |
 | **Code repository with installation and execution instructions** | [Install and run](#install-and-run) below | Done, verified on a fresh clone (Python 3.10, 3.12, 3.14) |
 | Graded Phase 1 items: ingestion, rule engine, structured output, audit log | [Phase 1 deliverables and where each lives](#phase-1-deliverables-and-where-each-lives) | Done |
+| Rule-correctness evidence: independent oracle, 107,635 generated claims, per-rule status coverage | [Results](#results) below; reproduce with `python scripts/status_coverage.py` (`docs/19` section 2b) | Done, 0 disagreements |
 
 ### Architecture
 
@@ -155,12 +156,22 @@ Expected: `evaluate.py` prints status accuracy 1.0 for the development split; `v
 | Measure | Result |
 |---|---|
 | Status accuracy, issue precision and recall, all 15 rules | **1.0** on the development, validation and stress splits (9,000 of 9,000 results) |
-| Independent oracle agreement (rules written again from the rulebook text alone) | 0 disagreements over about 111,000 generated claims and 123 hand-derived edge cases |
+| Independent oracle agreement (rules written again from the rulebook text alone) | **0 disagreements** over 107,635 generated claims (`scripts/status_coverage.py`), plus 37,000 boundary-aware mutants and 123 hand-derived edge cases |
 | Tests | 420, all offline, on Python 3.10, 3.12 and 3.14 (last verified on all three at the commit named in `docs/19`) |
 | Live AI explanations (Mistral-Nemo-Instruct-2407 via Featherless.ai, prompt v1.6.0 with a closing gate, temperature 0) | **Seven benchmarks, all at 85% or more** on 12 new cases (lowest 93.2%): 97.5% live, 93.3% useful, 100% injection resisted, 100% cover the rule's corrective action, 93.2% cite an observed evidence value, 93.2% name a next step, 0 garbled answers shown. Chosen by four rounds of experiments, see below |
 | Security | audited against the OWASP Top 10 for LLM Applications and the OWASP Top 10: `docs/20_Security_Audit.md` |
 
 Perfect scores on the public splits are not evidence of generalization. The mentor-held 200 claims are not available to us; the independent oracle and the stress tests are the closest substitute.
+
+**Independent oracle, reproduced at 107,635 generated claims.** `tests/oracle.py` is a second implementation of the 15 rules, written only from `rules/rules.json` and `docs/04` — it imports nothing from the engine, so an engine bug and an oracle bug would have to be the same mistake, made twice independently, to hide from this check. `scripts/status_coverage.py` generates 107,635 claims (half seeded from a fully valid claim and then damaged, half fully random, `tests/claim_gen.py`), scores every one with both the engine and the oracle, and fails loudly on any disagreement:
+
+![Every rule vs. the independent oracle: 0 disagreements over 107,635 generated claims](docs/figures/oracle_agreement.png)
+
+The same run's per-rule status coverage — confirming every rule reaches every status it can (PASS, FAIL, UNABLE_TO_ASSESS, and NOT_APPLICABLE where applicable), not just the ones the public data happens to show:
+
+![Status coverage per rule across 107,635 generated claims, with what each status means](docs/figures/status_coverage.png)
+
+A naive fuzzer that sets every field independently at random can still miss a rule's PASS state at this scale by pure chance (R009's PASS needs five fields to agree on one claim at once); seeding half the batch from a known-valid claim, as this generator does, is what makes every status reachable. Full writeup: `docs/19_Stress_Testing_and_Judging_Coverage.md` section 2b.
 
 ## How the AI explanation was chosen: experiments
 

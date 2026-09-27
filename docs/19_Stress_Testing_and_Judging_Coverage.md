@@ -70,6 +70,8 @@ at the same scale.
 `python scripts/status_coverage.py` reruns exactly that: 107,635 claims from `tests/claim_gen.random_claim`,
 scored by both the engine and the independent oracle, with a hard failure if the two ever disagree.
 
+![Every rule vs. the independent oracle: 0 disagreements over 107,635 generated claims](figures/oracle_agreement.png)
+
 ![Status coverage per rule across 107,635 generated claims; every rule reaches every status it can](figures/status_coverage.png)
 
 | Rule | PASS | FAIL | UNABLE_TO_ASSESS | NOT_APPLICABLE |

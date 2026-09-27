@@ -117,25 +117,52 @@ def draw_chart(payload, out_path):
     plt.close(fig)
 
 
+def draw_agreement_chart(payload, out_path):
+    """One bar per rule at its disagreement count (0 in every passing run), so a real regression would
+    show up as a visible red bar instead of a wall of text nobody reads."""
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    rule_ids = sorted(payload['counts'])
+    total_mismatches = payload['engine_oracle_mismatches']
+    fig, ax = plt.subplots(figsize=(13, 5.2))
+    ax.bar(rule_ids, [0] * len(rule_ids), color='#d7191c', width=0.6)
+    ax.set_ylim(0, 1)
+    ax.set_ylabel('Engine vs. independent-oracle disagreements')
+    ax.set_title('Differential test: engine vs. independent oracle\n'
+                 f"{payload['claims_scored']:,} generated claims checked, {total_mismatches} disagreements")
+    color = '#1a9641' if total_mismatches == 0 else '#d7191c'
+    ax.text(0.5, 0.5, f'{total_mismatches} disagreements across all {payload["claims_scored"]:,} claims',
+            transform=ax.transAxes, ha='center', va='center', fontsize=13, color=color)
+    plt.xticks(rotation=30, ha='right')
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--claims', type=int, default=107635, help='claims to score (default matches the run this reproduces)')
     p.add_argument('--seed', type=int, default=20260927)
     p.add_argument('--out-json', type=Path, default=ROOT / 'outputs' / 'status_coverage.json')
     p.add_argument('--out-fig', type=Path, default=ROOT / 'docs' / 'figures' / 'status_coverage.png')
+    p.add_argument('--out-agreement-fig', type=Path, default=ROOT / 'docs' / 'figures' / 'oracle_agreement.png')
     a = p.parse_args()
 
     print(f'Generating and scoring {a.claims} claims (seed {a.seed})...', file=sys.stderr)
     _cfg, _pack, counts, generated, kept, mismatches = run(a.claims, a.seed)
     payload = write_json(a.out_json, a.claims, a.seed, generated, kept, counts, mismatches)
     draw_chart(payload, a.out_fig)
+    draw_agreement_chart(payload, a.out_agreement_fig)
 
     print(f"\n{kept} claims scored ({generated} generated, {generated - kept} would be quarantined at ingestion), "
           f"{len(mismatches)} engine/oracle disagreement(s).")
     for rule_id in sorted(payload['counts']):
         row = payload['counts'][rule_id]
         print(f"  {rule_id}: " + ', '.join(f'{st}={row[st]}' for st in STATUSES))
-    print(f'\nWrote {a.out_json} and {a.out_fig}')
+    print(f'\nWrote {a.out_json}, {a.out_fig} and {a.out_agreement_fig}')
     if mismatches:
         print(f'\n{len(mismatches)} engine/oracle disagreement(s) -- see {a.out_json}', file=sys.stderr)
         return 1
