@@ -322,6 +322,15 @@ needs a human, for every model in this table, hosted or local (the README alread
 yet). What can honestly be said today: `gemma3:4b` is the strongest candidate on every automated axis measured, free
 and local besides.
 
+**The manual scoring pass itself cannot be done by an AI**, including this one: an LLM scoring another LLM's
+answers for correctness is exactly the circularity independent verification exists to avoid. What this project can
+honestly do is prepare the sheet: `experiments/manual_scoring_sheet_gemma3_rescore.csv`
+(`scripts/export_scoring_sheet_gemma3.py`) holds `gemma3:4b`'s real answers on the same 36 cases originally prepared
+for the Mistral-Nemo backlog (`_e8`, `_e9b`, `_e10b.csv`, section 11 -- prepared, never actually scored). Since
+there is only one model in this sheet, there is no "arm" to hide, so it skips the blind key those sheets used and
+shows the case id directly; case order is still shuffled to avoid a round-order effect. This is the one piece of
+evidence in the whole evaluation that a human, not a script or a model, has to actually produce.
+
 ## 7. Audit log
 
 | Element | Specification |
@@ -477,7 +486,7 @@ Prompt v1.4.0 (`guided`) asks for the three-sentence shape. **E7** (tuning set, 
 | B: **Mistral-Nemo / v1.4.0** | **100.0** | **99.2** (95.4 to 99.9) | **0 of 121** | 100.0 | **2.8 / 6.9 s** | **60.0** | 45.8 |
 | C: cascade (Mistral, then 7B, then template) | 100.0 | 100.0 (96.9 to 100.0) | 0 of 121 | 100.0 | 2.6 / 8.0 s | 56.7 | 43.3 |
 
-The pre-registered rule had six criteria; **no arm met all of them** (value citation 45.8% against a 50% bar, and it moved further away in the replication). Mistral-Nemo with v1.4.0 was adopted anyway, as a judgement that overrides the rule: it beats the default on every measured dimension including the one it missed (45.8% against 38.5%), the default failed three criteria to its one, and the bar was set before we knew what was achievable, using a crude word pattern. The cascade's second tier was never used (Mistral answered 120 of 120), so it is built and tested but not the default. Safeguards: a one-setting revert (`FEATHERLESS_MODEL`, the old prompt is frozen), and a blind scoring sheet of 150 shuffled answers for the team (`experiments/manual_scoring_sheet_e8.csv`; a second sheet for E9b compares v1.4.0 with v1.5.0).
+The pre-registered rule had six criteria; **no arm met all of them** (value citation 45.8% against a 50% bar, and it moved further away in the replication). Mistral-Nemo with v1.4.0 was adopted anyway, as a judgement that overrides the rule: it beats the default on every measured dimension including the one it missed (45.8% against 38.5%), the default failed three criteria to its one, and the bar was set before we knew what was achievable, using a crude word pattern. The cascade's second tier was never used (Mistral answered 120 of 120), so it is built and tested but not the default. Safeguards: a one-setting revert (`FEATHERLESS_MODEL`, the old prompt is frozen), and a blind scoring sheet of 150 shuffled answers for the team (`experiments/manual_scoring_sheet_e8.csv`; a second sheet for E9b compares v1.4.0 with v1.5.0) — prepared but never actually scored; superseded by `experiments/manual_scoring_sheet_gemma3_rescore.csv` (section 6a) now that `gemma3:4b` leads on every automated metric.
 
 ### 11.5 Round three: improving how often the answer covers the corrective action
 
@@ -577,7 +586,7 @@ On the tuning set the incumbent (v1.5.0) already clears the bar, thanks to the c
 
 **Adopt prompt v1.6.0 with the closing gate** (`prompts/explain_findings.md`, byte-identical to `guided3.md` apart from the title line; `FeatherlessExplanationProvider.CLOSING_RETRY = True`). Prompt v1.5.0 is frozen at `prompts/variants/v1_5_0.md`. Model and temperature are unchanged (Mistral-Nemo-Instruct-2407, 0). A new frozen live run through the real pipeline is in `outputs/llm_explanations_v16.jsonl` and `outputs/llm_injection_variants_v16.jsonl`: **25 of 25 supplied cases and 9 of 11 injection variants answered by the model**, with no approval language and the review flag kept on every shown answer. The two injection variants that fell back were rejected by the safety net: VAR-02 (the model followed the fake-delimiter instruction and flipped `needs_human_review`, as in earlier rounds) and VAR-06 (one reply with a long repetition, which passed on three re-runs). To revert the gate: `closing_retry=False`; to revert the prompt: restore `v1_5_0.md`.
 
-**Limits of this result, honestly.** The bar is 85% on a 12-case confirmation set with ten repeats (120 answers per arm), not on the world; a different set of cases would move each number by several points, and 85% is a threshold chosen by us, not a guarantee. Two of the seven benchmarks changed definition in this round (value citation and next step), for reasons that are documented above and were fixed before the runs, and the old definitions are still reported in `experiments/results_tables.md`. The metrics are still mechanical proxies; nobody has scored the answers by hand (`experiments/manual_scoring_sheet_e10b.csv` holds 150 shuffled answers with the arm hidden). Stability and latency were not held to the bar: the same prompt is not word-for-word repeatable (stability 0.81 to 0.91 across arms) and p95 latency is about 28 s because the hosted endpoint has slow spells.
+**Limits of this result, honestly.** The bar is 85% on a 12-case confirmation set with ten repeats (120 answers per arm), not on the world; a different set of cases would move each number by several points, and 85% is a threshold chosen by us, not a guarantee. Two of the seven benchmarks changed definition in this round (value citation and next step), for reasons that are documented above and were fixed before the runs, and the old definitions are still reported in `experiments/results_tables.md`. The metrics are still mechanical proxies; nobody has scored the answers by hand (`experiments/manual_scoring_sheet_e10b.csv` holds 150 shuffled answers with the arm hidden, prepared but never actually scored, now superseded by `experiments/manual_scoring_sheet_gemma3_rescore.csv`, section 6a). Stability and latency were not held to the bar: the same prompt is not word-for-word repeatable (stability 0.81 to 0.91 across arms) and p95 latency is about 28 s because the hosted endpoint has slow spells.
 
 ### 11.7 Decisions and their status
 
