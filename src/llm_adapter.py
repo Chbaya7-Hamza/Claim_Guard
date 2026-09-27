@@ -226,6 +226,20 @@ _UNGROUNDED = [
     (re.compile(r'[$€£¥]'), 'currency symbol not present in the supplied finding'),
     (re.compile(r'\b(?:in the (?:future|past)|today|yesterday|tomorrow|currently|as of now)\b', re.I),
      'relative-time claim; the model is not given the current date'),
+    # docs/01's scope boundary ("No clinical diagnosis, medical-necessity judgment, fraud accusation...
+    # is required") was asserted in the prompt but never actively guarded or tested until this pattern:
+    # nothing in a claim's facts or the fictional rulebook ever justifies clinical, diagnostic or fraud
+    # language, so any occurrence not already present in the finding/rule text (the shared allow-rule
+    # below) is out of scope by construction, not a judgement call. "diagnosis_code" (a real evidence
+    # field) does not match: the pattern requires "diagnosis"/"diagnosed" followed by whitespace then
+    # "of"/"with", not an underscore. "consistent with" and "suggestive of" were tried and dropped: a
+    # retroactive scan of 4,198 recorded live answers found a real, ordinary-English false positive
+    # ("the details are consistent with a quantity of 2...", nothing clinical) -- both phrases are too
+    # common in general usage to be a safe clinical-language signal on their own.
+    (re.compile(r'\bmedical(?:ly)?\s+necess\w*\b|\bfraud(?:ulent)?\b|\bdiagnos(?:ed|is)\s+(?:of|with)\b|'
+                r'\b(?:recommend|prescrib)\w*\s+(?:treatment|surgery|medication|therapy)\b|'
+                r'\bpatient(?:\'s)?\s+(?:condition|suffers)\b', re.I),
+     'clinical, fraud or medical-necessity judgement; out of scope for this system (docs/01)'),
 ]
 
 

@@ -373,6 +373,21 @@ class GroundingGuardTests(unittest.TestCase):
         finding = dict(FINDING, explanation='Service date is in the future of the submission date.')
         check_grounding(self.out('The service date is in the future of the submission date.'), finding, RULE)
 
+    def test_rejects_clinical_diagnostic_or_fraud_judgement(self):
+        # docs/01's scope boundary (no clinical diagnosis, medical necessity or fraud accusation) was
+        # asserted in the prompt but never actively guarded until this pattern existed.
+        for text in ('This is not medically necessary given the diagnosis of a minor condition.',
+                     'The billing pattern is fraudulent and should be reported.',
+                     'The provider should recommend treatment before resubmitting.',
+                     "The patient's condition requires further evaluation before this claim can proceed."):
+            with self.subTest(text=text), self.assertRaisesRegex(ValueError, 'clinical, fraud or medical'):
+                check_grounding(self.out(text), FINDING, RULE)
+
+    def test_diagnosis_code_as_an_evidence_field_name_is_not_flagged(self):
+        # "diagnosis_code" is a real evidence path (schemas/claim.schema.json); the guard must not
+        # confuse citing it with making a clinical diagnosis.
+        check_grounding(self.out('The evidence shows /diagnosis_code is DX-EDU-01.'), FINDING, RULE)
+
     def test_provider_output_with_ungrounded_claim_falls_back(self):
         provider = NvidiaExplanationProvider(api_key='test-key-not-real', model='fake/model')
         bad = json.dumps({'explanation': 'The price of $5 is missing.', 'cited_evidence_paths': ['/lines/0/unit_price'],
