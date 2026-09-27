@@ -578,6 +578,10 @@ class MedGemmaExplanationProvider:
     that has accepted it) -- neither is a project dependency, both are opt-in for this experiment."""
     PROVIDER = 'medgemma'
     MODEL_ID = 'google/medgemma-4b-it'
+    # Pinned to a specific commit, not "main": from_pretrained() without a revision would silently pick up
+    # whatever Google pushes to the repo next, changing behaviour between when this was tested and when it
+    # runs later (bandit B615 / CWE-494 -- caught by CI, not a style preference).
+    MODEL_REVISION = '290cda5eeccbee130f987c4ad74a59ae6f196408'
     CLOSING_RETRY = True
 
     def __init__(self, model=None, max_tokens=800, instructions=None, closing_retry=None):
@@ -589,9 +593,10 @@ class MedGemmaExplanationProvider:
         self.closing_retry = self.CLOSING_RETRY if closing_retry is None else closing_retry
         quant_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16,
                                            bnb_4bit_quant_type='nf4', bnb_4bit_use_double_quant=True)
-        self._processor = AutoProcessor.from_pretrained(self.MODEL_ID)
+        self._processor = AutoProcessor.from_pretrained(self.MODEL_ID, revision=self.MODEL_REVISION)
         self._hf_model = AutoModelForImageTextToText.from_pretrained(
-            self.MODEL_ID, quantization_config=quant_config, device_map='cuda', torch_dtype=torch.bfloat16)
+            self.MODEL_ID, revision=self.MODEL_REVISION, quantization_config=quant_config,
+            device_map='cuda', torch_dtype=torch.bfloat16)
         self._torch = torch
         self.last_usage = None
         self.last_attempts = 1

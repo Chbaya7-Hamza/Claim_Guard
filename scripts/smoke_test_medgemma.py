@@ -34,13 +34,14 @@ RULE = {
 }
 
 MODEL_ID = 'google/medgemma-4b-it'
+MODEL_REVISION = '290cda5eeccbee130f987c4ad74a59ae6f196408'  # pinned, not "main" -- see llm_adapter.MedGemmaExplanationProvider
 
 print(f'Loading {MODEL_ID} in 4-bit...')
 t0 = time.monotonic()
 quant_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16,
                                    bnb_4bit_quant_type='nf4', bnb_4bit_use_double_quant=True)
-processor = AutoProcessor.from_pretrained(MODEL_ID)
-model = AutoModelForImageTextToText.from_pretrained(MODEL_ID, quantization_config=quant_config,
+processor = AutoProcessor.from_pretrained(MODEL_ID, revision=MODEL_REVISION)
+model = AutoModelForImageTextToText.from_pretrained(MODEL_ID, revision=MODEL_REVISION, quantization_config=quant_config,
                                                      device_map='cuda', torch_dtype=torch.bfloat16)
 print(f'Loaded in {time.monotonic() - t0:.1f}s. GPU memory: {torch.cuda.memory_allocated() / 1e9:.2f} GB')
 
