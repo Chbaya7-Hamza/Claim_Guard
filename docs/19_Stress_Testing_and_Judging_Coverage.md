@@ -55,6 +55,46 @@ The 100% public score cannot show that the engine is right on data it has not se
 
 The 600 public claims are unaffected: status accuracy, precision and recall are still 1.0 on all three splits.
 
+## 2b. Per-rule status coverage at scale, reproduced
+
+A teammate ran an independent fuzzer at 107,635 generated claims and got a chart where R009 never once
+reached PASS (every claim landed on FAIL, UNABLE_TO_ASSESS or NOT_APPLICABLE). That is not an engine or
+rule defect: R009's PASS state needs five fields to agree on one claim at once (patient id, service code,
+status exactly `approved`, the service date inside `valid_from`/`valid_to` inclusive, and the shared
+quantity within `max_quantity`), and a fuzzer that sets every field independently at random can go
+100,000+ tries without ever landing all five together, purely from the odds. The public data shows PASS
+is real and common (287 of 600 claims), so the question was only whether our own generator's method
+(half the claims seeded from a fully valid claim and then damaged, `tests/claim_gen.py`) reaches it too,
+at the same scale.
+
+`python scripts/status_coverage.py` reruns exactly that: 107,635 claims from `tests/claim_gen.random_claim`,
+scored by both the engine and the independent oracle, with a hard failure if the two ever disagree.
+
+![Status coverage per rule across 107,635 generated claims; every rule reaches every status it can](figures/status_coverage.png)
+
+| Rule | PASS | FAIL | UNABLE_TO_ASSESS | NOT_APPLICABLE |
+|---|---|---|---|---|
+| R001 | 50,440 | 57,195 | 0 (none by design) | 0 |
+| R002 | 88,667 | 13,636 | 5,332 | 0 |
+| R003 | 53,745 | 46,712 | 7,178 | 0 |
+| R004 | 54,795 | 29,105 | 23,735 | 0 |
+| R005 | 77,891 | 13,181 | 16,563 | 0 |
+| R006 | 77,509 | 7,360 | 22,766 | 0 |
+| R007 | 58,009 | 37,355 | 12,271 | 0 |
+| R008 | 36,817 | 11,044 | 37,460 | 22,314 |
+| R009 | 23,627 | 22,179 | 39,515 | 22,314 |
+| R010 | 27,639 | 24,589 | 33,234 | 22,173 |
+| R011 | 72,575 | 20,937 | 14,123 | 0 |
+| R012 | 72,568 | 9,190 | 25,877 | 0 |
+| R013 | 43,021 | 50,345 | 14,269 | 0 |
+| R014 | 66,943 | 9,467 | 21,704 | 9,521 |
+| R015 | 72,514 | 18,558 | 16,563 | 0 |
+
+107,635 claims scored (108,726 generated, 1,091 would be quarantined at ingestion), **0 engine/oracle
+disagreements**. Every rule reaches every status it can reach by design (R001 has no UNABLE_TO_ASSESS
+path; only R008, R009, R010 and R014 can be NOT_APPLICABLE), including R009 PASS at 23,627 claims. Raw
+counts: `outputs/status_coverage.json`.
+
 ## 3. Readings adopted where the rulebook is silent
 
 Each is implemented the same way in the engine and the oracle, and covered by a test.

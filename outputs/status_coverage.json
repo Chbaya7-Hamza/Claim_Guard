@@ -1,0 +1,99 @@
+{
+  "claims_requested": 107635,
+  "seed": 20260927,
+  "claims_attempted": 108726,
+  "claims_scored": 107635,
+  "engine_oracle_mismatches": 0,
+  "counts": {
+    "R001": {
+      "PASS": 50440,
+      "FAIL": 57195,
+      "UNABLE_TO_ASSESS": 0,
+      "NOT_APPLICABLE": 0
+    },
+    "R002": {
+      "PASS": 88667,
+      "FAIL": 13636,
+      "UNABLE_TO_ASSESS": 5332,
+      "NOT_APPLICABLE": 0
+    },
+    "R003": {
+      "PASS": 53745,
+      "FAIL": 46712,
+      "UNABLE_TO_ASSESS": 7178,
+      "NOT_APPLICABLE": 0
+    },
+    "R004": {
+      "PASS": 54795,
+      "FAIL": 29105,
+      "UNABLE_TO_ASSESS": 23735,
+      "NOT_APPLICABLE": 0
+    },
+    "R005": {
+      "PASS": 77891,
+      "FAIL": 13181,
+      "UNABLE_TO_ASSESS": 16563,
+      "NOT_APPLICABLE": 0
+    },
+    "R006": {
+      "PASS": 77509,
+      "FAIL": 7360,
+      "UNABLE_TO_ASSESS": 22766,
+      "NOT_APPLICABLE": 0
+    },
+    "R007": {
+      "PASS": 58009,
+      "FAIL": 37355,
+      "UNABLE_TO_ASSESS": 12271,
+      "NOT_APPLICABLE": 0
+    },
+    "R008": {
+      "PASS": 36817,
+      "FAIL": 11044,
+      "UNABLE_TO_ASSESS": 37460,
+      "NOT_APPLICABLE": 22314
+    },
+    "R009": {
+      "PASS": 23627,
+      "FAIL": 22179,
+      "UNABLE_TO_ASSESS": 39515,
+      "NOT_APPLICABLE": 22314
+    },
+    "R010": {
+      "PASS": 27639,
+      "FAIL": 24589,
+      "UNABLE_TO_ASSESS": 33234,
+      "NOT_APPLICABLE": 22173
+    },
+    "R011": {
+      "PASS": 72575,
+      "FAIL": 20937,
+      "UNABLE_TO_ASSESS": 14123,
+      "NOT_APPLICABLE": 0
+    },
+    "R012": {
+      "PASS": 72568,
+      "FAIL": 9190,
+      "UNABLE_TO_ASSESS": 25877,
+      "NOT_APPLICABLE": 0
+    },
+    "R013": {
+      "PASS": 43021,
+      "FAIL": 50345,
+      "UNABLE_TO_ASSESS": 14269,
+      "NOT_APPLICABLE": 0
+    },
+    "R014": {
+      "PASS": 66943,
+      "FAIL": 9467,
+      "UNABLE_TO_ASSESS": 21704,
+      "NOT_APPLICABLE": 9521
+    },
+    "R015": {
+      "PASS": 72514,
+      "FAIL": 18558,
+      "UNABLE_TO_ASSESS": 16563,
+      "NOT_APPLICABLE": 0
+    }
+  }
+}
