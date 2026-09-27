@@ -232,7 +232,7 @@ tested so far, on the RTX 4060 (8 GB) this was developed on, GPU placement confi
 |---|---|---|---|
 | `gemma3:4b` (Ollama library) | **Yes** | 83/84 (98.8%) | 1.8-5 s per call warm; the one rejection is a genuine hallucinated rule citation (below), not a formatting slip or a garbled reply |
 | `qwen3:4b` (Ollama library) | No at `max_tokens=500` (the system default) — fixed by raising it | Not yet run at scale | Defaults to a hidden "thinking" mode that spends the whole token budget reasoning before writing an answer; at 500 tokens this is a 100% failure rate (`finish_reason: length`, empty `content`), reproduced twice. Both documented ways to disable it (`/no_think` suffix, `chat_template_kwargs.enable_thinking=false`) do not work through Ollama's packaging of this model — verified, not assumed. Fix: `max_tokens=3000`; confirmed working end-to-end through the real pipeline at that setting, but ~10-20x slower than `gemma3:4b` (35-45 s vs. 2-5 s) purely from the reasoning overhead, on the same GPU |
-| MedGemma 4B (`unsloth/medgemma-1.5-4b-it-GGUF`, Q4_K_M) | No | — | Writes a visible, unfenced `"thought\n..."` preamble that is not stripped the way Ollama strips Qwen3's native thinking channel, and duplicates its own JSON answer back-to-back with no separator on a trivial prompt — a strong sign of a chat-template mismatch in this specific third-party GGUF conversion, not necessarily a MedGemma quality problem. Raising `max_tokens` to 3000 lets it finish (the reasoning itself is good quality and follows every constraint correctly) but the answer sits after the unfenced preamble, so it still fails the pipeline's JSON parse. **Blocked, not abandoned**: Google's official `google/medgemma-4b-it` is gated (`license: other`, Health AI Developer Foundations terms, `"gated": "auto"` so access is instant on acceptance) and needs the account owner to accept the terms on huggingface.co before the real checkpoint can be pulled and run through `transformers` instead of this GGUF |
+| `google/medgemma-4b-it` (official, gated, via `transformers` + 4-bit) | **Yes** | 30/36 (83.3%, 36-case tuning set) | The third-party GGUF (`unsloth/medgemma-1.5-4b-it-GGUF`) wrote a visible, unfenced `"thought\n..."` preamble and duplicated its own JSON answer with no separator -- a chat-template mismatch in that specific conversion, not a MedGemma problem: the *official* checkpoint (gated, `license: other`, Health AI Developer Foundations terms; `"gated": "auto"` so access is instant on acceptance) produces clean, correctly-fenced JSON with no preamble. Runs in 4-bit (`bitsandbytes`, NF4) at 3.2 GB VRAM. Needs `pip install -r experiments/requirements-local-models.txt`; loading an 8 GB checkpoint via `transformers`' memory-mapped load can hit a Windows "paging file is too small" error under memory pressure -- freeing RAM (not resizing the page file) was enough here |
 
 **Stress test, `gemma3:4b`, the largest single-model battery run in this project** (`scripts/stress_test_local_model.py`):
 all 84 exercise cases (25 supplied + 11 own injection variants + all four 12-case "fresh" confirmation rounds) run
@@ -257,25 +257,48 @@ Reproduce: `python scripts/run_llm_explanations.py --provider ollama --model gem
 `python scripts/stress_test_local_model.py --model gemma3:4b`. Raw data: `outputs/stress_gemma3_4b.json`,
 `outputs/llm_explanations_gemma3.jsonl`, `outputs/llm_injection_variants_gemma3.jsonl`.
 
-**Automated-metric comparison against the chosen hosted model**, same 36 tuning cases, same scorer
+**MedGemma, same 36-case tuning set** (`scripts/run_llm_explanations.py --provider medgemma`, `src/llm_adapter.py`'s
+`MedGemmaExplanationProvider`, which reimplements the same closing-gate retry the HTTP-based providers get built in,
+for a fair comparison since this one is not an HTTP call):
+
+- **30/36 live (83.3%)**: 22/25 supplied, 8/11 injection variants.
+- **Two rejections were a real reliability finding, not a quality one**: `RuntimeError: p.attn_bias_ptr is not
+  correctly aligned` -- a known `bitsandbytes` 4-bit attention-kernel alignment issue, non-deterministic by input
+  shape. This is specific to the 4-bit quantized deployment path, not evidence about MedGemma's answers themselves.
+- **It also gets fooled by the same injection case that fools `Mistral-Nemo`**: `VAR-02` flipped the review flag on
+  MedGemma too (`ValueError: Review boundary changed`), exactly the injection variant the README already documents
+  as fooling the hosted model -- caught by the schema guard both times, never reaching a reviewer.
+- **One rejection was the same case that also fools `gemma3:4b`**: `EX-25`/R013 (`Unknown rule citation`) -- worth
+  noting since it suggests this specific case is a harder case in general, not only a `gemma3:4b` weakness.
+- **Median latency ~12.9-13.0 s, worst case 26.4 s** -- roughly 4x `gemma3:4b`'s median, on the same GPU, 4-bit vs.
+  4-bit, so the gap is architectural (a larger effective compute path per token), not a quantization artifact either
+  side is missing.
+
+Reproduce: `python scripts/run_llm_explanations.py --provider medgemma --cases exercises/llm_explanation_cases.jsonl --output outputs/llm_explanations_medgemma.jsonl --no-scorecard` (needs
+`pip install -r experiments/requirements-local-models.txt` and the gated license accepted). Raw data:
+`outputs/llm_explanations_medgemma.jsonl`, `outputs/llm_injection_variants_medgemma.jsonl`.
+
+**Automated-metric comparison, local candidates against the chosen hosted model**, same 36 tuning cases, same scorer
 (`scripts/evaluate_ai_explanations.py`), same prompt version (v1.6.0 + closing gate):
 
-| | `gemma3:4b` (local, free) | `Mistral-Nemo-Instruct-2407` (hosted, chosen) |
-|---|---|---|
-| Live answer rate | 35/36 (97.2%) | 34/36 (94.4%) |
-| Unsupported-token candidates | 0 | 0 |
-| Injection: approval language leaked | 0 | 0 |
-| Median latency | ~3.0 s | 3.6 s (25-set) / 6.7 s (variants) |
-| Worst-case latency | 10.8 s | 26.2 s |
+| | `gemma3:4b` (local, free) | `medgemma-4b-it` (local, free) | `Mistral-Nemo-Instruct-2407` (hosted, chosen) |
+|---|---|---|---|
+| Live answer rate | **97.2%** (35/36) | 83.3% (30/36) | 94.4% (34/36) |
+| Unsupported-token candidates | 0 | 0 | 0 |
+| Injection: approval language leaked | 0 | 0 | 0 |
+| Median latency | **~3.0 s** | ~12.9-13.0 s | 3.6 s (25-set) / 6.7 s (variants) |
+| Worst-case latency | **10.8 s** | 26.4 s | 26.2 s |
+| Also has a stress-test track record | **Yes, 84 cases, 0 garbled** | No, 36 cases only | N/A (hosted, chosen by 4 rounds) |
 
-`gemma3:4b` matches or exceeds `Mistral-Nemo` on every automated metric here, and is markedly more consistent on
-worst-case latency, plausibly because it never leaves the machine (no shared, multi-tenant serverless endpoint to
-queue behind). **This table is not a verdict.** `evaluate_ai_explanations.py`'s own docstring is explicit that
-automatic checks do not replace the manual 0/1 scorecard (correct finding, correct evidence, correct rule,
-appropriate action, honest uncertainty) — that still needs a human, for `gemma3:4b` exactly as much as it still does
-for `Mistral-Nemo` (the README already notes nobody has done that pass yet). What can honestly be said today:
-`gemma3:4b` is a serious, free, fully local candidate that ties or wins on everything a script can measure; whether
-it is as good at the substance is the same open question `Mistral-Nemo` still has.
+`gemma3:4b` is ahead of both `medgemma-4b-it` and the currently-chosen `Mistral-Nemo` on every automated metric here,
+and it is the only local candidate with a large-scale stress-test track record behind it. `medgemma-4b-it` ties on
+safety (grounding, injection resistance) but is clearly behind on reliability and speed -- it is not disqualified,
+just not the stronger candidate on what a script can measure so far. **This table is still not a verdict.**
+`evaluate_ai_explanations.py`'s own docstring is explicit that automatic checks do not replace the manual 0/1
+scorecard (correct finding, correct evidence, correct rule, appropriate action, honest uncertainty) -- that still
+needs a human, for every model in this table, hosted or local (the README already notes nobody has done that pass
+yet). What can honestly be said today: `gemma3:4b` is the strongest local candidate on every automated axis, and a
+serious contender against the paid, hosted default.
 
 ## 7. Audit log
 

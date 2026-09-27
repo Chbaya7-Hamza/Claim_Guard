@@ -568,6 +568,71 @@ class OllamaExplanationProvider(OpenAICompatibleProvider):
                           top_p=top_p, instructions=instructions, closing_retry=closing_retry)
 
 
+class MedGemmaExplanationProvider:
+    """google/medgemma-4b-it (official, gated checkpoint) via transformers, 4-bit (bitsandbytes), fully
+    local and free. Not an HTTP call, so this is not an OpenAICompatibleProvider subclass -- it implements
+    the same ExplanationProvider protocol directly, and reimplements the closing-gate retry inline so it
+    gets the identical treatment the HTTP-based providers get, for a fair comparison. Needs
+    `pip install -r experiments/requirements-local-models.txt` and the gated model's license accepted on
+    huggingface.co (the token in the environment/`~/.cache/huggingface/token` must belong to an account
+    that has accepted it) -- neither is a project dependency, both are opt-in for this experiment."""
+    PROVIDER = 'medgemma'
+    MODEL_ID = 'google/medgemma-4b-it'
+    CLOSING_RETRY = True
+
+    def __init__(self, model=None, max_tokens=800, instructions=None, closing_retry=None):
+        import torch
+        from transformers import AutoModelForImageTextToText, AutoProcessor, BitsAndBytesConfig
+        self.model = model or self.MODEL_ID
+        self.max_new_tokens = max_tokens
+        self.instructions = instructions
+        self.closing_retry = self.CLOSING_RETRY if closing_retry is None else closing_retry
+        quant_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16,
+                                           bnb_4bit_quant_type='nf4', bnb_4bit_use_double_quant=True)
+        self._processor = AutoProcessor.from_pretrained(self.MODEL_ID)
+        self._hf_model = AutoModelForImageTextToText.from_pretrained(
+            self.MODEL_ID, quantization_config=quant_config, device_map='cuda', torch_dtype=torch.bfloat16)
+        self._torch = torch
+        self.last_usage = None
+        self.last_attempts = 1
+
+    def _generate(self, prompt):
+        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+        inputs = self._processor.apply_chat_template(
+            messages, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt"
+        ).to(self._hf_model.device)
+        with self._torch.inference_mode():
+            out = self._hf_model.generate(**inputs, max_new_tokens=self.max_new_tokens, do_sample=False)
+        n_in = inputs['input_ids'].shape[-1]
+        text = self._processor.decode(out[0][n_in:], skip_special_tokens=True).strip()
+        if text.startswith('```'):
+            text = text.strip('`')
+            if text.startswith('json'):
+                text = text[4:]
+        self.last_usage = {'prompt_tokens': int(n_in), 'completion_tokens': int(out.shape[-1] - n_in),
+                            'total_tokens': int(out.shape[-1])}
+        return text.strip()
+
+    def explain(self, finding, rule, untrusted_note=None):
+        prompt = build_prompt(finding, rule, untrusted_note, self.instructions)
+        self.last_attempts = 1
+        output = json.loads(self._generate(prompt))
+        checked = check_grounding(validate_explanation(repair_citations(output, finding), finding), finding, rule)
+        wants_closing = self.closing_retry and CLOSING_MARKER in (self.instructions or _PROMPT_INSTRUCTIONS)
+        if wants_closing and not covers_closing(checked['explanation'], rule):
+            self.last_attempts = 2
+            hint = (chr(10) * 2 + '## Correction' + chr(10) + 'Your previous reply left out the required last sentence. '
+                    'Reply again with exactly three sentences. ' + _closing_sentence(rule))
+            try:
+                second = json.loads(self._generate(prompt + hint))
+                second = check_grounding(validate_explanation(repair_citations(second, finding), finding), finding, rule)
+                if covers_closing(second['explanation'], rule):
+                    return second
+            except Exception:  # noqa: BLE001 - the first answer is valid; trouble with the second just keeps it
+                pass
+        return checked
+
+
 class NvidiaExplanationProvider(OpenAICompatibleProvider):
     """NVIDIA NIM. Retained for the recorded runs; NOT selected by default_provider()
     (the project's NVIDIA key was withdrawn as untrusted)."""

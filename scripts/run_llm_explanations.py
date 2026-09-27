@@ -22,7 +22,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
-from llm_adapter import FeatherlessExplanationProvider, MockExplanationProvider, OllamaExplanationProvider, explain_with_fallback
+from llm_adapter import (FeatherlessExplanationProvider, MedGemmaExplanationProvider, MockExplanationProvider,
+                          OllamaExplanationProvider, explain_with_fallback)
 
 logging.basicConfig(level=logging.WARNING, format='%(levelname)s %(name)s: %(message)s')
 
@@ -33,13 +34,14 @@ def main():
     ap.add_argument('--output', default='outputs/llm_explanations.jsonl')
     ap.add_argument('--no-scorecard', action='store_true', help='skip the manual scorecard (only valid for the 25 supplied cases)')
     ap.add_argument('--workers', type=int, default=1, help='cases explained concurrently')
-    ap.add_argument('--provider', choices=('featherless', 'ollama'), default='featherless')
+    ap.add_argument('--provider', choices=('featherless', 'ollama', 'medgemma'), default='featherless')
     ap.add_argument('--model', default=None, help='overrides the provider default model')
     ap.add_argument('--max-tokens', type=int, default=500)
     args = ap.parse_args()
     cases = [json.loads(l) for l in (ROOT / args.cases).read_text(encoding='utf-8').splitlines() if l.strip()]
 
-    provider_cls = OllamaExplanationProvider if args.provider == 'ollama' else FeatherlessExplanationProvider
+    provider_cls = {'ollama': OllamaExplanationProvider, 'medgemma': MedGemmaExplanationProvider,
+                     'featherless': FeatherlessExplanationProvider}[args.provider]
     try:
         primary = provider_cls(model=args.model, max_tokens=args.max_tokens)
         print(f'Primary provider: {args.provider} ({primary.model})')
