@@ -545,6 +545,29 @@ class FeatherlessExplanationProvider(OpenAICompatibleProvider):
     TIMEOUT = 90.0
 
 
+class OllamaExplanationProvider(OpenAICompatibleProvider):
+    """A local model served by Ollama (http://localhost:11434), fully offline and free: no API key leaves this
+    machine, no per-call cost. Ollama's OpenAI-compatible endpoint accepts any non-empty API key string and
+    ignores it, so OLLAMA_API_KEY is a placeholder, not a real secret -- never a reason to relax KEY_ENV's
+    presence check in the base class. Load the model first with `ollama pull <model>`; the first call after
+    that can be slow while Ollama loads it into memory, hence the longer timeout (matches Featherless's)."""
+    PROVIDER = 'ollama'
+    CLOSING_RETRY = True
+    BASE_URL = 'http://localhost:11434/v1'
+    KEY_ENV = 'OLLAMA_API_KEY'
+    MODEL_ENV = 'OLLAMA_MODEL'
+    DEFAULT_MODEL = 'gemma3:4b'
+    TIMEOUT = 90.0
+
+    def __init__(self, api_key=None, model=None, base_url=None, timeout=None, max_tokens=500,
+                 temperature=0, top_p=1, instructions=None, closing_retry=None):
+        # Ollama does not check the key at all; default one in so a judge running this locally never has to
+        # set an environment variable just to satisfy the base class's "a provider needs credentials" check.
+        super().__init__(api_key=api_key or os.environ.get(self.KEY_ENV) or 'ollama-local', model=model,
+                          base_url=base_url, timeout=timeout, max_tokens=max_tokens, temperature=temperature,
+                          top_p=top_p, instructions=instructions, closing_retry=closing_retry)
+
+
 class NvidiaExplanationProvider(OpenAICompatibleProvider):
     """NVIDIA NIM. Retained for the recorded runs; NOT selected by default_provider()
     (the project's NVIDIA key was withdrawn as untrusted)."""

@@ -147,6 +147,50 @@ Diagrams, the trust-boundary table, the per-component tool-permission table and 
 
 **Advisories** (`src/advisory.py`): a diagnosis code not in `rules/diagnoses.json`, and a payer that differs from the policy's. They are audit events that route a claim to a human; they are not rule results and never affect scoring.
 
+### 5a. Why YARA-X, not plain Python: benchmarked, not asserted
+
+The obvious question for a declarative rule engine is whether it earns its keep over just writing the 15 rules as
+Python functions. We already had the fair comparison to test this against: `tests/oracle.py`, the independent
+Python reimplementation used to check the engine's correctness (section 10), is a real, from-scratch, already
+oracle-validated set of 15 rule functions with its own `RULES = {rule_id: function}` registry — not a strawman
+written to lose. `python scripts/benchmark_yara_vs_python.py` runs the comparison below and is reproducible on
+demand.
+
+**Speed.** On 20,000 generated claims (`tests/claim_gen.py`, seed 20260927): YARA-X averages 1.752 ms/claim
+(571 claims/s); the plain-Python oracle averages 0.158 ms/claim (6,346 claims/s). **The Python implementation is
+about 11x faster**, and we are not going to spin that. Neither number is the reason to choose either approach: at
+571 claims/s, the engine clears any realistic claim volume in a fraction of a second, and the actual bottleneck in
+the pipeline is the AI explanation step (1.8-90 s per call, four to five orders of magnitude slower than either rule
+engine). Speed was never a legitimate reason to prefer YARA-X, and this benchmark settles that rather than leaving
+it asserted.
+
+**Fault isolation — tested three ways, including the fair one.** `src/yara_engine.py`'s per-rule loop wraps each
+rule's evaluation in `try/except`; a crash is isolated to that one rule (`UNABLE_TO_ASSESS`, logged, the other 14
+results unaffected) — already proven by the existing `tests/test_engine_robustness.py::IsolationTests`. Plain
+`oracle.py` has no equivalent: its `evaluate()` is a one-line dict comprehension over `RULES`, so any single rule
+function raising takes the whole claim's 15 results down with it. Injecting the identical fault used in that
+existing engine test (`RULES['R007'] = lambda c, p: 1/0`) into all three variants gives:
+
+| Variant | Result of the injected R007 crash |
+|---|---|
+| Plain `oracle.evaluate()` (the real code in the repo) | **Crashes.** All 15 results for the claim are lost, not just R007. |
+| Hardened oracle (a five-line loop with `try/except` per rule, added for this test only) | Isolates it: R007 -> `UNABLE_TO_ASSESS`, the other 14 results match the no-fault baseline exactly. |
+| `src/yara_engine.py` (unchanged) | Isolates it: R007 -> `UNABLE_TO_ASSESS`, same as the hardened oracle. |
+
+The honest reading: isolation is not an inherent YARA-X property. A five-line wrapper gives plain Python the exact
+same isolation semantics, and it is still ~11x faster with the wrapper in place. What does not transfer with that
+wrapper is the deeper, structural guarantee: a YARA-X rule is a declarative pattern match that cannot make a network
+call, write a file, mutate shared state, or loop forever, by construction of the rule language itself. A Python rule
+function, hardened or not, is still an arbitrary function — nothing except the author remembering to keep it that
+way stops a future rule from doing something it should not. That guarantee, not error-handling ceremony or raw
+throughput, is the actual reason for choosing a declarative engine: it holds regardless of how carefully (or not)
+the Python alternative is written.
+
+Also considered and not decisive: lines of rule-definition code (`rules/core.yar` 577, `tests/oracle.py` 316 — the
+oracle is shorter partly because it reuses Python's native comparisons where the engine matches pre-extracted,
+percent-encoded fact strings) and per-rule versioning (`rule_version` on the compiled pack vs. a Python file's
+change only visible as a whole-file diff) — both real but secondary to the two points above.
+
 ## 6. AI explanation step
 
 **Role.** Explain each `FAIL` and `UNABLE_TO_ASSESS` finding in plain language for a human reviewer. Nothing else.
