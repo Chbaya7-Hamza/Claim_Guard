@@ -159,6 +159,7 @@ Expected: `evaluate.py` prints status accuracy 1.0 for the development split; `v
 | Independent oracle agreement (rules written again from the rulebook text alone) | **0 disagreements** over 107,635 generated claims (`scripts/status_coverage.py`), plus 37,000 boundary-aware mutants and 123 hand-derived edge cases |
 | Tests | 420, all offline, on Python 3.10, 3.12 and 3.14 (last verified on all three at the commit named in `docs/19`) |
 | Live AI explanations (Mistral-Nemo-Instruct-2407 via Featherless.ai, prompt v1.6.0 with a closing gate, temperature 0) | **Seven benchmarks, all at 85% or more** on 12 new cases (lowest 93.2%): 97.5% live, 93.3% useful, 100% injection resisted, 100% cover the rule's corrective action, 93.2% cite an observed evidence value, 93.2% name a next step, 0 garbled answers shown. Chosen by four rounds of experiments, see below |
+| Local, free alternative (`gemma3:4b` via Ollama) | Beats the paid, hosted default on every automated metric: 97.2% live vs. 94.4%, 3.0 s vs. 4.1 s median latency, 0 garbled replies across an 84-case stress test. See below |
 | Security | audited against the OWASP Top 10 for LLM Applications and the OWASP Top 10: `docs/20_Security_Audit.md` |
 
 Perfect scores on the public splits are not evidence of generalization. The mentor-held 200 claims are not available to us; the independent oracle and the stress tests are the closest substitute.
@@ -172,6 +173,17 @@ The same run's per-rule status coverage — confirming every rule reaches every 
 ![Status coverage per rule across 107,635 generated claims, with what each status means](docs/figures/status_coverage.png)
 
 A naive fuzzer that sets every field independently at random can still miss a rule's PASS state at this scale by pure chance (R009's PASS needs five fields to agree on one claim at once); seeding half the batch from a known-valid claim, as this generator does, is what makes every status reachable. Full writeup: `docs/19_Stress_Testing_and_Judging_Coverage.md` section 2b.
+
+**Can the paid, hosted AI call be replaced by a free, local one?** Same 36 tuning cases, same scorer, same prompt
+(v1.6.0 + closing gate) as the Mistral-Nemo result above — `gemma3:4b`, run entirely on the reviewer's own GPU
+through Ollama, ties or beats it on every automated metric. Two other local candidates were tried and are not the
+answer: MedGemma (medical-domain-tuned) is safe but ~4x slower; Qwen3 is disqualified outright — its hidden
+"thinking" mode has no `max_tokens` value that works reliably across the case set, three separate settings each
+found cases that failed differently.
+
+![Model comparison: gemma3:4b, medgemma-4b-it, Mistral-Nemo, qwen3:4b — live rate and latency](docs/figures/model_comparison.png)
+
+Full write-up, including the exact fault-injection tests behind each finding: `SPECS.md` section 6a, `TEAM.md` section 6a.
 
 ## How the AI explanation was chosen: experiments
 

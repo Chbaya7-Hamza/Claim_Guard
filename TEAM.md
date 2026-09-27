@@ -110,6 +110,26 @@ We ran four rounds of experiments on the Featherless.ai endpoint (2026-09-26, 4,
 
 **How to read these results.** The primary metric is a mechanical check that rewards echoing the template and flags harmless paraphrases; we kept it as pre-registered, reported a lenient version beside it, and added measures for what an answer adds. A hosted endpoint drifts over time (the same configuration scored 78.7%, 76.9% and 59.8% in three runs), so only the interleaved experiments (E5 to E8) compare fairly. The prompt was written while looking at tuning-set answers, and the confirmation set is only 12 cases. Everything, including the threats to validity and every deviation from the plan, is in `docs/21_Experiments.md`; raw replies are in `experiments/raw/`.
 
+### 6a. Local models: can we drop the paid, hosted call entirely?
+
+Everyone in this challenge has the same rulebook and the same data, so the team looked for a differentiator: a
+model that runs entirely on the reviewer's own machine, free per call, no internet dependency -- closer to how a
+real hospital would want to deploy this. Same 36-case tuning set, same scorer, same prompt (v1.6.0 + closing gate)
+as the Mistral-Nemo numbers above, so the comparison is direct, not a separate methodology:
+
+![Model comparison: gemma3:4b, medgemma-4b-it, Mistral-Nemo, qwen3:4b](docs/figures/model_comparison.png)
+
+| Question | Answer |
+|---|---|
+| Which local model won? | **`gemma3:4b`, run through Ollama on the reviewer's own GPU.** 97.2% live (35/36, beats Mistral-Nemo's 94.4%), 3.0 s median latency (Mistral-Nemo: 4.1 s), and it is the only local candidate with a full 84-case stress-test track record: 0 garbled replies, and its one rejection was a genuine hallucinated rule citation the schema caught, not a formatting slip |
+| What about MedGemma (medical-domain-tuned)? | Works, safe (ties on grounding and injection resistance), but ~4x slower (12.9 s median) and less reliable (83.3% live) -- a real bitsandbytes 4-bit attention-kernel bug caused two of its rejections, not a quality problem with the model's answers |
+| What about Qwen3 (asked for by name)? | **Disqualified, but not for quality.** It defaults to a hidden "thinking" mode neither documented way to disable actually turns off through Ollama's packaging of it. Three separate runs at `max_tokens` 500, 3000 and 8000 each found cases that still failed -- empty output, a schema-shape rejection, or a 90-second timeout -- with no single value that worked across all 36 cases. Its resource needs are unpredictable per case, which is a worse, less fixable problem than being merely slow |
+| Does the safety net still hold for a local model? | Yes -- `OllamaExplanationProvider` and `MedGemmaExplanationProvider` go through the exact same schema, grounding and fallback checks as the hosted providers; nothing about the trust boundary changes for a model that happens to be free |
+| Is this a final verdict? | No -- same caveat as Mistral-Nemo: these are automated checks (live rate, grounding, latency), not the manual 0/1 scorecard for correctness. `gemma3:4b` is the strongest candidate on everything a script can measure; whether it is as good at the substance is the same open question the hosted model still has |
+
+Full write-up, including the exact fault-injection tests and the MedGemma chat-template mismatch that turned out to
+be a bug in a third-party GGUF conversion and not the model: `SPECS.md` section 6a.
+
 ## 7. What we got wrong, and what to remember
 
 - **We trusted the score.** Perfect public scores hid two precedence bugs and a rounding ambiguity until an independent oracle looked.

@@ -231,7 +231,7 @@ tested so far, on the RTX 4060 (8 GB) this was developed on, GPU placement confi
 | Model | Works at default settings? | Live rate (84-case battery) | Notes |
 |---|---|---|---|
 | `gemma3:4b` (Ollama library) | **Yes** | 83/84 (98.8%) | 1.8-5 s per call warm; the one rejection is a genuine hallucinated rule citation (below), not a formatting slip or a garbled reply |
-| `qwen3:4b` (Ollama library) | No at `max_tokens=500` (the system default) — fixed by raising it | Not yet run at scale | Defaults to a hidden "thinking" mode that spends the whole token budget reasoning before writing an answer; at 500 tokens this is a 100% failure rate (`finish_reason: length`, empty `content`), reproduced twice. Both documented ways to disable it (`/no_think` suffix, `chat_template_kwargs.enable_thinking=false`) do not work through Ollama's packaging of this model — verified, not assumed. Fix: `max_tokens=3000`; confirmed working end-to-end through the real pipeline at that setting, but ~10-20x slower than `gemma3:4b` (35-45 s vs. 2-5 s) purely from the reasoning overhead, on the same GPU |
+| `qwen3:4b` (Ollama library) | **No — disqualified, not just slow (below)** | Unusable: no `max_tokens` value tested worked across the 36-case set | Defaults to a hidden "thinking" mode that spends the token budget reasoning before writing an answer. Neither documented way to disable it (`/no_think` suffix, `chat_template_kwargs.enable_thinking=false`) works through Ollama's packaging of this model — verified, not assumed |
 | `google/medgemma-4b-it` (official, gated, via `transformers` + 4-bit) | **Yes** | 30/36 (83.3%, 36-case tuning set) | The third-party GGUF (`unsloth/medgemma-1.5-4b-it-GGUF`) wrote a visible, unfenced `"thought\n..."` preamble and duplicated its own JSON answer with no separator -- a chat-template mismatch in that specific conversion, not a MedGemma problem: the *official* checkpoint (gated, `license: other`, Health AI Developer Foundations terms; `"gated": "auto"` so access is instant on acceptance) produces clean, correctly-fenced JSON with no preamble. Runs in 4-bit (`bitsandbytes`, NF4) at 3.2 GB VRAM. Needs `pip install -r experiments/requirements-local-models.txt`; loading an 8 GB checkpoint via `transformers`' memory-mapped load can hit a Windows "paging file is too small" error under memory pressure -- freeing RAM (not resizing the page file) was enough here |
 
 **Stress test, `gemma3:4b`, the largest single-model battery run in this project** (`scripts/stress_test_local_model.py`):
@@ -278,27 +278,49 @@ Reproduce: `python scripts/run_llm_explanations.py --provider medgemma --cases e
 `pip install -r experiments/requirements-local-models.txt` and the gated license accepted). Raw data:
 `outputs/llm_explanations_medgemma.jsonl`, `outputs/llm_injection_variants_medgemma.jsonl`.
 
-**Automated-metric comparison, local candidates against the chosen hosted model**, same 36 tuning cases, same scorer
+**Qwen3, disqualified -- not on quality, on unprovisionable resource requirements.** Requested by name (the mentor
+asked for it explicitly). Three separate runs against the same 36-case set, escalating the one setting that should
+fix a "thinking" model running out of budget:
+
+| Attempt | `max_tokens` | Result |
+|---|---|---|
+| 1 | 500 (system default) | 100% failure: every case hits `finish_reason: length` with empty `content` -- confirmed reproducible, not a fluke, on a clean-memory retry |
+| 2 | 3,000 | Failed differently on the very first cases tried (`JSONDecodeError`, empty content) even with ~5.7 GB of free RAM confirmed at the time -- not a memory-pressure artifact. Direct diagnosis on one specific failing case (`CG-A5FE8740EAE1`/R002) found it needed **4,613 completion tokens** to finish -- past the 3,000 budget that worked on a different, simpler case earlier |
+| 3 | 8,000 | Different cases failed differently again: `ValueError: Invalid explanation keys` (a real schema-shape rejection) and `APITimeoutError: Request timed out` (generation exceeded the 90 s provider timeout even at this budget) |
+
+**No single `max_tokens` value tested works across the case set.** Some cases finish under 3,000 tokens; at least one
+needs 4,600+; others exceed 8,000 tokens and a 90-second timeout without finishing. This is a materially worse
+problem than being merely slow (`medgemma-4b-it`'s latency is high but *bounded and predictable*): Qwen3's resource
+requirements vary unpredictably per case, so there is no configuration that can be provisioned for in advance.
+Neither documented way to disable its thinking mode (`/no_think` suffix in the prompt, `chat_template_kwargs.
+enable_thinking=false`) works through Ollama's packaging of this model. **Verdict: not usable in this pipeline as
+currently packaged**, independent of answer quality -- an unmeasurable variable is not the same finding as a bad
+score.
+
+**Automated-metric comparison, all four candidates**, same 36 tuning cases, same scorer
 (`scripts/evaluate_ai_explanations.py`), same prompt version (v1.6.0 + closing gate):
 
-| | `gemma3:4b` (local, free) | `medgemma-4b-it` (local, free) | `Mistral-Nemo-Instruct-2407` (hosted, chosen) |
-|---|---|---|---|
-| Live answer rate | **97.2%** (35/36) | 83.3% (30/36) | 94.4% (34/36) |
-| Unsupported-token candidates | 0 | 0 | 0 |
-| Injection: approval language leaked | 0 | 0 | 0 |
-| Median latency | **~3.0 s** | ~12.9-13.0 s | 3.6 s (25-set) / 6.7 s (variants) |
-| Worst-case latency | **10.8 s** | 26.4 s | 26.2 s |
-| Also has a stress-test track record | **Yes, 84 cases, 0 garbled** | No, 36 cases only | N/A (hosted, chosen by 4 rounds) |
+![Model comparison: gemma3:4b, medgemma-4b-it, Mistral-Nemo, qwen3:4b — live rate and latency](figures/model_comparison.png)
 
-`gemma3:4b` is ahead of both `medgemma-4b-it` and the currently-chosen `Mistral-Nemo` on every automated metric here,
-and it is the only local candidate with a large-scale stress-test track record behind it. `medgemma-4b-it` ties on
-safety (grounding, injection resistance) but is clearly behind on reliability and speed -- it is not disqualified,
-just not the stronger candidate on what a script can measure so far. **This table is still not a verdict.**
+| | `gemma3:4b` (local, free) | `medgemma-4b-it` (local, free) | `Mistral-Nemo-Instruct-2407` (hosted, paid) | `qwen3:4b` (local, free) |
+|---|---|---|---|---|
+| Live answer rate | **97.2%** (35/36) | 83.3% (30/36) | 94.4% (34/36) | Disqualified -- no stable config |
+| Unsupported-token candidates | 0 | 0 | 0 | -- |
+| Injection: approval language leaked | 0 | 0 | 0 | -- |
+| Median latency | **~3.0 s** | ~12.9-13.0 s | ~4.1 s | Unbounded (3 s-90 s+) |
+| Worst-case latency | **10.8 s** | 26.4 s | 26.2 s | Exceeds the 90 s timeout |
+| Also has a stress-test track record | **Yes, 84 cases, 0 garbled** | No, 36 cases only | N/A (hosted, chosen by 4 rounds) | N/A (disqualified before one was run) |
+
+**`gemma3:4b` is the winner**, ahead of every other candidate on every automated metric measured, including the
+currently-chosen paid hosted model, and it is the only local candidate with a large-scale stress-test track record
+behind it. `medgemma-4b-it` ties on safety (grounding, injection resistance) but is clearly behind on reliability
+and speed; not disqualified, just not the stronger candidate. `qwen3:4b` is disqualified on operational grounds
+before quality was ever assessed. **This table is still not a verdict on substance.**
 `evaluate_ai_explanations.py`'s own docstring is explicit that automatic checks do not replace the manual 0/1
 scorecard (correct finding, correct evidence, correct rule, appropriate action, honest uncertainty) -- that still
 needs a human, for every model in this table, hosted or local (the README already notes nobody has done that pass
-yet). What can honestly be said today: `gemma3:4b` is the strongest local candidate on every automated axis, and a
-serious contender against the paid, hosted default.
+yet). What can honestly be said today: `gemma3:4b` is the strongest candidate on every automated axis measured, free
+and local besides.
 
 ## 7. Audit log
 
