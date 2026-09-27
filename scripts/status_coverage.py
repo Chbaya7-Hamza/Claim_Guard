@@ -35,6 +35,12 @@ from yara_engine import evaluate  # noqa: E402
 
 STATUSES = ('PASS', 'FAIL', 'UNABLE_TO_ASSESS', 'NOT_APPLICABLE')
 COLORS = {'PASS': '#1a9641', 'FAIL': '#d7191c', 'UNABLE_TO_ASSESS': '#e8971e', 'NOT_APPLICABLE': '#9099a8'}
+LEGEND = {
+    'PASS': 'PASS — claim satisfies this rule',
+    'FAIL': 'FAIL — a concrete violation found (wrong code, mismatched date/amount, expired or missing authorization, etc.)',
+    'UNABLE_TO_ASSESS': 'UNABLE_TO_ASSESS — required data missing or unreadable; never shown as a pass',
+    'NOT_APPLICABLE': 'NOT_APPLICABLE — this rule has nothing to check for this claim',
+}
 
 
 def run(n_claims, seed):
@@ -91,19 +97,19 @@ def draw_chart(payload, out_path):
     import matplotlib.pyplot as plt
 
     rule_ids = sorted(payload['counts'])
-    fig, ax = plt.subplots(figsize=(13, 6))
+    fig, ax = plt.subplots(figsize=(13, 6.8))
     bottoms = [0.0] * len(rule_ids)
     for status in STATUSES:
         heights = [max(payload['counts'][rid][status], 0) for rid in rule_ids]
         # a zero-height segment on a log-scale stacked bar draws nothing, which is the point: a
         # missing color band at a glance means "never reached this status in this run".
-        ax.bar(rule_ids, heights, bottom=bottoms, color=COLORS[status], label=status, width=0.72)
+        ax.bar(rule_ids, heights, bottom=bottoms, color=COLORS[status], label=LEGEND[status], width=0.72)
         bottoms = [b + h for b, h in zip(bottoms, heights)]
     ax.set_yscale('log')
     ax.set_ylabel('Claims reaching this status (log scale)')
     ax.set_title(f"Status coverage per rule across {payload['claims_scored']:,} generated claims\n"
                  f"(engine and independent oracle agreed on all of them; {payload['engine_oracle_mismatches']} disagreement(s))")
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.18), ncol=4, frameon=False)
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.22), ncol=1, frameon=False, fontsize=9.2, alignment='left')
     plt.xticks(rotation=30, ha='right')
     fig.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
