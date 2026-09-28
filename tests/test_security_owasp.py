@@ -81,11 +81,18 @@ class LLM03_A06_A08_SupplyChain(unittest.TestCase):
         # a bare call, not a method or a longer name: yara_x.compile() and validate_input() are fine
         sinks = re.compile(r'(?<![\w.])(eval|exec|compile|input|__import__)\s*\(|pickle|marshal|shelve|subprocess|os\.system|os\.popen'
                            r'|shell\s*=\s*True|yaml\.load\(')
+        # benchmark_audit_concurrency.py spawns sys.executable with hardcoded, non-shell argv (no
+        # untrusted input, no shell=True) to get real OS-process concurrency for the audit-log
+        # benchmark -- the one legitimate use of subprocess in this codebase (see its docstring).
+        subprocess_allowed = {'benchmark_audit_concurrency.py'}
         for folder in ('src', 'scripts'):
             for p in (ROOT / folder).glob('*.py'):
                 for n, line in enumerate(p.read_text(encoding='utf-8').splitlines(), start=1):
                     code = line.split('#')[0]
-                    self.assertIsNone(sinks.search(code), f'{p.name}:{n}: {line.strip()}')
+                    match = sinks.search(code)
+                    if match and match.group() == 'subprocess' and p.name in subprocess_allowed:
+                        continue
+                    self.assertIsNone(match, f'{p.name}:{n}: {line.strip()}')
 
 
 class A02_A05_SecretsAndConfiguration(unittest.TestCase):

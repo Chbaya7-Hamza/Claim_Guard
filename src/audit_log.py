@@ -384,6 +384,19 @@ class AuditLog:
                 time.sleep(0.005 * (attempt + 1))
 
 
+def _read_anchor_text(anchor_path):
+    """Read the anchor file, retrying on Windows sharing-violation PermissionErrors: a reader can
+    land mid another writer's os.replace() (see _write_anchor's matching retry on the write side).
+    Same backoff budget as that side (40 attempts, ~4.1s total) for symmetry."""
+    for attempt in range(40):
+        try:
+            return anchor_path.read_text(encoding='utf-8')
+        except PermissionError:
+            if attempt == 39:
+                raise
+            time.sleep(0.005 * (attempt + 1))
+
+
 def verify_with_anchor(log_path, anchor_path=None):
     """Full chain verification plus comparison against the anchor. Returns
     (head, count). Raises ValueError on a broken chain, truncation, or a
@@ -394,9 +407,9 @@ def verify_with_anchor(log_path, anchor_path=None):
     if not anchor_path.exists():
         raise ValueError('No anchor file: chain is internally consistent but cannot be checked against truncation')
     try:
-        anchor = json.loads(anchor_path.read_text(encoding='utf-8'))
+        anchor = json.loads(_read_anchor_text(anchor_path))
         anchor_count, anchor_head = int(anchor['count']), anchor['head']
-    except (ValueError, KeyError, TypeError) as e:
+    except (ValueError, KeyError, TypeError, PermissionError) as e:
         raise ValueError(f'Anchor file {anchor_path} is unreadable or malformed: {e}') from e
     if _anchor_mac(anchor_head, anchor_count) is not None:  # a key is configured: the anchor must be signed with it
         if not hmac.compare_digest(str(anchor.get('mac', '')), _anchor_mac(anchor_head, anchor_count)):

@@ -1,4 +1,4 @@
-import unittest, sys, json, copy, tempfile, hashlib
+import unittest, unittest.mock, sys, json, copy, tempfile, hashlib
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
@@ -122,6 +122,40 @@ class AuditLogTests(Base):
         self.path.with_name('audit.jsonl.head.json').write_text(anchor)
         with self.assertRaisesRegex(ValueError, 'replaced'):
             verify_with_anchor(self.path)
+
+    def test_transient_permission_error_reading_the_anchor_is_retried_not_fatal(self):
+        # A Windows sharing-violation window while another writer's os.replace() is in flight
+        # (found scaling tests/test_audit_concurrency.py past 3 processes, see docs/19).
+        self.run_claim(self.failing_claim())
+        real_read_text = Path.read_text
+        calls = {'n': 0}
+
+        def flaky_read_text(self, *a, **kw):
+            if not self.name.endswith('.head.json'):
+                return real_read_text(self, *a, **kw)
+            calls['n'] += 1
+            if calls['n'] <= 2:
+                raise PermissionError(13, 'Permission denied')
+            return real_read_text(self, *a, **kw)
+
+        with unittest.mock.patch.object(Path, 'read_text', flaky_read_text):
+            head, count = verify_with_anchor(self.path)
+        self.assertEqual(calls['n'], 3)  # two failures, then the real read succeeded
+        self.assertEqual((head, count), (self.log.head, self.log.count))
+
+    def test_permission_error_reading_the_anchor_eventually_raises_valueerror(self):
+        self.run_claim(self.failing_claim())
+        real_read_text = Path.read_text
+
+        def always_denied(self, *a, **kw):
+            if self.name.endswith('.head.json'):
+                raise PermissionError(13, 'Permission denied')
+            return real_read_text(self, *a, **kw)
+
+        with unittest.mock.patch.object(Path, 'read_text', always_denied), \
+             unittest.mock.patch('time.sleep'):
+            with self.assertRaisesRegex(ValueError, 'unreadable or malformed'):
+                verify_with_anchor(self.path)
 
     def test_system_may_not_record_an_approval(self):
         bad = {'event_type': 'system_decision', 'run_id': 'r', 'claim_id': 'c',
