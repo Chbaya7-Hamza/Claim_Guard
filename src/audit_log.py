@@ -198,10 +198,15 @@ class AuditLog:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         # If an anchor exists, check against it BEFORE anything is appended. Otherwise the
         # next write would re-anchor the truncated state and erase the evidence.
-        if self.anchor_path.exists():
-            self.head, self.count = verify_with_anchor(self.path, self.anchor_path)
-        else:
-            self.head, self.count = verify(self.path)
+        # Under the same locks _write_anchor() writes under: an unlocked read here can catch
+        # another writer mid os.replace() (a transient PermissionError, retried by
+        # _read_anchor_text) or mid-append (a false "truncated" reading against a since-moved
+        # anchor, which retrying alone cannot fix -- this needs to not race the writer at all).
+        with _thread_lock(self.path), _file_lock(self.lock_path):
+            if self.anchor_path.exists():
+                self.head, self.count = verify_with_anchor(self.path, self.anchor_path)
+            else:
+                self.head, self.count = verify(self.path)
 
     def _sync_index(self):
 

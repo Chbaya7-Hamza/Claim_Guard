@@ -6,14 +6,23 @@ chain is still exactly one valid sequence afterward, and reports throughput.
     python scripts/benchmark_audit_concurrency.py [--processes 20] [--events-per-process 500]
 """
 import argparse
-import subprocess
+import json
+import multiprocessing
 import sys
+import tempfile
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
-from audit_log import verify_with_anchor  # noqa: E402
+from audit_log import AuditLog, verify_with_anchor  # noqa: E402
+
+
+def _worker(path, n, tag):
+    log = AuditLog(path)
+    for i in range(n):
+        log.append_system_events([{'event_type': 'system_decision', 'run_id': 'r', 'claim_id': f'{tag}-{i}',
+                                   'decision': 'no_findings_for_review', 'reason': 'x'}])
 
 
 def main():
@@ -22,15 +31,21 @@ def main():
     p.add_argument('--events-per-process', type=int, default=500)
     a = p.parse_args()
 
-    import tempfile
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / 'audit.jsonl'
         tags = [f'P{i:02d}' for i in range(a.processes)]
         t0 = time.perf_counter()
-        procs = [subprocess.Popen([sys.executable, str(ROOT / 'tests/_audit_worker.py'), str(path),
-                                    str(a.events_per_process), tag]) for tag in tags]
-        codes = [proc.wait(timeout=300) for proc in procs]
+        # multiprocessing.Process, not subprocess: real separate OS processes (same file-locking
+        # behavior we're measuring), spawned from a picklable module-level target instead of a
+        # second script file.
+        procs = [multiprocessing.Process(target=_worker, args=(str(path), a.events_per_process, tag))
+                 for tag in tags]
+        for proc in procs:
+            proc.start()
+        for proc in procs:
+            proc.join(timeout=300)
         elapsed = time.perf_counter() - t0
+        codes = [proc.exitcode for proc in procs]
 
         total_expected = a.processes * a.events_per_process
         if any(c != 0 for c in codes):
@@ -39,7 +54,6 @@ def main():
 
         head, n = verify_with_anchor(path)
         rows = [l for l in path.read_text(encoding='utf-8').splitlines() if l.strip()]
-        import json
         sequences = [json.loads(r)['sequence'] for r in rows]
         ok_sequence = sequences == list(range(1, len(rows) + 1))
 
