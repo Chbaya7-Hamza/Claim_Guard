@@ -303,6 +303,21 @@ def _strip_code_fence(text: str) -> str:
     return text
 
 
+def build_local_llm(max_tokens: int = 800):
+    """The same local Ollama endpoint ClaimGuard's own OllamaExplanationProvider
+    uses (src/llm_adapter.py) -- gemma3:4b, fully offline, no API key leaves
+    this machine. Swapped in here so both systems in the comparison run the
+    literal same model instance; nothing else about extraction changes."""
+    from langchain_openai import ChatOpenAI
+    return ChatOpenAI(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama-local",  # Ollama ignores the key; a placeholder, not a secret
+        model="gemma3:4b",
+        max_tokens=max_tokens,
+        temperature=0,
+    )
+
+
 def extract_claim_json(file_path: str, llm=None, max_retries: int = 1) -> Dict[str, Any]:
     """
     Full pipeline: extract() the file (whatever format it is) -> raw text ->
@@ -310,8 +325,8 @@ def extract_claim_json(file_path: str, llm=None, max_retries: int = 1) -> Dict[s
     schema. Returns a plain Python dict guaranteed to be valid JSON.
 
     llm: any object with an .invoke(str) -> response with .content (e.g. the
-    ChatGoogleGenerativeAI instance already used in agent.py). If not passed,
-    one is created here using GOOGLE_API_KEY from the environment.
+    build_local_llm() instance already used in agent.py). If not passed,
+    one is created here pointed at the local gemma3:4b Ollama endpoint.
     """
     raw = extract(file_path)
     raw_text = raw.get("text", "")
@@ -324,8 +339,7 @@ def extract_claim_json(file_path: str, llm=None, max_retries: int = 1) -> Dict[s
         )
 
     if llm is None:
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        llm = ChatGoogleGenerativeAI(model=os.getenv("CLAIMGUARD_LLM_MODEL", "gemini-3.1-flash-lite"))
+        llm = build_local_llm()
 
     prompt = CLAIM_JSON_SCHEMA_PROMPT.replace("{raw_text}", raw_text)
 
