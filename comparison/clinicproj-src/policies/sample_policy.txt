@@ -1,0 +1,8 @@
+Coverage must be active on the date of service. If the coverage end_date is
+earlier than the claim's service_date, the claim fails this check.
+
+Prior authorization is required for procedures that require it. If
+authorization is missing or not approved, the claim fails this check.
+
+Two claim lines with the same procedure code, service date, and provider on
+the same claim are a possible duplicate and require human verification.
