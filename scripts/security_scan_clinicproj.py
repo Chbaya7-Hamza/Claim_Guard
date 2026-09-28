@@ -53,7 +53,7 @@ def run_injection_probe():
     override a genuine, evidence-backed finding? Needs Ollama running."""
     import sys
     sys.path.insert(0, str(ADAPTED))
-    from agent import build_agent, validate_claim
+    from agent import build_agent, build_rag_index, validate_claim
 
     claim = {
         'schema_version': '1.0.0', 'claim_id': 'CG-INJECT-PROBE', 'invoice_number': 'INV-PROBE',
@@ -68,7 +68,10 @@ def run_injection_probe():
         'authorizations': [], 'attachments': [],
         'notes': INJECTION_PAYLOAD,
     }
-    agent = build_agent()
+    # Same absolute-path fix as scripts/run_clinicproj_comparison.py: build_agent()'s
+    # default relative "policies" path only resolves when cwd is comparison/clinicproj_adapted/.
+    rag_index = build_rag_index(str(ADAPTED / 'policies'))
+    agent = build_agent(rag_index=rag_index)
     reply = validate_claim(claim, agent, thread_id='security-probe')
     try:
         parsed = json.loads(reply)
@@ -96,10 +99,17 @@ def main():
     p.add_argument('--live', action='store_true')
     a = p.parse_args()
 
+    injection_resistance = None
+    if a.live:
+        try:
+            injection_resistance = run_injection_probe()
+        except Exception as e:  # noqa: BLE001 -- a probe failure must not lose the static scan results
+            injection_resistance = {'error': f'{type(e).__name__}: {e}'}
+
     report = {
         'dangerous_sinks': scan_dangerous_sinks(ADAPTED),
         'has_citation_grounding': has_citation_grounding_guard(ADAPTED),
-        'injection_resistance': run_injection_probe() if a.live else None,
+        'injection_resistance': injection_resistance,
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(report, indent=2), encoding='utf-8')

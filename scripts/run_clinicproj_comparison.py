@@ -78,8 +78,12 @@ def _claimguard_runner():
 def _clinicproj_runner():
     adapted = ROOT / 'comparison' / 'clinicproj_adapted'
     sys.path.insert(0, str(adapted))
-    from agent import build_agent, validate_claim
-    agent = build_agent()
+    from agent import build_agent, build_rag_index, validate_claim
+    # build_agent()'s default rag_index uses a relative "policies" path (matching
+    # the original script's behavior when run from inside comparison/clinicproj_adapted/)
+    # -- this harness runs from the repo root, so the policies dir must be absolute.
+    rag_index = build_rag_index(str(adapted / 'policies'))
+    agent = build_agent(rag_index=rag_index)
 
     def run(claim):
         reply = validate_claim(claim, agent)

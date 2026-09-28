@@ -32,8 +32,19 @@ and are not installed by ClaimGuard's CI. To run this comparison locally:
     # clinicProj-specific unit tests (need the venv above):
     comparison/.venv/Scripts/python -m unittest discover -s comparison/clinicproj_adapted/tests
 
-    # the actual comparison run (needs Ollama running, ~minutes per claim):
-    comparison/.venv/Scripts/python scripts/run_clinicproj_comparison.py --sample-size 36
-    .venv/Scripts/python scripts/security_scan_clinicproj.py
+    # the actual comparison run (needs Ollama running, ~minutes per claim).
+    # ClaimGuard's own deps (yara-x, openai==3.19.0) and clinicProj's
+    # (langchain-openai, which needs openai<2.0.0) genuinely conflict in one
+    # venv -- run each system with its own venv, not `--system both`:
+    .venv/Scripts/python scripts/run_clinicproj_comparison.py --sample-size 36 --system claimguard
+    comparison/.venv/Scripts/python scripts/run_clinicproj_comparison.py --sample-size 36 --system clinicproj
+
+    # security scan needs clinicProj's own deps too (it builds the same agent):
+    comparison/.venv/Scripts/python scripts/security_scan_clinicproj.py --live
+
+    # scoring is pure stdlib -- ClaimGuard's own venv is fine:
     .venv/Scripts/python scripts/score_clinicproj_comparison.py
-    .venv/Scripts/python scripts/plot_clinicproj_comparison.py
+
+    # plotting needs matplotlib, which is bundled into comparison/.venv, not
+    # ClaimGuard's own requirements.txt (see comparison/clinicproj_adapted/requirements.txt):
+    comparison/.venv/Scripts/python scripts/plot_clinicproj_comparison.py
