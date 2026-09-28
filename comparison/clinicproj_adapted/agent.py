@@ -1,100 +1,80 @@
 import os
 import re
 import json
+from dataclasses import dataclass
+
 import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from langchain.tools import tool
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
 import pytesseract
-from dotenv import load_dotenv
 
-load_dotenv()  # reads the .env file and loads its variables into os.environ
-
-if not os.getenv("GOOGLE_API_KEY"):
-    raise ValueError(
-        "GOOGLE_API_KEY not found. Make sure you have a .env file "
-        "with GOOGLE_API_KEY=your_key in the project root."
-    )
-
-# LLM
-llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite")
-
-# Embedding model
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-
-# ---------------------------------------------------------------------------
-# THE CLAIM: one structured JSON object, extracted once, never chunked or
-# embedded. This is what the agent validates.
-# ---------------------------------------------------------------------------
-from extractor import extract_claim_json
-claim = extract_claim_json("claim.csv", llm=llm)   # <-- llm passed in now
-if not claim:
-    raise ValueError(f"extract_claim_json returned nothing for {claim} — check the file/path.")
-
-claim_text = json.dumps(claim, indent=2, ensure_ascii=False)
-
-# ---------------------------------------------------------------------------
-# THE POLICY KNOWLEDGE BASE: your payer rules/policies, kept completely
-# separate from the claim. THIS is what gets chunked and put into FAISS —
-# not the claim. Point this at a folder containing your rule documents.
-# ---------------------------------------------------------------------------
+from extractor import build_local_llm
 from document_loader import get_documents
-POLICY_SOURCE = "policies"   # <-- put your payer rule/policy files in this folder
-documents = get_documents(POLICY_SOURCE)
-if not documents:
-    raise ValueError(
-        f"No policy documents found under '{POLICY_SOURCE}'. "
-        f"Add your payer rules/policy files there before running."
-    )
 
-# --- Build FAISS index over the POLICY documents ---
-embeddings = embedding_model.encode(documents)
-embeddings_np = np.array(embeddings).astype('float32')
-dimension = embeddings_np.shape[1]
-index = faiss.IndexFlatL2(dimension)
-index.add(embeddings_np)
-print(f"Vector DB built with {index.ntotal} policy document chunk(s).")
+pytesseract.pytesseract.tesseract_cmd = os.environ.get(
+    'TESSERACT_CMD', r"C:\Program Files\Tesseract-OCR\tesseract.exe")
 
 # --- Guardrail ---
 UNSAFE_PATTERNS = [
     r"how to.*(kill|hurt|harm)",
     r"self harm|suicide",
-    r"bomb|weapon|illegal"
+    r"bomb|weapon|illegal",
 ]
+
 
 def is_unsafe_input(text: str) -> bool:
     text = text.lower()
     return any(re.search(p, text) for p in UNSAFE_PATTERNS)
 
-# --- Tools ---
-@tool
-def retrieve_documents(query: str, k: int = 5) -> str:
-    """Retrieve top-k relevant PAYER POLICY documents from the vector DB using semantic search."""
-    query_embedding = embedding_model.encode([query])
-    query_np = np.array(query_embedding).astype('float32')
-    D, I = index.search(query_np, k)
-    relevant = [documents[i] for i in I[0] if i >= 0]
-    if not relevant:
-        return "No relevant information found."
-    return "\n\n".join(relevant)
 
-@tool
-def calculator(expression: str) -> str:
-    """Evaluate a math expression."""
-    if not re.fullmatch(r"[0-9+\-*/(). \t]+", expression):
-        return "Error: expression contains disallowed characters."
-    try:
-        return str(eval(expression, {"__builtins__": {}}, {}))
-    except Exception as e:
-        return f"Error: {str(e)}"
+@dataclass
+class RagIndex:
+    documents: list
+    index: "faiss.Index"
+    embedding_model: "SentenceTransformer"
 
-tools = [calculator, retrieve_documents]
+
+def build_rag_index(policy_dir: str) -> RagIndex:
+    """Chunk and embed every policy document under policy_dir into a FAISS
+    IndexFlatL2 -- unchanged from the original script, just callable per run
+    instead of only at import time."""
+    embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+    documents = get_documents(policy_dir)
+    embeddings = embedding_model.encode(documents)
+    embeddings_np = np.array(embeddings).astype('float32')
+    index = faiss.IndexFlatL2(embeddings_np.shape[1])
+    index.add(embeddings_np)
+    return RagIndex(documents=documents, index=index, embedding_model=embedding_model)
+
+
+def _make_tools(rag_index: RagIndex):
+    @tool
+    def retrieve_documents(query: str, k: int = 5) -> str:
+        """Retrieve top-k relevant PAYER POLICY documents from the vector DB using semantic search."""
+        query_embedding = rag_index.embedding_model.encode([query])
+        query_np = np.array(query_embedding).astype('float32')
+        _, indices = rag_index.index.search(query_np, k)
+        relevant = [rag_index.documents[i] for i in indices[0] if i >= 0]
+        if not relevant:
+            return "No relevant information found."
+        return "\n\n".join(relevant)
+
+    @tool
+    def calculator(expression: str) -> str:
+        """Evaluate a math expression."""
+        if not re.fullmatch(r"[0-9+\-*/(). \t]+", expression):
+            return "Error: expression contains disallowed characters."
+        try:
+            return str(eval(expression, {"__builtins__": {}}, {}))  # nosec B307 -- regex above admits digits/operators only
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    return [calculator, retrieve_documents]
+
 
 AGENT_SYSTEM_PROMPT = """You are ClaimGuard AI, an Agentic AI Copilot for healthcare claim pre-validation.
 
@@ -808,19 +788,20 @@ Never make the final decision on behalf of the human reviewer.
 
 You are ClaimGuard: a trustworthy AI copilot that helps humans detect, understand, and correct administrative healthcare claim problems before submission.."""
 
-# --- Agent (ReAct + memory) ---
-checkpointer = MemorySaver()
-agent = create_react_agent(
-    model=llm,
-    tools=tools,
-    checkpointer=checkpointer,
-    prompt=AGENT_SYSTEM_PROMPT,
-)
+
+def build_agent(llm=None, rag_index: "RagIndex | None" = None):
+    """Compile the LangGraph ReAct agent. llm defaults to local gemma3
+    (extractor.build_local_llm); rag_index defaults to indexing the
+    'policies' folder relative to the current working directory, matching
+    the original script's behavior."""
+    llm = llm or build_local_llm(max_tokens=1500)
+    rag_index = rag_index or build_rag_index("policies")
+    tools = _make_tools(rag_index)
+    checkpointer = MemorySaver()
+    return create_react_agent(model=llm, tools=tools, checkpointer=checkpointer, prompt=AGENT_SYSTEM_PROMPT)
+
 
 def _extract_text(message_content) -> str:
-    """Handle both possible .content shapes: a plain string, or a list of
-    content blocks. The old code (res[0]['text']) assumed the list shape
-    unconditionally and broke whenever content was a plain string."""
     if isinstance(message_content, str):
         return message_content
     if isinstance(message_content, list):
@@ -831,34 +812,45 @@ def _extract_text(message_content) -> str:
                 return block
     return str(message_content)
 
-def agent_invoke(query: str, thread_id: str = "default") -> str:
+
+def agent_invoke(query: str, agent, thread_id: str = "default") -> str:
     if is_unsafe_input(query):
         return "Unsafe query detected."
     config = {"configurable": {"thread_id": thread_id}}
     result = agent.invoke({"messages": [HumanMessage(content=query)]}, config=config)
     return _extract_text(result["messages"][-1].content)
 
-# --- Run validation on the loaded claim, then allow follow-up questions ---
-if __name__ == "__main__":
-    # Isolate this claim's evaluation on its own thread so it can never
-    # inherit context from a previously-validated claim.
-    claim_thread_id = f"claim-{claim.get('claim_id', 'unknown')}"
 
+def validate_claim(claim: dict, agent, thread_id: str = None) -> str:
+    """Validate one already-structured claim dict. thread_id defaults to a
+    per-claim id so one claim's evaluation never inherits context from a
+    previously-validated claim (matches the original script's isolation)."""
+    thread_id = thread_id or f"claim-{claim.get('claim_id', 'unknown')}"
+    claim_text = json.dumps(claim, indent=2, ensure_ascii=False)
     validation_query = (
         "Validate the following structured healthcare claim against the "
         "applicable payer rules. Use retrieve_documents to look up relevant "
         "policies before producing findings.\n\nCLAIM:\n" + claim_text
     )
+    return agent_invoke(validation_query, agent, thread_id=thread_id)
+
+
+if __name__ == "__main__":
+    import sys
+    from extractor import extract_claim_json
+
+    claim_source = sys.argv[1] if len(sys.argv) > 1 else "claim.csv"
+    claim = extract_claim_json(claim_source)
+    agent = build_agent()
 
     print(f"Validating claim_id={claim.get('claim_id')}...\n")
-    response = agent_invoke(validation_query, thread_id=claim_thread_id)
-    print(response)
+    print(validate_claim(claim, agent))
 
     print("\nAsk follow-up questions about this claim (type 'exit' to quit):")
+    thread_id = f"claim-{claim.get('claim_id', 'unknown')}"
     while True:
         query = input("\nYour question: ")
         if query.lower() in ["exit", "quit", "q"]:
             break
-        response = agent_invoke(query, thread_id=claim_thread_id)
         print("\nResponse:")
-        print(response)
+        print(agent_invoke(query, agent, thread_id=thread_id))
