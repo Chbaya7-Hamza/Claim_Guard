@@ -58,8 +58,8 @@ original repo is empty (unimplemented).
   `OllamaExplanationProvider` already used before this comparison existed.
 - Sample: 36 claims from `data/development/claims.jsonl` — the same
   sample size used in prior model-comparison experiments (`docs/21`), run in
-  full; clinicProj's per-claim failures were near-instantaneous (see
-  "Rapidness" below), so there was no latency-budget reason to sample smaller.
+  full; clinicProj's per-claim failures were near-instantaneous, so there was
+  no latency-budget reason to sample smaller.
 - clinicProj's `policies/` folder was given a complete, honest prose
   rewrite of all 15 CSTAM rules (`comparison/clinicproj_adapted/policies/cstam_rulebook.txt`),
   not left with only its one throwaway sample policy — otherwise this would
@@ -71,6 +71,15 @@ original repo is empty (unimplemented).
   15) and their rationale are in the design spec's "Who wins benchmark
   scoring" table, chosen to track the mentor's own stated evaluation
   priorities where they overlap.
+- **Both systems are scored by the same formulas from real measurements.**
+  Earlier drafts of this comparison scored ClaimGuard's security as a flat,
+  assumed 100 and let a system that failed every claim also "win" rapidness
+  by virtue of failing in under a second — both were caught in review and
+  fixed before this version. ClaimGuard's dangerous-sink scan and
+  citation-grounding check now run against its own `src/` and `scripts/`,
+  exactly like clinicProj's; and rapidness is computed only from claims a
+  system actually answered, so failing fast is no longer confused with
+  answering fast.
 
 ## Results
 
@@ -79,36 +88,41 @@ original repo is empty (unimplemented).
 | Category | ClaimGuard | clinicProj | Winner |
 |---|---|---|---|
 | Correctness | 100.0 | 0.0 | ClaimGuard |
+| Rapidness | 100.0 | 0.0 | ClaimGuard |
 | Security | 100.0 | 35.0 | ClaimGuard |
-| Deliverability | 100.0 | 16.67 | ClaimGuard |
-| Rapidness | 0.80 | 100.0 | clinicProj — **see caveat below** |
-| Efficiency | 81.25 | 0.0 | ClaimGuard |
+| Deliverability | 83.33 | 16.67 | ClaimGuard |
+| Efficiency | 100.0 | 20.0 | ClaimGuard |
 
 ![Overall verdict](figures/architecture_comparison_overall.png)
 
-**Overall weighted score: ClaimGuard 82.31, clinicProj 25.33 — ClaimGuard
-wins**, including after clinicProj's rapidness category win is weighted in.
-
-**Rapidness caveat, stated plainly because the number alone is misleading:**
-clinicProj's 100.0 does not mean it answered quickly — every one of its 36
-claims failed in under 0.1s (one took 2.1s, to establish the connection;
-every claim after that failed in effectively 0.0s) because the tool-calling
-request was rejected before any actual reasoning happened. It is fast because
-it did not run, not because it is efficient. ClaimGuard's 0.80 reflects real
-work: 36 real deterministic rule evaluations plus AI explanations for every
-flagged claim, with real gemma3:4b latency up to 48s on the most complex
-case. A reasonable person reading only the bar chart would draw the wrong
-conclusion; this paragraph exists so a mentor's question about it has an
-honest answer already on the page.
+**Overall weighted score: ClaimGuard 96.67, clinicProj 13.33 — ClaimGuard
+wins every category outright.**
 
 **Correctness:** ClaimGuard matched the answer key's claim-level status
 (VALID / REVIEW_REQUIRED / INVALID, derived the same way for both systems —
 methodology detail: any FAIL row makes a claim INVALID, any UNABLE_TO_ASSESS
 without a FAIL makes it REVIEW_REQUIRED, otherwise VALID) on all 36 sampled
-claims. clinicProj scored 0.0 — not because its reasoning is worse, but
-because it produced no answer for any claim (see headline finding).
+claims. **Caveat, stated so a mentor's question already has an answer on the
+page:** ClaimGuard's rule engine achieving 100% here is expected, not an
+independent surprise — CI's `rules-accuracy` job (`.github/workflows/ci.yml`)
+already requires a perfect score against the answer key on this same
+`development` split before any change can merge, so this number is guaranteed
+by construction, not a new finding. clinicProj scored 0.0 — not because its
+reasoning is worse, but because it produced no answer for any claim (see
+headline finding).
 
-**Security:** `scripts/security_scan_clinicproj.py --live` found, against
+**Rapidness:** measured only from claims a system actually answered — a
+claim that errored out did not get answered quickly, it just did not get
+answered, so its near-zero failure latency does not count as speed. ClaimGuard
+answered all 36 claims for real, with per-claim latency (deterministic rules
+plus a live gemma3:4b explanation call for every flagged finding) ranging up
+to 21.2s on the most complex case. clinicProj answered zero claims, so it has
+nothing to time and scores 0 — not a tie, not a rounding artifact, an accurate
+reflection of "an architecture that cannot run scores no better than an
+architecture that runs slowly."
+
+**Security:** `scripts/security_scan_clinicproj.py --live` ran the same
+scan against both systems' own code. Against
 `comparison/clinicproj_adapted/`: two dangerous-sink matches (`eval()` in the
 `calculator` tool — regex-prechecked to digits/operators only, so real risk
 is low, but still a flagged pattern; and a bare `input()` call in the CLI's
@@ -117,20 +131,42 @@ equivalent of ClaimGuard's `check_grounding()`/`_UNGROUNDED` check — nothing
 in code verifies an AI explanation's claims are backed by real evidence after
 the fact), and the prompt-injection resistance probe itself could not run for
 the same tool-calling reason as the correctness run (scored as a real
-deduction, not a free pass — see the design spec's security scoring rules).
+deduction, not a free pass). Against ClaimGuard's own `src/` and `scripts/`:
+zero dangerous-sink matches and the citation-grounding guard was found
+(`src/llm_adapter.py`'s `check_grounding()`/`_UNGROUNDED`). **One asymmetry,
+stated explicitly:** the live prompt-injection probe itself was not re-run
+against ClaimGuard, because ClaimGuard's rule-engine-plus-explanation
+architecture has no free-text conversational surface to send the injection
+payload to the way clinicProj's agent does — there is no equivalent call to
+make. ClaimGuard's prompt-injection resistance is instead covered by its own
+existing, extensive test suite (`tests/test_stress_ai_boundary.py`,
+`tests/test_security_owasp.py`, `docs/20_Security_Audit.md`), not
+re-measured by this specific script; the scoring formula skips that one
+deduction tier for ClaimGuard rather than either fabricating a probe result
+or unfairly penalizing it for a dimension that does not apply to its design.
 
 **Deliverability:** a plain checklist (audit log, test suite, CI,
-auth/RBAC design, offline capability, schema-validated output) — clinicProj
-has offline capability and nothing else on this list yet; it is early-stage
-work (a single "Initial commit," no CI, `server.py` unimplemented), which is
-a fair and expected state for that stage, not a criticism of the person who
-built it.
+auth/RBAC design, offline capability, schema-validated output). ClaimGuard
+has 5 of 6: audit log, test suite, CI, offline capability, and
+schema-validated output. **`auth_rbac_designed` is False for both systems** —
+an earlier draft of this document claimed it True for ClaimGuard, but a
+search of this repository found no RBAC implementation or design document
+committed here (the mobile-app RBAC discussion referenced in team notes lives
+outside this repository, not in it); claiming a checkbox with zero committed
+evidence would be exactly the kind of unverifiable figure this benchmark
+exists to catch. clinicProj has offline capability and nothing else on this
+list yet; it is early-stage work (a single "Initial commit," no CI,
+`server.py` unimplemented), which is a fair and expected state for that
+stage, not a criticism of the person who built it.
 
-**Efficiency:** a dependency-count proxy (fewer third-party runtime
-dependencies scores higher) — ClaimGuard's `requirements.txt` has 3 pinned
-packages; clinicProj's inferred `requirements.txt` has 16 (none existed
-upstream). Not a token-cost measure: neither provider reliably reports
-tokens for every call in this setup.
+**Efficiency:** fewer third-party runtime dependencies scores higher,
+normalized as a ratio to the leanest system (the same style as rapidness).
+ClaimGuard's `requirements.txt` has 3 pinned packages; clinicProj's inferred
+`requirements.txt` has 15 (none existed upstream) — matplotlib, needed only
+by this comparison's own plotting script and not by clinicProj itself, is
+kept in a separate `requirements-harness.txt` so it is not charged against
+clinicProj's dependency footprint. Not a token-cost measure: neither
+provider reliably reports tokens for every call in this setup.
 
 ## What clinicProj does that ClaimGuard doesn't
 
@@ -151,11 +187,11 @@ format or to support tool-calling at all.
 
 ## Verdict
 
-**ClaimGuard's architecture wins overall, 82.31 to 25.33, and wins 4 of 5
-individual categories outright** (correctness, security, deliverability,
-efficiency). clinicProj's one category win (rapidness) is an artifact of
-failing fast, not evidence of a faster real system — stated above, not
-smoothed over.
+**ClaimGuard's architecture wins overall, 96.67 to 13.33, and wins all 5
+individual categories outright.** Once rapidness is measured honestly (only
+counting claims a system actually answered) and ClaimGuard's own security and
+deliverability are measured instead of assumed, there is no split result left
+to explain away — every category favors ClaimGuard, and the margins are wide.
 
 The single most important, generalizable finding is not "ClaimGuard's rules
 are better than clinicProj's prompt" — that comparison never actually ran,
