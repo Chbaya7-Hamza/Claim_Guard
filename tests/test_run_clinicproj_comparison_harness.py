@@ -58,6 +58,58 @@ class RunSystemTests(unittest.TestCase):
         self.assertIsNone(rows[0]['status'])
         self.assertIsNone(rows[1]['error'])
 
+    def test_a_parse_error_from_the_runner_is_carried_through_to_the_row(self):
+        # Distinguishes "not valid JSON at all" from "valid JSON missing the
+        # key" (both score as a miss, but only the first is a parse_error) --
+        # see parse_clinicproj_reply.
+        from run_clinicproj_comparison import run_system
+
+        def runner(claim):
+            return {'status': None, 'raw_output': 'not json', 'parse_error': 'Expecting value: line 1 column 1'}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = Path(tmp) / 'system.jsonl'
+            run_system([{'claim_id': 'CG-1'}], runner, system_name='fake', out_path=out_path)
+            rows = [json.loads(l) for l in out_path.read_text(encoding='utf-8').splitlines()]
+
+        self.assertEqual(rows[0]['parse_error'], 'Expecting value: line 1 column 1')
+
+    def test_no_parse_error_key_defaults_to_none_not_a_missing_key(self):
+        from run_clinicproj_comparison import run_system
+
+        def runner(claim):
+            return {'status': 'VALID', 'raw_output': '{}'}  # no parse_error key at all
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = Path(tmp) / 'system.jsonl'
+            run_system([{'claim_id': 'CG-1'}], runner, system_name='fake', out_path=out_path)
+            rows = [json.loads(l) for l in out_path.read_text(encoding='utf-8').splitlines()]
+
+        self.assertIn('parse_error', rows[0])
+        self.assertIsNone(rows[0]['parse_error'])
+
+
+class ParseClinicprojReplyTests(unittest.TestCase):
+    def test_invalid_json_sets_parse_error(self):
+        from run_clinicproj_comparison import parse_clinicproj_reply
+        result = parse_clinicproj_reply('not json at all')
+        self.assertIsNone(result['status'])
+        self.assertIsNotNone(result['parse_error'])
+
+    def test_valid_json_missing_the_key_has_no_parse_error(self):
+        # Distinct from the invalid-JSON case: the agent replied with a real
+        # JSON object, it just didn't include overall_status.
+        from run_clinicproj_comparison import parse_clinicproj_reply
+        result = parse_clinicproj_reply('{"findings": []}')
+        self.assertIsNone(result['status'])
+        self.assertIsNone(result['parse_error'])
+
+    def test_valid_reply_extracts_the_status(self):
+        from run_clinicproj_comparison import parse_clinicproj_reply
+        result = parse_clinicproj_reply('{"overall_status": "VALID"}')
+        self.assertEqual(result['status'], 'VALID')
+        self.assertIsNone(result['parse_error'])
+
 
 if __name__ == '__main__':
     unittest.main()

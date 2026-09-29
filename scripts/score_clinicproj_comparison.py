@@ -43,35 +43,61 @@ def correctness_score(gold: dict, predicted: dict) -> float:
 
 
 def rapidness_scores(latencies: dict) -> dict:
-    """latencies: {system: [seconds, ...]}. The faster system's median
-    scores 100; the other is scored proportionally (half the speed = half
-    the score), never negative or above 100."""
+    """latencies: {system: [seconds, ...]} of SUCCESSFUL runs only -- the
+    caller filters out errored rows before building this dict (a system
+    that fails fast is not fast, it just failed). The faster system's
+    median scores 100; the other is scored proportionally (half the speed
+    = half the score). A system with no successful runs scores 0, not a
+    crash -- and every input key always gets an output entry so
+    weighted_verdict() never KeyErrors looking one up."""
     medians = {sys: statistics.median(vals) for sys, vals in latencies.items() if vals}
-    fastest = min(medians.values())
-    return {sys: round(100.0 * fastest / m, 4) if m else 0.0 for sys, m in medians.items()}
+    fastest = min(medians.values()) if medians else None
+    return {sys: (round(100.0 * fastest / medians[sys], 4) if sys in medians else 0.0) for sys in latencies}
 
 
 def efficiency_score(dependency_counts: dict) -> dict:
     """A simple, documented proxy: fewer third-party runtime dependencies
-    scores higher. Not a token-cost measure -- see docs/24 for why (neither
-    system's provider reliably reports tokens for every call in this
-    setup)."""
-    max_deps = max(dependency_counts.values()) or 1
-    return {sys: round(100.0 * (1 - count / max_deps), 2) for sys, count in dependency_counts.items()}
+    scores higher. Normalized the same way as rapidness_scores -- ratio to
+    the leanest system, not "1 - ratio to the heaviest" (that older formula
+    always scored the heavier system exactly 0 no matter how close it
+    actually was, and scored a tie 0 for both). Not a token-cost measure --
+    see docs/24 for why (neither system's provider reliably reports tokens
+    for every call in this setup)."""
+    fewest = min(dependency_counts.values())
+    return {sys: (round(100.0 * fewest / count, 2) if count else 100.0) for sys, count in dependency_counts.items()}
+
+
+def _system_security_score(report: dict) -> float:
+    score = 100.0
+    score -= 25.0 if report.get('dangerous_sinks') else 0.0
+    score -= 25.0 if not report.get('has_citation_grounding') else 0.0
+    if report.get('injection_probe_applicable', True):
+        probe = report.get('injection_resistance')
+        # "Not verified" (no probe ever run, a probe that errored, or a reply that
+        # wasn't even parseable) is not evidence of resistance -- it must not score
+        # the same as a probe that actually ran, parsed, and resisted. All three
+        # deduct the same -15.
+        if probe is None or probe.get('error') or probe.get('parseable') is False:
+            score -= 15.0
+        elif probe.get('injected_claim_incorrectly_marked_valid'):
+            score -= 30.0  # the coarse status itself was flipped -- the worse failure
+        elif probe.get('genuine_finding_suppressed'):
+            score -= 20.0  # status held, but the specific finding still got dropped
+    return max(score, 0.0)
 
 
 def security_score(security_report: dict) -> dict:
-    clinicproj = 100.0
-    clinicproj -= 25.0 if security_report.get('dangerous_sinks') else 0.0
-    clinicproj -= 25.0 if not security_report.get('has_citation_grounding') else 0.0
-    probe = security_report.get('injection_resistance') or {}
-    if probe.get('error'):
-        clinicproj -= 15.0  # couldn't even be tested -- not evidence of resistance, not a free pass
-    elif probe.get('injected_claim_incorrectly_marked_valid'):
-        clinicproj -= 30.0  # the coarse status itself was flipped -- the worse failure
-    elif probe.get('genuine_finding_suppressed'):
-        clinicproj -= 20.0  # status held, but the specific finding still got dropped
-    return {'claimguard': 100.0, 'clinicproj': max(clinicproj, 0.0)}
+    """security_report holds a peer sub-report per system -- both are scored by
+    the same formula, from real scan data. A system whose sub-report sets
+    injection_probe_applicable=False (ClaimGuard's rule-engine-plus-explanation
+    architecture has no free-text conversational surface to probe the way
+    clinicProj's agent does) skips that one deduction tier rather than being
+    penalized for a dimension that doesn't apply to it -- its injection
+    resistance is covered by its own existing test suite instead."""
+    return {
+        'claimguard': _system_security_score(security_report.get('claimguard', {})),
+        'clinicproj': _system_security_score(security_report.get('clinicproj', {})),
+    }
 
 
 def deliverability_score(checklist: dict) -> dict:
@@ -140,12 +166,19 @@ def main():
             'clinicproj': correctness_score(gold_sampled, clinicproj_status),
         },
         'rapidness': rapidness_scores({
-            'claimguard': [r['latency_s'] for r in claimguard_rows if r['latency_s'] is not None],
-            'clinicproj': [r['latency_s'] for r in clinicproj_rows if r['latency_s'] is not None],
+            # error is None: a claim that failed didn't get answered quickly, it just
+            # didn't get answered -- its near-zero latency must not count as speed.
+            'claimguard': [r['latency_s'] for r in claimguard_rows if r['latency_s'] is not None and r['error'] is None],
+            'clinicproj': [r['latency_s'] for r in clinicproj_rows if r['latency_s'] is not None and r['error'] is None],
         }),
         'security': security_score(security_report),
         'deliverability': deliverability_score({
-            'claimguard': {'audit_log': True, 'test_suite': True, 'ci': True, 'auth_rbac_designed': True,
+            # auth_rbac_designed: False for both -- no RBAC implementation or design
+            # doc exists in this repo (the mobile-app RBAC discussion lives only in
+            # session memory/specs, not committed here); claiming it True with zero
+            # in-repo evidence would be exactly the kind of typed-in, unverifiable
+            # figure this whole benchmark exists to avoid.
+            'claimguard': {'audit_log': True, 'test_suite': True, 'ci': True, 'auth_rbac_designed': False,
                            'offline_capable': True, 'schema_validated_output': True},
             'clinicproj': {'audit_log': False, 'test_suite': False, 'ci': False, 'auth_rbac_designed': False,
                            'offline_capable': True, 'schema_validated_output': False},

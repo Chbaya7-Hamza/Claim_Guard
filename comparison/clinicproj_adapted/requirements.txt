@@ -16,8 +16,3 @@ Pillow==11.0.0
 pypdfium2==4.30.0
 python-dotenv==1.0.1
 numpy==1.26.4
-# Not a clinicProj dependency -- scripts/plot_clinicproj_comparison.py (Task 9) needs it and
-# matplotlib is not in ClaimGuard's own requirements.txt either (scripts/plot_model_comparison.py
-# has the same property already). Bundled into this venv so one `pip install` covers the whole
-# comparison suite; see comparison/README.md.
-matplotlib==3.10.0

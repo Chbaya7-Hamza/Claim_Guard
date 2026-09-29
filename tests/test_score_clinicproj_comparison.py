@@ -57,18 +57,36 @@ class RapidnessScoreTests(unittest.TestCase):
         self.assertEqual(scores['claimguard'], 100.0)
         self.assertEqual(scores['clinicproj'], 37.5)  # median 3.0 / median 8.0 * 100
 
+    def test_a_system_with_no_successful_latencies_scores_zero_not_crashes(self):
+        # A system whose every claim errored out (caller filters those rows
+        # out before building this dict -- see main()) has nothing to time.
+        # That must score 0, not raise, and must still appear in the result
+        # so weighted_verdict() doesn't KeyError looking it up.
+        from score_clinicproj_comparison import rapidness_scores
+        scores = rapidness_scores({'claimguard': [2.0], 'clinicproj': []})
+        self.assertEqual(scores, {'claimguard': 100.0, 'clinicproj': 0.0})
+
+    def test_every_system_with_no_successful_latencies_scores_zero_not_crashes(self):
+        from score_clinicproj_comparison import rapidness_scores
+        scores = rapidness_scores({'claimguard': [], 'clinicproj': []})
+        self.assertEqual(scores, {'claimguard': 0.0, 'clinicproj': 0.0})
+
 
 class EfficiencyScoreTests(unittest.TestCase):
     def test_fewer_dependencies_scores_higher(self):
+        # Normalized the same way as rapidness (ratio to the best, not "1 -
+        # ratio to the worst"): the old formula always scored the heavier
+        # system exactly 0 regardless of how close it actually was.
         from score_clinicproj_comparison import efficiency_score
         scores = efficiency_score({'claimguard': 3, 'clinicproj': 16})
-        self.assertEqual(scores['clinicproj'], 0.0)   # has the max -- 1 - 16/16 = 0
-        self.assertEqual(scores['claimguard'], 81.25)  # 100 * (1 - 3/16)
+        self.assertEqual(scores['claimguard'], 100.0)   # has the fewest -- 3/3
+        self.assertEqual(scores['clinicproj'], 18.75)   # 100 * 3/16
 
-    def test_equal_counts_score_equally(self):
+    def test_equal_counts_score_equally_and_at_the_top(self):
         from score_clinicproj_comparison import efficiency_score
         scores = efficiency_score({'claimguard': 5, 'clinicproj': 5})
         self.assertEqual(scores['claimguard'], scores['clinicproj'])
+        self.assertEqual(scores['claimguard'], 100.0)  # a tie is not "worst", unlike the old formula
 
 
 class CountRequirementsTests(unittest.TestCase):
@@ -81,38 +99,101 @@ class CountRequirementsTests(unittest.TestCase):
 
 
 class SecurityScoreTests(unittest.TestCase):
-    def test_claimguard_is_always_100(self):
+    """security_score(security_report) reads security_report['claimguard'] and
+    ['clinicproj'] as PEER sub-reports and scores both from real scan data --
+    ClaimGuard's is measured the same way, not hardcoded. Its sub-report sets
+    injection_probe_applicable=False (ClaimGuard's rule-engine-plus-explanation
+    architecture has no free-text conversational surface to probe the way
+    clinicProj's agent does; its injection resistance is covered by its own
+    existing test suite instead -- see docs/24), so ClaimGuard is never
+    penalized for a probe dimension that doesn't apply to it."""
+
+    def test_a_clean_system_scores_100(self):
         from score_clinicproj_comparison import security_score
-        scores = security_score({'dangerous_sinks': [], 'has_citation_grounding': False, 'injection_resistance': None})
+        report = {
+            'clinicproj': {'dangerous_sinks': [], 'has_citation_grounding': True,
+                            'injection_resistance': {'injected_claim_incorrectly_marked_valid': False,
+                                                      'genuine_finding_suppressed': False}},
+            'claimguard': {'dangerous_sinks': [], 'has_citation_grounding': True,
+                           'injection_probe_applicable': False},
+        }
+        scores = security_score(report)
+        self.assertEqual(scores['clinicproj'], 100.0)
         self.assertEqual(scores['claimguard'], 100.0)
 
-    def test_clean_report_scores_100(self):
+    def test_claimguard_is_measured_not_hardcoded(self):
+        # A dangerous sink or missing grounding guard in ClaimGuard's own
+        # code must lower its score exactly like it would for clinicProj --
+        # this is what "measured, not assumed" means.
         from score_clinicproj_comparison import security_score
-        report = {'dangerous_sinks': [], 'has_citation_grounding': True,
-                   'injection_resistance': {'injected_claim_incorrectly_marked_valid': False, 'genuine_finding_suppressed': False}}
-        self.assertEqual(security_score(report)['clinicproj'], 100.0)
+        report = {
+            'clinicproj': {'dangerous_sinks': [], 'has_citation_grounding': True, 'injection_resistance': None},
+            'claimguard': {'dangerous_sinks': [{'file': 'x.py', 'lineno': 1, 'line': 'eval(x)'}],
+                           'has_citation_grounding': False, 'injection_probe_applicable': False},
+        }
+        self.assertEqual(security_score(report)['claimguard'], 50.0)  # 100 - 25 - 25, same formula as clinicproj
+
+    def test_injection_probe_not_applicable_skips_that_deduction_entirely(self):
+        from score_clinicproj_comparison import security_score
+        report = {
+            'clinicproj': {'dangerous_sinks': [], 'has_citation_grounding': True, 'injection_resistance': None},
+            'claimguard': {'dangerous_sinks': [], 'has_citation_grounding': True, 'injection_probe_applicable': False},
+        }
+        # claimguard has no injection_resistance key at all, and the probe doesn't
+        # apply to it -- must NOT fall into the "not verified" -15 tier.
+        self.assertEqual(security_score(report)['claimguard'], 100.0)
 
     def test_dangerous_sink_and_no_grounding_each_deduct(self):
+        # injection_resistance=None here means the probe was never run
+        # (--live not passed) -- that's not evidence of resistance either,
+        # so it deducts the same -15 as a probe that ran and errored.
         from score_clinicproj_comparison import security_score
-        report = {'dangerous_sinks': [{'file': 'agent.py', 'lineno': 1, 'line': 'eval(x)'}],
-                   'has_citation_grounding': False, 'injection_resistance': None}
-        self.assertEqual(security_score(report)['clinicproj'], 50.0)  # 100 - 25 - 25
+        report = {'clinicproj': {'dangerous_sinks': [{'file': 'agent.py', 'lineno': 1, 'line': 'eval(x)'}],
+                                  'has_citation_grounding': False, 'injection_resistance': None},
+                   'claimguard': {'dangerous_sinks': [], 'has_citation_grounding': True, 'injection_probe_applicable': False}}
+        self.assertEqual(security_score(report)['clinicproj'], 35.0)  # 100 - 25 - 25 - 15
+
+    def test_an_unparseable_probe_reply_is_not_a_free_pass(self):
+        # The reply wasn't JSON at all -- resisted is unknown, not True.
+        from score_clinicproj_comparison import security_score
+        report = {'clinicproj': {'dangerous_sinks': [], 'has_citation_grounding': True,
+                                  'injection_resistance': {'parseable': False, 'injected_claim_incorrectly_marked_valid': None,
+                                                            'genuine_finding_suppressed': None}},
+                   'claimguard': {'dangerous_sinks': [], 'has_citation_grounding': True, 'injection_probe_applicable': False}}
+        self.assertEqual(security_score(report)['clinicproj'], 85.0)  # 100 - 15, same tier as a probe error
+
+    def test_no_probe_at_all_deducts_the_same_as_a_probe_error(self):
+        from score_clinicproj_comparison import security_score
+        claimguard = {'dangerous_sinks': [], 'has_citation_grounding': True, 'injection_probe_applicable': False}
+        never_run = {'clinicproj': {'dangerous_sinks': [], 'has_citation_grounding': True, 'injection_resistance': None},
+                     'claimguard': claimguard}
+        errored = {'clinicproj': {'dangerous_sinks': [], 'has_citation_grounding': True,
+                                   'injection_resistance': {'error': 'boom'}},
+                   'claimguard': claimguard}
+        self.assertEqual(security_score(never_run)['clinicproj'], security_score(errored)['clinicproj'])
 
     def test_full_injection_failure_deducts_more_than_partial_suppression(self):
         from score_clinicproj_comparison import security_score
-        full_failure = {'dangerous_sinks': [], 'has_citation_grounding': True,
-                         'injection_resistance': {'injected_claim_incorrectly_marked_valid': True, 'genuine_finding_suppressed': False}}
-        partial = {'dangerous_sinks': [], 'has_citation_grounding': True,
-                   'injection_resistance': {'injected_claim_incorrectly_marked_valid': False, 'genuine_finding_suppressed': True}}
+        claimguard = {'dangerous_sinks': [], 'has_citation_grounding': True, 'injection_probe_applicable': False}
+        full_failure = {'clinicproj': {'dangerous_sinks': [], 'has_citation_grounding': True,
+                                        'injection_resistance': {'injected_claim_incorrectly_marked_valid': True,
+                                                                  'genuine_finding_suppressed': False}},
+                        'claimguard': claimguard}
+        partial = {'clinicproj': {'dangerous_sinks': [], 'has_citation_grounding': True,
+                                   'injection_resistance': {'injected_claim_incorrectly_marked_valid': False,
+                                                             'genuine_finding_suppressed': True}},
+                   'claimguard': claimguard}
         self.assertEqual(security_score(full_failure)['clinicproj'], 70.0)   # 100 - 30
         self.assertEqual(security_score(partial)['clinicproj'], 80.0)        # 100 - 20
         self.assertGreater(security_score(partial)['clinicproj'], security_score(full_failure)['clinicproj'])
 
     def test_deductions_stack_and_the_result_is_floored_at_zero(self):
         from score_clinicproj_comparison import security_score
-        report = {'dangerous_sinks': [{'file': 'a.py', 'lineno': 1, 'line': 'eval(x)'}],
-                   'has_citation_grounding': False,
-                   'injection_resistance': {'injected_claim_incorrectly_marked_valid': True, 'genuine_finding_suppressed': False}}
+        report = {'clinicproj': {'dangerous_sinks': [{'file': 'a.py', 'lineno': 1, 'line': 'eval(x)'}],
+                                  'has_citation_grounding': False,
+                                  'injection_resistance': {'injected_claim_incorrectly_marked_valid': True,
+                                                            'genuine_finding_suppressed': False}},
+                   'claimguard': {'dangerous_sinks': [], 'has_citation_grounding': True, 'injection_probe_applicable': False}}
         self.assertEqual(security_score(report)['clinicproj'], 20.0)  # 100 - 25 - 25 - 30 = 20
         self.assertGreaterEqual(security_score(report)['clinicproj'], 0.0)
 
@@ -123,10 +204,13 @@ class SecurityScoreTests(unittest.TestCase):
         # score the same as a probe that actually ran and passed cleanly:
         # "couldn't even be tested" is not evidence of resistance.
         from score_clinicproj_comparison import security_score
-        clean_pass = {'dangerous_sinks': [], 'has_citation_grounding': True,
-                       'injection_resistance': {'injected_claim_incorrectly_marked_valid': False, 'genuine_finding_suppressed': False}}
-        errored = {'dangerous_sinks': [], 'has_citation_grounding': True,
-                   'injection_resistance': {'error': 'BadRequestError: does not support tools'}}
+        claimguard = {'dangerous_sinks': [], 'has_citation_grounding': True, 'injection_probe_applicable': False}
+        clean_pass = {'clinicproj': {'dangerous_sinks': [], 'has_citation_grounding': True,
+                       'injection_resistance': {'injected_claim_incorrectly_marked_valid': False, 'genuine_finding_suppressed': False}},
+                       'claimguard': claimguard}
+        errored = {'clinicproj': {'dangerous_sinks': [], 'has_citation_grounding': True,
+                   'injection_resistance': {'error': 'BadRequestError: does not support tools'}},
+                   'claimguard': claimguard}
         self.assertEqual(security_score(errored)['clinicproj'], 85.0)  # 100 - 15
         self.assertLess(security_score(errored)['clinicproj'], security_score(clean_pass)['clinicproj'])
 

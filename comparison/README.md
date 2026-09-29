@@ -25,7 +25,7 @@ clinicProj's dependencies (`langchain`, `langgraph`, `faiss-cpu`,
 and are not installed by ClaimGuard's CI. To run this comparison locally:
 
     python -m venv comparison/.venv
-    comparison/.venv/Scripts/pip install -r comparison/clinicproj_adapted/requirements.txt
+    comparison/.venv/Scripts/pip install -r comparison/clinicproj_adapted/requirements.txt -r comparison/clinicproj_adapted/requirements-harness.txt
     ollama pull gemma3:4b   # if not already pulled
     ollama serve            # if not already running
 

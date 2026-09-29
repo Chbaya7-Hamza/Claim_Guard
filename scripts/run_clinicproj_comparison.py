@@ -35,19 +35,20 @@ def sample_claims(claims_path, sample_size=None):
 
 
 def run_system(claims, runner, system_name, out_path):
-    """runner(claim) -> {'status': str, 'raw_output': str}, or raises. Every
-    claim gets exactly one recorded row, success or failure -- a raised
-    exception on one claim never stops the batch."""
+    """runner(claim) -> {'status': str, 'raw_output': str, 'parse_error': str|None (optional)},
+    or raises. Every claim gets exactly one recorded row, success or failure --
+    a raised exception on one claim never stops the batch."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open('w', encoding='utf-8') as f:
         for claim in claims:
             t0 = time.perf_counter()
             row = {'claim_id': claim['claim_id'], 'system': system_name,
-                   'latency_s': None, 'status': None, 'raw_output': None, 'error': None}
+                   'latency_s': None, 'status': None, 'raw_output': None, 'error': None, 'parse_error': None}
             try:
                 result = runner(claim)
                 row['status'] = result['status']
                 row['raw_output'] = result['raw_output']
+                row['parse_error'] = result.get('parse_error')
             except Exception as e:  # noqa: BLE001 -- one claim's failure must never abort the batch
                 row['error'] = f'{type(e).__name__}: {e}'
             row['latency_s'] = time.perf_counter() - t0
@@ -75,6 +76,20 @@ def _claimguard_runner():
     return run
 
 
+def parse_clinicproj_reply(reply: str) -> dict:
+    """Pure, independently testable: clinicProj's agent has no schema check
+    (unlike ClaimGuard's llm_adapter.py), so its reply can be malformed in two
+    different ways a reviewer needs to tell apart -- not valid JSON at all, or
+    valid JSON that simply doesn't have an overall_status key. Both count as a
+    miss for scoring, but only the first sets parse_error, so the two failure
+    modes stay distinguishable in the recorded evidence."""
+    try:
+        parsed = json.loads(reply)
+    except json.JSONDecodeError as e:
+        return {'status': None, 'raw_output': reply, 'parse_error': str(e)}
+    return {'status': parsed.get('overall_status'), 'raw_output': reply, 'parse_error': None}
+
+
 def _clinicproj_runner():
     adapted = ROOT / 'comparison' / 'clinicproj_adapted'
     sys.path.insert(0, str(adapted))
@@ -86,13 +101,7 @@ def _clinicproj_runner():
     agent = build_agent(rag_index=rag_index)
 
     def run(claim):
-        reply = validate_claim(claim, agent)
-        try:
-            parsed = json.loads(reply)
-            status = parsed.get('overall_status')
-        except json.JSONDecodeError:
-            status = None  # recorded, not fatal -- see Review Focus
-        return {'status': status, 'raw_output': reply}
+        return parse_clinicproj_reply(validate_claim(claim, agent))
 
     return run
 
