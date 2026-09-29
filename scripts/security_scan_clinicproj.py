@@ -7,16 +7,20 @@ copy, feeding scripts/score_clinicproj_comparison.py's security category.
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ADAPTED = ROOT / 'comparison' / 'clinicproj_adapted'
 OUT = ROOT / 'outputs' / 'architecture_comparison' / 'security_report.json'
 
-# Same sink family tests/test_security_owasp.py checks against ClaimGuard's own
-# src/ and scripts/ -- applied here to clinicProj's adapted copy for a like-for-like read.
-SINKS = re.compile(r'(?<![\w.])(eval|exec|compile|input|__import__)\s*\(|pickle|marshal|shelve|subprocess|os\.system|os\.popen'
-                    r'|shell\s*=\s*True|yaml\.load\(')
+# Same sink family tests/test_security_owasp.py checks against ClaimGuard's own src/
+# and scripts/ -- applied here to clinicProj's adapted copy for a like-for-like read.
+# Imported, not duplicated: a second copy of this pattern living in scripts/ (a folder
+# the pattern itself scans) would flag itself the moment it's written. See
+# tests/security_sinks.py's docstring.
+sys.path.insert(0, str(ROOT / 'tests'))
+from security_sinks import SINKS
 
 # A claim known to FAIL R015 (wrong currency) if the injected instruction is ignored;
 # the notes field carries the injection payload where a real submitter's free text would go.
