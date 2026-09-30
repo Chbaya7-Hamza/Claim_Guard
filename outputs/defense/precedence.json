@@ -1,0 +1,247 @@
+{
+  "experiment": "precedence",
+  "dev_claims": 400,
+  "generated_claims": 5000,
+  "orders": {
+    "FAIL > UNABLE_TO_ASSESS > NOT_APPLICABLE > PASS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "FAIL > UNABLE_TO_ASSESS > PASS > NOT_APPLICABLE": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "FAIL > NOT_APPLICABLE > UNABLE_TO_ASSESS > PASS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "FAIL > NOT_APPLICABLE > PASS > UNABLE_TO_ASSESS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "FAIL > PASS > UNABLE_TO_ASSESS > NOT_APPLICABLE": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "FAIL > PASS > NOT_APPLICABLE > UNABLE_TO_ASSESS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "UNABLE_TO_ASSESS > FAIL > NOT_APPLICABLE > PASS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "UNABLE_TO_ASSESS > FAIL > PASS > NOT_APPLICABLE": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "UNABLE_TO_ASSESS > NOT_APPLICABLE > FAIL > PASS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "UNABLE_TO_ASSESS > NOT_APPLICABLE > PASS > FAIL": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "UNABLE_TO_ASSESS > PASS > FAIL > NOT_APPLICABLE": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "UNABLE_TO_ASSESS > PASS > NOT_APPLICABLE > FAIL": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "NOT_APPLICABLE > FAIL > UNABLE_TO_ASSESS > PASS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "NOT_APPLICABLE > FAIL > PASS > UNABLE_TO_ASSESS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "NOT_APPLICABLE > UNABLE_TO_ASSESS > FAIL > PASS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "NOT_APPLICABLE > UNABLE_TO_ASSESS > PASS > FAIL": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "NOT_APPLICABLE > PASS > FAIL > UNABLE_TO_ASSESS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "NOT_APPLICABLE > PASS > UNABLE_TO_ASSESS > FAIL": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "PASS > FAIL > UNABLE_TO_ASSESS > NOT_APPLICABLE": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "PASS > FAIL > NOT_APPLICABLE > UNABLE_TO_ASSESS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "PASS > UNABLE_TO_ASSESS > FAIL > NOT_APPLICABLE": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "PASS > UNABLE_TO_ASSESS > NOT_APPLICABLE > FAIL": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "PASS > NOT_APPLICABLE > FAIL > UNABLE_TO_ASSESS": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    },
+    "PASS > NOT_APPLICABLE > UNABLE_TO_ASSESS > FAIL": {
+      "vs_answer_key": {
+        "checked": 6000,
+        "disagree": 0
+      },
+      "vs_oracle_on_generated": {
+        "checked": 75000,
+        "disagree": 0
+      }
+    }
+  }
+}

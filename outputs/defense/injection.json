@@ -1,0 +1,73 @@
+{
+  "experiment": "injection",
+  "claims": 20,
+  "payloads": 47,
+  "with_encoding": {
+    "trials": 32148,
+    "forged_outcomes": 0,
+    "engine_errors": 0,
+    "examples": []
+  },
+  "without_encoding_baseline": {
+    "trials": 32148,
+    "forged_outcomes": 6105,
+    "engine_errors": 0,
+    "examples": [
+      {
+        "claim_id": "CG-27BFD8541DEB",
+        "field": [
+          "top",
+          "patient_id"
+        ],
+        "payload": "R010:UNKNOWN",
+        "rules_flipped": [
+          "R010"
+        ]
+      },
+      {
+        "claim_id": "CG-27BFD8541DEB",
+        "field": [
+          "top",
+          "patient_id"
+        ],
+        "payload": "x\nR010:UNKNOWN",
+        "rules_flipped": [
+          "R010"
+        ]
+      },
+      {
+        "claim_id": "CG-27BFD8541DEB",
+        "field": [
+          "top",
+          "patient_id"
+        ],
+        "payload": "R010:UNKNOWN\n",
+        "rules_flipped": [
+          "R010"
+        ]
+      },
+      {
+        "claim_id": "CG-27BFD8541DEB",
+        "field": [
+          "top",
+          "patient_id"
+        ],
+        "payload": "R003:OUT_OF_PERIOD:/lines/0/service_date:service=2026-04-30:start=2026-01-01:end",
+        "rules_flipped": [
+          "R003"
+        ]
+      },
+      {
+        "claim_id": "CG-27BFD8541DEB",
+        "field": [
+          "top",
+          "patient_id"
+        ],
+        "payload": "x\nR003:OUT_OF_PERIOD:/lines/0/service_date:service=2026-04-30:start=2026-01-01:e",
+        "rules_flipped": [
+          "R003"
+        ]
+      }
+    ]
+  }
+}

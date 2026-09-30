@@ -78,9 +78,7 @@ class LLM03_A06_A08_SupplyChain(unittest.TestCase):
             self.assertRegex(r, r'^[A-Za-z0-9_.-]+==[0-9][0-9A-Za-z.]*$', r)
 
     def test_no_dangerous_sink_appears_in_our_code(self):
-        # a bare call, not a method or a longer name: yara_x.compile() and validate_input() are fine
-        sinks = re.compile(r'(?<![\w.])(eval|exec|compile|input|__import__)\s*\(|pickle|marshal|shelve|subprocess|os\.system|os\.popen'
-                           r'|shell\s*=\s*True|yaml\.load\(')
+        from security_sinks import SINKS as sinks
         for folder in ('src', 'scripts'):
             for p in (ROOT / folder).glob('*.py'):
                 for n, line in enumerate(p.read_text(encoding='utf-8').splitlines(), start=1):

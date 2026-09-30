@@ -1,0 +1,53 @@
+{
+  "categories": {
+    "correctness": {
+      "claimguard": 100.0,
+      "clinicproj": 0.0,
+      "winner": "claimguard"
+    },
+    "rapidness": {
+      "claimguard": 100.0,
+      "clinicproj": 0.0,
+      "winner": "claimguard"
+    },
+    "security": {
+      "claimguard": 100.0,
+      "clinicproj": 35.0,
+      "winner": "claimguard"
+    },
+    "deliverability": {
+      "claimguard": 83.33,
+      "clinicproj": 16.67,
+      "winner": "claimguard"
+    },
+    "efficiency": {
+      "claimguard": 100.0,
+      "clinicproj": 20.0,
+      "winner": "claimguard"
+    },
+    "hallucination": {
+      "claimguard": 100.0,
+      "clinicproj": 0.0,
+      "winner": "claimguard"
+    }
+  },
+  "overall": {
+    "clinicproj": 11.5,
+    "claimguard": 97.5,
+    "winner": "claimguard"
+  },
+  "hallucination_detail": {
+    "claimguard": {
+      "score": 100.0,
+      "answered_claims": 12,
+      "findings": 180,
+      "fabricated_findings": 0,
+      "evidence_items": 570,
+      "ungrounded_evidence": 0
+    },
+    "clinicproj": {
+      "score": 0.0,
+      "answered_claims": 0
+    }
+  }
+}

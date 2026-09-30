@@ -1,0 +1,97 @@
+{
+  "experiment": "failclosed",
+  "claims": 100,
+  "per_rule": {
+    "R001": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R002": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R003": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R004": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R005": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R006": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R007": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R008": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R009": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R010": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R011": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R012": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R013": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R014": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    },
+    "R015": {
+      "claims": 100,
+      "crashed_rule_not_unable": 0,
+      "crashed_rule_became_pass": 0,
+      "other_rules_changed": 0
+    }
+  },
+  "all_fail_closed": true
+}

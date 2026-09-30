@@ -402,10 +402,16 @@ def _read_anchor_text(anchor_path):
             time.sleep(0.005 * (attempt + 1))
 
 
-def verify_with_anchor(log_path, anchor_path=None):
+def verify_with_anchor(log_path, anchor_path=None, strict=False):
     """Full chain verification plus comparison against the anchor. Returns
     (head, count). Raises ValueError on a broken chain, truncation, or a
-    replaced log."""
+    replaced log.
+
+    strict=True also rejects rows AFTER the anchored position. A writer rewrites the anchor after every
+    append, so on a quiet log count always equals the anchor's count; rows beyond it are either a crash
+    between the log write and the anchor write or rows an attacker appended with a valid chain. It is off
+    by default because a reader that does not hold the lock can legitimately catch a writer mid-append
+    (AuditLog.__init__ and other live callers); offline verification of a finished log should use strict."""
     log_path = Path(log_path)
     anchor_path = Path(anchor_path) if anchor_path else log_path.with_name(log_path.name + '.head.json')
     head, count = verify(log_path)
@@ -421,6 +427,8 @@ def verify_with_anchor(log_path, anchor_path=None):
             raise ValueError('Anchor MAC missing or wrong: the anchor was not written with the configured key')
     if count < anchor_count:
         raise ValueError(f'Log truncated: {count} events, anchor recorded {anchor_count}')
+    if strict and count > anchor_count:
+        raise ValueError(f'{count - anchor_count} unanchored row(s): the log has {count} events but the anchor recorded {anchor_count}')
     if anchor_count == 0:
         return head, count
     rows = [json.loads(l) for l in log_path.read_text(encoding='utf-8').split('\n') if l.strip()]

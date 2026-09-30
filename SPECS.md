@@ -341,7 +341,7 @@ evidence in the whole evaluation that a human, not a script or a model, has to a
 | Concurrency | Thread lock and OS file lock; the tail is re-read on every append; the anchor is replaced atomically |
 | Durability | `ai_request` events are fsync'd |
 | Encoding | Rows are ASCII-escaped JSON so no character (U+2028, U+0085) can split a record |
-| Verification | `scripts/verify_audit.py` checks chain, anchor and AI ordering; with `--results` it re-checks every result hash |
+| Verification | `scripts/verify_audit.py` checks chain, anchor (strict by default: rows after the anchored position are rejected; `--allow-unanchored` for a log still being written) and AI ordering; with `--results` it re-checks every result hash |
 
 **Event types:** `ingestion`, `run_started`, `rule_check` (status, severity, `result_hash`, confidence fields), `ai_request`, `ai_recommendation` (`model` is the tier that answered; `citation_repairs` lists any repaired paths), `ai_failure`, `system_decision` (`route_to_human_review`, `no_findings_for_review`, `quarantine_claim`; never an approval), `run_finished` (rule pack hash and engine code hash), `recheck_run`, `duplicate_submission`, `advisory_check`, and the reviewer decisions. A claim id submitted again outside the recheck flow is recorded as a duplicate and routed to a human.
 
@@ -375,7 +375,7 @@ Residual: no authentication, protected health information would go to a third-pa
 | Independent oracle (`tests/oracle.py`) | **0 disagreements** over 107,635 generated claims (`scripts/status_coverage.py`), plus 37,000 boundary-aware mutants and 123 hand-derived boundary cases |
 | Hostile inputs | Runner, ingestion, review page, audit log, AI providers |
 | Security and red team | `docs/20` |
-| Suite | 420 tests, offline, on Python 3.10, 3.12 and 3.14; the committed audit sample's 6,000 result hashes are re-checked |
+| Suite | 477 tests, offline (420 of them verified on Python 3.10, 3.12 and 3.14 in CI; the rest run on 3.10 locally so far); the committed audit sample's 6,000 result hashes are re-checked |
 
 **Independent oracle at scale.** `tests/oracle.py` reimplements the 15 rules from `rules/rules.json` and `docs/04` alone; it imports nothing from `src/`, so the engine and the oracle cannot share a bug by construction — a mistake would have to be made independently, the same way, in both. `scripts/status_coverage.py` generates 107,635 claims with `tests/claim_gen.py` (half seeded from a fully valid claim then randomly damaged, half fully independent-random fields), scores each with both the engine and the oracle, and hard-fails on the first disagreement rather than only counting them, so the artifact below is either "0 disagreements" or the run did not complete:
 

@@ -1,0 +1,34 @@
+{
+  "categories": {
+    "correctness": {
+      "claimguard": 100.0,
+      "clinicproj": 0.0,
+      "winner": "claimguard"
+    },
+    "rapidness": {
+      "claimguard": 100.0,
+      "clinicproj": 0.0,
+      "winner": "claimguard"
+    },
+    "security": {
+      "claimguard": 100.0,
+      "clinicproj": 35.0,
+      "winner": "claimguard"
+    },
+    "deliverability": {
+      "claimguard": 83.33,
+      "clinicproj": 16.67,
+      "winner": "claimguard"
+    },
+    "efficiency": {
+      "claimguard": 100.0,
+      "clinicproj": 20.0,
+      "winner": "claimguard"
+    }
+  },
+  "overall": {
+    "clinicproj": 13.33,
+    "claimguard": 96.67,
+    "winner": "claimguard"
+  }
+}

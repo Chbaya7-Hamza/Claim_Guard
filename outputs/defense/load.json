@@ -1,0 +1,29 @@
+{
+  "experiment": "load",
+  "engine": {
+    "1000": {
+      "seconds": 0.72,
+      "claims_per_s": 1391.3
+    },
+    "5000": {
+      "seconds": 3.72,
+      "claims_per_s": 1345.1
+    },
+    "20000": {
+      "seconds": 32.72,
+      "claims_per_s": 611.2
+    }
+  },
+  "audit_append": {
+    "events": 2000,
+    "seconds": 0.76,
+    "events_per_s": 2646.9
+  },
+  "audit_verify_seconds_for_2000_events": 0.083,
+  "ai_step_seconds": {
+    "median": 2.86,
+    "p95": 28.89,
+    "calls": 117
+  },
+  "ai_median_over_engine_per_claim": 1748
+}

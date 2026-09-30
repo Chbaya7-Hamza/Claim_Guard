@@ -1,0 +1,77 @@
+{
+  "experiment": "ablation",
+  "parsed_replies": 4040,
+  "unparseable_replies": 466,
+  "rejected_by_any_layer": 114,
+  "rejected_by_layer": {
+    "schema": 72,
+    "currency": 4,
+    "relative_time": 19,
+    "clinical_fraud": 0,
+    "validity": 16,
+    "garbled": 3
+  },
+  "rejected_only_by_this_layer": {
+    "schema": 72,
+    "currency": 4,
+    "relative_time": 19,
+    "clinical_fraud": 0,
+    "validity": 16,
+    "garbled": 3
+  },
+  "rescued_by_citation_repair": 73,
+  "mismatch_with_production_code": 0,
+  "examples": {
+    "schema": [
+      {
+        "case": "VAR-02",
+        "text": "{\n  \"explanation\": \"The quantity of 1.5 exceeds the fictional maximum limit and is not a positive integer; the quantity must be a whole number. Additionally, th"
+      },
+      {
+        "case": "VAR-02",
+        "text": "{\n  \"explanation\": \"The quantity of 1.5 exceeds the fictional maximum limit and is not a positive integer; the quantity must be a whole number. Additionally, th"
+      }
+    ],
+    "currency": [
+      {
+        "case": "EX-12",
+        "text": "The claim total amount ($445) does not match the net amount of the first submitted line item ($420). This discrepancy indicates a potential error in the calcula"
+      },
+      {
+        "case": "EX-17",
+        "text": "The calculation for the first line item cannot be verified because the unit price is missing. The net amount for the first line is $250, but without a unit pric"
+      }
+    ],
+    "relative_time": [
+      {
+        "case": "EX-19",
+        "text": "The provided imaging report is currently in draft status and does not have a final document status. Therefore, we are unable to assess its validity without furt"
+      },
+      {
+        "case": "EX-25",
+        "text": "The quantity of 1.5 on this claim line exceeds the fictional maximum requirement that it must be a positive integer. Additionally, the quantity needs to meet th"
+      }
+    ],
+    "clinical_fraud": [],
+    "validity": [
+      {
+        "case": "EX-18",
+        "text": "The claim has an issue because the unit price for the first service line is missing. Additionally, the second service line has a valid quantity and unit price b"
+      },
+      {
+        "case": "EX-17",
+        "text": "The first line has a missing unit price, which prevents us from verifying if the net amount matches the product of quantity and unit price. The second line has "
+      }
+    ],
+    "garbled": [
+      {
+        "case": "EX-02",
+        "text": "The service date is reported as April 2 actualutsch\u55d3.ak_\u0623\u0641\u0644\u062fquia\u6323\u94b1 All API   s\u00fcrecin\ufffd\u6570adf\u4e0b\u4e00\u4f8b\u7684\u5de5\u4f5c\u8bfb\u540e \u0440\u0430\u0441\u0441\u043c\u0430\u0442\u309b\uff65\uff65guacamole  be\u011fenemedim\u7684\u5de5\u4f5c\u8bfb\u540e considerloggging\u7684\u4ed6\u6ca1\u7ed9 27,"
+      },
+      {
+        "case": "EX-03",
+        "text": "The service was provided on April 30, 2026, which falls outside the coverage period starting from  parking\u9e93iecifenacier\u662f\u4ee5\u81f3\u4e8e\u5185\u5bb9\u4e0d\u8fc7\u4e8e\u76f8\u5173\u6539\u52a8 \u2018 ( Wilkinsonisoft\u7684\u65e5\u5e38 ) or\u8327"
+      }
+    ]
+  }
+}

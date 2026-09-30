@@ -1,0 +1,26 @@
+{
+  "experiment": "aivstemplate",
+  "cases": 12,
+  "ai_live_answers_n": 117,
+  "ai_calls_rejected_to_template": 3,
+  "metrics_percent": {
+    "ai_live_answers": {
+      "states_corrective_action": 100.0,
+      "cites_a_value_from_the_evidence": 93.2,
+      "useful_(biased_toward_template)": 95.7,
+      "mean_words": 30.4
+    },
+    "template_explanation_only": {
+      "states_corrective_action": 25.0,
+      "cites_a_value_from_the_evidence": 8.3,
+      "useful_(biased_toward_template)": 100.0,
+      "mean_words": 6.7
+    },
+    "template_plus_corrective_action_field": {
+      "states_corrective_action": 100.0,
+      "cites_a_value_from_the_evidence": 8.3,
+      "useful_(biased_toward_template)": 100.0,
+      "mean_words": 17.0
+    }
+  }
+}

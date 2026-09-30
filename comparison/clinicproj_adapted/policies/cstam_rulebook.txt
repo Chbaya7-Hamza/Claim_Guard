@@ -1,0 +1,117 @@
+CSTAM-VELODOC Payer Policy Manual (Educational Rulebook, v1.0.0)
+
+This manual describes the administrative and data-quality rules that apply
+to every claim submitted under the EDU-BASIC and EDU-PLUS policy profiles.
+All rules, prices, codes, networks and time windows in this manual are
+fictional and were created for a teaching benchmark; they do not represent
+any real insurer, government platform or medical coding standard.
+
+Policy profile parameters:
+EDU-BASIC claims must be submitted within 30 days of the latest service
+date. EDU-PLUS claims must be submitted within 60 days of the latest
+service date. Both profiles use SAR as the only accepted currency. Both
+profiles restrict the provider network to EDU-PROV-01, EDU-PROV-02 and
+EDU-PROV-03. Both profiles require prior authorization for SVC-IMAGE and
+SVC-THERAPY services. SVC-IMAGE requires an imaging-report attachment;
+SVC-DENTAL requires a service-note attachment. Maximum unit price and
+quantity per line: SVC-CONSULT up to 350 SAR, quantity 1; SVC-LAB up to
+260 SAR, quantity 3; SVC-IMAGE up to 2200 SAR, quantity 1; SVC-THERAPY up
+to 450 SAR, quantity 4; SVC-DENTAL up to 800 SAR, quantity 2; SVC-PHARM up
+to 200 SAR, quantity 10.
+
+Rule R001 - Required claim information. Severity high. Every claim must
+include invoice_number, member_id and diagnosis_code, and every line must
+include service_date, service_code, quantity, unit_price and net_amount. A
+field that is missing or an empty string violates this rule. Never invent
+a missing identifier or diagnosis code; request the missing information
+from the submitter instead.
+
+Rule R002 - Service and submission chronology. Severity high. Every
+line's service_date must fall on or before the claim's submission_date. A
+service date after the submission date violates this rule. If a date is
+missing or cannot be parsed, treat this rule as undetermined rather than
+guessing.
+
+Rule R003 - Coverage active on the date of service. Severity high. The
+patient's coverage status must be active, and every service_date must
+fall within the coverage's start_date and end_date, inclusive of both
+boundaries. A service performed while coverage is inactive, or outside
+the covered date range, violates this rule.
+
+Rule R004 - Member and beneficiary consistency. Severity high. The
+claim's patient_id must exactly match the coverage record's
+beneficiary_patient_id, and the claim's member_id must exactly match the
+coverage record's member_id. These are case-sensitive identifiers; any
+mismatch violates this rule.
+
+Rule R005 - Provider in the network. Severity high. The billing
+provider_id must appear on the applicable policy's list of allowed
+providers (EDU-PROV-01, EDU-PROV-02, EDU-PROV-03). A provider outside
+this list violates this rule.
+
+Rule R006 - Possible duplicate service lines. Severity medium. Two or
+more lines on the same claim that share the same service_code,
+service_date and modifier are a possible duplicate and require human
+verification before the claim proceeds. This is a flag for review, not a
+finding of fraud.
+
+Rule R007 - Line arithmetic. Severity high. On every line, net_amount
+must equal quantity multiplied by unit_price, rounded to two decimal
+places. A difference greater than 0.01 SAR violates this rule.
+
+Rule R008 - Required authorization reference. Severity high. For any
+line whose service_code is SVC-IMAGE or SVC-THERAPY, the line must carry
+a non-empty authorization_id. A required line with no authorization
+reference at all violates this rule.
+
+Rule R009 - Authorization record matches the service. Severity high.
+Where an authorization_id is present on a required line, it must resolve
+to an authorization record whose patient_id and service_code match the
+claim, whose status is approved, whose valid_from and valid_to dates
+cover the service_date, and whose max_quantity is not exceeded when
+quantities across lines sharing that authorization are added together. A
+referenced authorization that cannot be found, or that does not match on
+these points, violates this rule.
+
+Rule R010 - Required supporting document. Severity medium. Where the
+service_code requires a specific attachment type (SVC-IMAGE requires
+imaging-report; SVC-DENTAL requires service-note), at least one
+attachment on the claim must match that type, the same patient_id, the
+same service_code and the same service_date, and its document_status
+must be final. A missing or only-draft required attachment violates this
+rule.
+
+Rule R011 - Service code in the fictional catalogue. Severity high.
+Every non-empty service_code on the claim must be one of the codes in
+this manual's service catalogue: SVC-CONSULT, SVC-LAB, SVC-IMAGE,
+SVC-THERAPY, SVC-DENTAL, SVC-PHARM. A code outside this catalogue
+violates this rule.
+
+Rule R012 - Claim total equals line amounts. Severity high. The claim's
+total_amount must equal the sum of every line's net_amount, rounded to
+two decimal places. A difference greater than 0.01 SAR violates this
+rule.
+
+Rule R013 - Quantity and price limits. Severity medium. On every line,
+quantity must be a positive whole number, unit_price must be greater
+than zero and must not exceed the maximum unit price listed above for
+that service_code, and quantity must not exceed the maximum quantity per
+line listed above for that service_code. Exceeding any of these limits
+violates this rule.
+
+Rule R014 - Submission window. Severity medium. The number of days
+between the claim's submission_date and the latest service_date on the
+claim must not exceed the applicable policy profile's submission window:
+30 days for EDU-BASIC, 60 days for EDU-PLUS. A claim submitted later than
+that window violates this rule.
+
+Rule R015 - Currency matches policy. Severity high. The claim's currency
+must be SAR, the only currency accepted under this manual. Any other
+currency violates this rule.
+
+General guidance for reviewers: only report a violation when the evidence
+in the claim clearly establishes it. If a required field is missing, say
+what is missing and why it matters instead of guessing a value. If two
+lines might be duplicates, ask a human to verify rather than assuming
+fraud. Preserve valid claims - a claim that satisfies every applicable
+rule above should not be flagged.
