@@ -139,4 +139,4 @@ What this shows and what it does not: without a key, anyone who can write both f
 
 ## J. Roadmap (not gaps)
 
-Planned work, each with its proof of success in doc 26: authentication and RBAC, web review interface, async queue with Redis, local model serving as a deployed service, NoSQL store, demo video (being filmed), pitch.
+Planned work, each with its proof of success in [BLUEPRINT.md](../BLUEPRINT.md): authentication and RBAC, web review interface, async queue with Redis, local model serving as a deployed service, NoSQL store, demo video (being filmed), pitch.

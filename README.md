@@ -24,7 +24,7 @@ The engine decides and the model only explains. The trusted core has no network 
 
 ![Data flow of one claim, 15 steps](docs/figures/dataflow.png)
 
-> **New to the project? Read [TEAM.md](TEAM.md)** for what we built and why each decision was made. **[SPECS.md](SPECS.md)** is the detailed specification, including every experiment.
+> **New to the project? Read [TEAM.md](TEAM.md)** for what we built and why each decision was made. **[SPECS.md](SPECS.md)** is the detailed specification, including every experiment. **[BLUEPRINT.md](BLUEPRINT.md)** is the project as an information system: deliverables, business canvas, realisation steps and UML.
 
 ## How it works (text form)
 
@@ -260,6 +260,8 @@ Also built and tested, but off by default: a **cascade** (fluent model, then a r
 |---|---|
 | [TEAM.md](TEAM.md) | What we built and why; onboarding for teammates |
 | [SPECS.md](SPECS.md) | Detailed specification: contracts, rules, the AI step, audit log, security, and every experiment |
+| [BLUEPRINT.md](BLUEPRINT.md) | The project as an information system: the submission deliverables and where each lives, quality characteristics (reliability, security, interoperability, performance, portability, maintainability), the business model canvas with cited desk research, the 12 realisation steps each with its proof of success, the environment tests, and seven UML diagrams |
+| `docs/27_Decisions_Proofs_and_Defense.md` | Every major decision: what we rejected, the experiment or test that backs it, and the likely challenge with its answer |
 | `docs/04_Rulebook.md` | The 15 fictional rules |
 | `docs/16_Audit_Log_Design.md` | Audit log design and what real immutability would need |
 | `docs/17_Evaluation_Report.md` | Metrics, error analysis, AI evaluation, limitations |
@@ -268,6 +270,9 @@ Also built and tested, but off by default: a **cascade** (fluent model, then a r
 | `docs/21_Experiments.md` | AI experiments: temperature, model, prompt, concurrency |
 | [docs/22_Architecture_and_Data_Flow.md](docs/22_Architecture_and_Data_Flow.md) | Architecture diagram, trust boundaries, tool permissions, data flow |
 | [docs/23_Demo_Video_Kit.md](docs/23_Demo_Video_Kit.md) | Script, shot list and checklist for recording the demo video |
+| [docs/24_Architecture_Comparison.md](docs/24_Architecture_Comparison.md) | ClaimGuard compared with the clinicProj architecture on the same model: method, scores, hallucination metric, and the limits of the result |
+| [docs/25_Comparison_Model_Selection.md](docs/25_Comparison_Model_Selection.md) | Why the comparison was re-run on Qwen2.5-14B-Instruct: the models screened and why the others were rejected |
+| [docs/28_Upgrades_Phase2.md](docs/28_Upgrades_Phase2.md) | Proposed Phase 2 upgrades, each tied to a measurement; nothing in it is built yet |
 | `docs/00_Starter_Pack_README.md` | The organizers' original starter-pack README, kept in full |
 
 ## Boundaries
