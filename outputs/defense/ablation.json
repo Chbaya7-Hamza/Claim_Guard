@@ -8,6 +8,7 @@
     "currency": 4,
     "relative_time": 19,
     "clinical_fraud": 0,
+    "approval": 0,
     "validity": 16,
     "garbled": 3
   },
@@ -16,6 +17,7 @@
     "currency": 4,
     "relative_time": 19,
     "clinical_fraud": 0,
+    "approval": 0,
     "validity": 16,
     "garbled": 3
   },
@@ -53,6 +55,7 @@
       }
     ],
     "clinical_fraud": [],
+    "approval": [],
     "validity": [
       {
         "case": "EX-18",

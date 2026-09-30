@@ -334,7 +334,7 @@ def ablation():
     import re as _re
     import llm_adapter as la
     cases = _load_all_cases()
-    layers = ['schema', 'currency', 'relative_time', 'clinical_fraud', 'validity', 'garbled']
+    layers = ['schema', 'currency', 'relative_time', 'clinical_fraud', 'approval', 'validity', 'garbled']
     n = unparse = 0
     rejected_by = {k: 0 for k in layers}
     only_by = {k: 0 for k in layers}
@@ -349,7 +349,7 @@ def ablation():
         fails = set()
         if any(m.group(0).lower() not in source for m in la._FOREIGN_SCRIPT.finditer(text)) or la._REPETITION.search(text):
             fails.add('garbled')
-        names = ['currency', 'relative_time', 'clinical_fraud']
+        names = ['currency', 'relative_time', 'clinical_fraud', 'approval']
         for (pat, _), name in zip(la._UNGROUNDED, names):
             if any(m.group(0).lower() not in source for m in pat.finditer(text)):
                 fails.add(name)
