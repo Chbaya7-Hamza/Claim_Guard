@@ -8,7 +8,8 @@
     "edit_and_rechain_anchor_untouched",
     "rewrite_all_and_anchor_without_key",
     "append_forged_rows_valid_chain",
-    "append_forged_rows_and_reanchor_without_key"
+    "append_forged_rows_and_reanchor_without_key",
+    "rewrite_all_and_anchor_with_stolen_key"
   ],
   "detected": {
     "no_key": {
@@ -48,6 +49,11 @@
         "chain_plus_anchor_strict": true
       },
       "append_forged_rows_and_reanchor_without_key": {
+        "chain_only": false,
+        "chain_plus_anchor": false,
+        "chain_plus_anchor_strict": false
+      },
+      "rewrite_all_and_anchor_with_stolen_key": {
         "chain_only": false,
         "chain_plus_anchor": false,
         "chain_plus_anchor_strict": false
@@ -93,6 +99,11 @@
         "chain_only": false,
         "chain_plus_anchor": true,
         "chain_plus_anchor_strict": true
+      },
+      "rewrite_all_and_anchor_with_stolen_key": {
+        "chain_only": false,
+        "chain_plus_anchor": false,
+        "chain_plus_anchor_strict": false
       }
     }
   },

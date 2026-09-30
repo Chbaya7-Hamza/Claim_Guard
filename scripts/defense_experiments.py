@@ -251,6 +251,17 @@ def append_forged_rows_and_reanchor_without_key(p, key):
     _write_anchor(p, _rows(p))
 
 
+@attack
+def rewrite_all_and_anchor_with_stolen_key(p, key):
+    """An attacker who holds AUDIT_ANCHOR_KEY signs a forged anchor correctly. Only meaningful in the keyed configuration; in
+    the unkeyed one it is the same as rewriting without a key."""
+    r = _rows(p)
+    r[10]['event']['status'] = 'FAIL'
+    r = _rechain(r, 10)
+    _write_rows(p, r)
+    _write_anchor(p, r, mac_key=key)
+
+
 def _detect(verifier, p):
     try:
         if verifier == 'chain_only':

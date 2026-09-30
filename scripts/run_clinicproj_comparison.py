@@ -25,9 +25,14 @@ def _load_dotenv():
     if f.exists():
         for line in f.read_text(encoding='utf-8').splitlines():
             line = line.strip()
+            if line.startswith('export '):
+                line = line[len('export '):].lstrip()
             if line and not line.startswith('#') and '=' in line:
                 k, v = line.split('=', 1)
-                os.environ.setdefault(k.strip(), v.strip())
+                v = v.strip()
+                if len(v) >= 2 and v[0] == v[-1] and v[0] in ('"', "'"):
+                    v = v[1:-1]  # KEY="value" must not put the quote marks into the credential
+                os.environ.setdefault(k.strip(), v)
 
 
 def sample_claims(claims_path, sample_size=None):
@@ -90,6 +95,23 @@ def _claimguard_runner(provider_name, model):
     return run
 
 
+def extract_json_object(text):
+    """The first JSON object embedded in text, or None. Tries every '{' in turn with a real JSON decoder, so prose that
+    contains braces before the JSON ('see {below}: ```json {...}```') does not break the extraction the way slicing from the
+    first '{' to the last '}' does."""
+    decoder = json.JSONDecoder()
+    start = text.find('{')
+    while start != -1:
+        try:
+            obj, _ = decoder.raw_decode(text[start:])
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
+        start = text.find('{', start + 1)
+    return None
+
+
 def parse_clinicproj_reply(reply: str) -> dict:
     """Pure, independently testable: clinicProj's agent has no schema check
     (unlike ClaimGuard's llm_adapter.py), so its reply can be malformed in two
@@ -102,14 +124,10 @@ def parse_clinicproj_reply(reply: str) -> dict:
     except json.JSONDecodeError as e:
         # Disclosed adjustment, recorded beside (never instead of) the strict result: some models wrap a valid JSON object
         # in prose or a code fence. clinicProj has no parser of its own, so strict stays the default score.
-        lenient = None
-        i, j = reply.find('{'), reply.rfind('}')
-        if 0 <= i < j:
-            try:
-                obj = json.loads(reply[i:j + 1])
-                lenient = obj.get('overall_status') if isinstance(obj, dict) else None
-            except json.JSONDecodeError:
-                pass
+        obj = extract_json_object(reply)
+        lenient = obj.get('overall_status') if obj else None
+        if isinstance(lenient, str):
+            lenient = lenient.strip().upper()
         return {'status': None, 'raw_output': reply, 'parse_error': str(e), 'lenient_status': lenient,
                 'wrapped_json': lenient is not None}
     return {'status': parsed.get('overall_status'), 'raw_output': reply, 'parse_error': None}

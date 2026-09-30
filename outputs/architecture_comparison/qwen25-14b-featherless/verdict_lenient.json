@@ -32,8 +32,8 @@
     }
   },
   "overall": {
-    "claimguard": 97.5,
     "clinicproj": 21.08,
+    "claimguard": 97.5,
     "winner": "claimguard"
   },
   "hallucination_detail": {

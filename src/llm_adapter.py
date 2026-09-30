@@ -316,10 +316,15 @@ def _load_dotenv():
         return
     for line in env_path.read_text(encoding='utf-8').splitlines():
         line = line.strip()
+        if line.startswith('export '):
+            line = line[len('export '):].lstrip()
         if not line or line.startswith('#') or '=' not in line:
             continue
         k, v = line.split('=', 1)
-        os.environ.setdefault(k.strip(), v.strip())
+        v = v.strip()
+        if len(v) >= 2 and v[0] == v[-1] and v[0] in ('"', "'"):
+            v = v[1:-1]  # KEY="value" must not put the quote marks into the credential
+        os.environ.setdefault(k.strip(), v)
 
 
 _PROMPT_INSTRUCTIONS = (ROOT / 'prompts' / 'explain_findings.md').read_text(encoding='utf-8')

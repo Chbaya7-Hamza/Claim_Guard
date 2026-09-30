@@ -23,6 +23,50 @@ class LenientParseTests(unittest.TestCase):
         self.assertFalse(r['wrapped_json'])
 
 
+class ExtractJsonObjectTests(unittest.TestCase):
+    def test_prose_with_braces_before_the_json_does_not_break_extraction(self):
+        from run_clinicproj_comparison import extract_json_object
+        obj = extract_json_object('Note {see below}: ```json\n{"overall_status": "invalid", "findings": []}\n``` done {x}')
+        self.assertEqual(obj['overall_status'], 'invalid')
+
+    def test_no_object_returns_none(self):
+        from run_clinicproj_comparison import extract_json_object
+        self.assertIsNone(extract_json_object('no json here {not json}'))
+
+    def test_lenient_status_is_upper_cased(self):
+        from run_clinicproj_comparison import parse_clinicproj_reply
+        self.assertEqual(parse_clinicproj_reply('text {"overall_status": "invalid"}')['lenient_status'], 'INVALID')
+
+
+class DotenvTests(unittest.TestCase):
+    def _load(self, module, text):
+        import os
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / '.env').write_text(text, encoding='utf-8')
+            old_root = module.ROOT
+            module.ROOT = Path(d)
+            for k in ('TEST_QUOTED', 'TEST_SINGLE', 'TEST_EXPORT', 'TEST_PLAIN'):
+                os.environ.pop(k, None)
+            try:
+                module._load_dotenv()
+            finally:
+                module.ROOT = old_root
+            return {k: os.environ.pop(k, None) for k in ('TEST_QUOTED', 'TEST_SINGLE', 'TEST_EXPORT', 'TEST_PLAIN')}
+
+    TEXT = 'TEST_QUOTED="abc def"\nTEST_SINGLE=\'xyz\'\nexport TEST_EXPORT=exp\nTEST_PLAIN=plain  \n# comment=1\n'
+    EXPECTED = {'TEST_QUOTED': 'abc def', 'TEST_SINGLE': 'xyz', 'TEST_EXPORT': 'exp', 'TEST_PLAIN': 'plain'}
+
+    def test_harness_loader_strips_quotes_and_export(self):
+        import run_clinicproj_comparison as m
+        self.assertEqual(self._load(m, self.TEXT), self.EXPECTED)
+
+    def test_llm_adapter_loader_strips_quotes_and_export(self):
+        sys.path.insert(0, str(ROOT / 'src'))
+        import llm_adapter as m
+        self.assertEqual(self._load(m, self.TEXT), self.EXPECTED)
+
+
 class HallucinationTests(unittest.TestCase):
     CLAIM = {'claim_id': 'C1', 'currency': 'USD', 'total_amount': 100, 'lines': [{'line_id': 'L1', 'net_amount': 100.0}]}
     GOLD = {'C1': [{'rule_id': 'R015', 'status': 'FAIL'}, {'rule_id': 'R001', 'status': 'PASS'}]}
