@@ -5,11 +5,13 @@
   "with_encoding": {
     "trials": 32148,
     "forged_outcomes": 0,
+    "engine_errors": 0,
     "examples": []
   },
   "without_encoding_baseline": {
     "trials": 32148,
     "forged_outcomes": 6105,
+    "engine_errors": 0,
     "examples": [
       {
         "claim_id": "CG-27BFD8541DEB",

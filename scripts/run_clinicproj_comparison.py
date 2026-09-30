@@ -144,17 +144,20 @@ def _check_ollama_is_serving():
     the plan's Review Focus: 'the harness must fail loudly ... instead of
     a bare traceback or a silently-empty output file')."""
     import http.client
+    conn = http.client.HTTPConnection('localhost', 11434, timeout=3)
     try:
-        conn = http.client.HTTPConnection('localhost', 11434, timeout=3)
         conn.request('GET', '/v1/models')
-        conn.getresponse().read()
-        conn.close()
-    except (ConnectionError, OSError) as e:
+        status = conn.getresponse().status
+        if status != 200:
+            raise ConnectionError(f'HTTP {status} from the service on port 11434')
+    except (ConnectionError, OSError, http.client.HTTPException) as e:
         raise SystemExit(
             f'Cannot reach Ollama at http://localhost:11434 ({type(e).__name__}: {e}). '
             f'Is Ollama running? Start it with `ollama serve` and confirm gemma3:4b is '
             f'pulled (`ollama pull gemma3:4b`) before rerunning this script.'
         )
+    finally:
+        conn.close()
 
 
 def main():
@@ -164,8 +167,10 @@ def main():
     p.add_argument('--system', choices=('claimguard', 'clinicproj', 'both'), default='both')
     p.add_argument('--provider', choices=('ollama', 'featherless'), default='ollama')
     p.add_argument('--model', help='required with --provider featherless; both systems run this same model')
-    p.add_argument('--tag', default='gemma3-4b-ollama', help='results go to outputs/architecture_comparison/<tag>/')
+    p.add_argument('--tag', default='gemma3-4b-ollama', help='results go to outputs/architecture_comparison/<tag>/; required (and must not be the gemma3 one) with --provider featherless')
     a = p.parse_args()
+    if a.provider == 'featherless' and a.tag == 'gemma3-4b-ollama':
+        raise SystemExit('--tag is required with --provider featherless (the default folder holds the preserved gemma3 baseline)')
 
     _load_dotenv()
     if a.provider == 'featherless':
@@ -173,6 +178,9 @@ def main():
             raise SystemExit('--model is required with --provider featherless')
         os.environ['COMPARISON_PROVIDER'] = 'featherless'
         os.environ['COMPARISON_LLM_MODEL'] = a.model
+    else:
+        os.environ.pop('COMPARISON_PROVIDER', None)  # a stale value must not send clinicProj to a different model than ClaimGuard
+        os.environ.pop('COMPARISON_LLM_MODEL', None)
     _check_provider(a.provider)
     out_dir = OUT_ROOT / a.tag
     claims = sample_claims(a.claims, a.sample_size)

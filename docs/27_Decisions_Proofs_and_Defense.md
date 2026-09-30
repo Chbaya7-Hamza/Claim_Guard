@@ -68,7 +68,7 @@ How to use this in a defense: state the decision in one sentence, give the proof
 
 | Decision | Proof | Weak spot and answer |
 |---|---|---|
-| **469 offline tests (420 verified on Python 3.10, 3.12, 3.14 in CI)** | CI green on all 6 jobs at commit `0aac644`, when the suite was 420 tests; the 49 added since ran on 3.10 locally | CI was red on every run from its first commit until the audit-lock fix. We found it, fixed it and say so, rather than hiding it |
+| **472 offline tests (420 verified on Python 3.10, 3.12, 3.14 in CI)** | CI green on all 6 jobs at commit `0aac644`, when the suite was 420 tests; the 52 added since ran on 3.10 locally | CI was red on every run from its first commit until the audit-lock fix. We found it, fixed it and say so, rather than hiding it |
 | **Demo is offline and scripted** (`scripts/demo.py`, 8 scenes, about 2 s) | Video kit in `docs/23` | Video is being filmed from that script |
 
 ## H. Architecture comparison (ClaimGuard vs clinicProj)
@@ -91,7 +91,7 @@ A rationale is not proof. Each decision needs a measurement that could have gone
 |---|---|---|---|
 | Declarative rules (YARA-X) over Python | `scripts/benchmark_yara_vs_python.py`: speed, fault isolation, size | YARA-X is faster or safer | Exists. It failed on speed; the structural argument stands alone |
 | Rules match the standard | Answer key, 9,000 results; oracle on 107,635 claims | Engine disagrees with key or oracle | Exists, 0 disagreements |
-| Percent-encoding of facts | `scripts/defense_experiments.py injection`: 20 claims, 47 real fact lines as payloads, 3 shapes each, injected into every string field. A rule counts as forged if its status changes beyond what a harmless value in that field changes | Forged value changes another rule's result | **Run.** With encoding: **0 of 32,148** trials forged an outcome. Without encoding (same trials): **6,105 of 32,148** did. Raw: `outputs/defense/injection.json` |
+| Percent-encoding of facts | `scripts/defense_experiments.py injection`: 20 claims, 47 real fact lines as payloads, 3 shapes each, injected into every string field. A rule counts as forged if its status changes beyond what a harmless value in that field changes | Forged value changes another rule's result | **Run.** With encoding: **0 of 32,148** trials forged an outcome. Without encoding (same trials): **6,105 of 32,148** did. Engine crashes: 0 in both. Limit: a forged outcome is only counted in rules a harmless value in that field does not also change, so a forgery landing on a rule the field legitimately affects (for example `patient_id` and R004) would not be seen; the 0 is 'none found in the rules that could be tested', and the 6,105 is a floor. Raw: `outputs/defense/injection.json` |
 | Fail closed to `UNABLE_TO_ASSESS` | `defense_experiments.py failclosed`: each of the 15 rules made to raise, over 100 claims | A crash lets a claim through | **Run.** 15 of 15 rules: crashed rule was `UNABLE_TO_ASSESS` on every claim, never PASS, and the other 14 results never changed. Raw: `outputs/defense/failclosed.json` |
 | Hash-chained audit log | `defense_experiments.py tamper`: 8 attacks against a chain-only verifier, a chain-plus-anchor verifier, its strict mode, and strict with an HMAC key | Some tampering goes undetected | **Run.** See the table below the map. Chain alone catches edit, delete and swap. The anchor adds truncation and edit-and-rechain. The HMAC key adds full rewrite of log and anchor. Appending forged rows with a valid chain was caught by none of them until a strict anchor check was added; now it is caught (strict), and a forged anchor as well with a key |
 | Audit lock | 20-process concurrency benchmark, before and after the fix | Race persists | Exists, 10 of 10 after the fix |
@@ -110,6 +110,8 @@ Caveats on the ablation: 466 of the recorded raw replies did not parse as JSON u
 Caveat on AI vs template: both are mechanical proxies on 12 cases. They show the AI quotes the evidence; they do not show a reviewer finds the AI text clearer. Three of 120 gated calls were rejected and fell back to the template, which is the designed floor.
 
 Audit-log append profile: 55% of an append's time is rewriting the anchor file (0.38 s of 0.68 s over 200 appends). Writing the anchor once per 10 appends raised throughput from about 4,400 to about 11,100 events/s. That is a speed-up with a security cost (truncation between anchors goes unnoticed), so the safer route is writing one batch of several claims per append, which keeps an anchor after every append.
+
+Caveats on the comparison metrics (from the final code review): the hallucination score is computed only over claims a system actually answered, so a system that answers few claims is barely penalised beyond the no-answer case, and a parseable reply with an empty `findings` list scores 100; in the evidence-grounding check a clinicProj evidence item with no `value` key counts as ungrounded while ClaimGuard's non-scalar values are skipped, and the substring fallback makes very short strings count as grounded. Treat the hallucination category as indicative on its current base (4 answered claims) and do not quote its number as a rate.
 
 ### Audit-log tamper matrix (detected = yes)
 

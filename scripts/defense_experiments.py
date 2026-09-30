@@ -1,9 +1,13 @@
 """Experiments that back technical decisions (docs/27). Each one has a baseline or a control that
 could make the decision look wrong, and every result is written to outputs/defense/ as recorded.
 
-    python scripts/defense_experiments.py failclosed   # a crash in each of the 15 rules
-    python scripts/defense_experiments.py injection    # forged facts, with and without percent-encoding
-    python scripts/defense_experiments.py tamper       # audit-log tampering vs chain / +anchor / +keyed anchor
+    python scripts/defense_experiments.py failclosed    # a crash in each of the 15 rules
+    python scripts/defense_experiments.py injection     # forged facts, with and without percent-encoding
+    python scripts/defense_experiments.py tamper        # audit-log tampering vs chain / +anchor / strict / +HMAC key
+    python scripts/defense_experiments.py ablation      # each validation guard replayed on recorded raw replies
+    python scripts/defense_experiments.py aivstemplate  # AI explanations vs the engine's own sentence
+    python scripts/defense_experiments.py precedence    # every status-precedence order vs the key and the oracle
+    python scripts/defense_experiments.py load          # engine, audit append and AI-step timings
     python scripts/defense_experiments.py all
 """
 import copy
@@ -114,7 +118,7 @@ def _collect_fact_lines(claims, cfg):
 
 
 def _run_injection(claims, cfg, payloads):
-    forged = trials = 0
+    forged = trials = errors = 0
     examples = []
     for c in claims:
         base = statuses(c, cfg)
@@ -127,6 +131,7 @@ def _run_injection(claims, cfg, payloads):
                     try:
                         got = statuses(_set(c, field, shape), cfg)
                     except Exception:
+                        errors += 1  # a crash is reported, never counted as "resisted"
                         continue
                     flips = {k for k in base if got[k] != base[k]} - legit
                     if flips:
@@ -134,7 +139,7 @@ def _run_injection(claims, cfg, payloads):
                         if len(examples) < 5:
                             examples.append({'claim_id': c['claim_id'], 'field': field, 'payload': shape[:80],
                                              'rules_flipped': sorted(flips)})
-    return {'trials': trials, 'forged_outcomes': forged, 'examples': examples}
+    return {'trials': trials, 'forged_outcomes': forged, 'engine_errors': errors, 'examples': examples}
 
 
 def injection(n_claims=20):
@@ -258,6 +263,13 @@ def _detect(verifier, p):
 
 
 def tamper():
+    try:
+        return _tamper()
+    finally:
+        os.environ.pop(audit_log.ANCHOR_KEY_ENV, None)  # never leave the experiment's key in the process environment
+
+
+def _tamper():
     results = {}
     for cfgname, key in (('no_key', None), ('hmac_key', 'experiment-key')):
         results[cfgname] = {}
@@ -269,8 +281,6 @@ def tamper():
                     p = _make_log(d, key=key)
                     # an attacker who can write the files does not hold the key
                     os.environ.pop(audit_log.ANCHOR_KEY_ENV, None)
-                    if name == 'rewrite_all_and_anchor_without_key':
-                        pass
                     fn(p, key)
                     if key:
                         os.environ[audit_log.ANCHOR_KEY_ENV] = key  # verifier holds the key
