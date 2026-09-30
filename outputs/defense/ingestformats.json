@@ -1,0 +1,83 @@
+{
+  "experiment": "ingestformats",
+  "splits": {
+    "development": {
+      "reference_claims": 400,
+      "csv_folder": {
+        "records": 400,
+        "accepted": 400,
+        "quarantined": 0,
+        "claims_field_identical_to_jsonl": 400,
+        "results_compared": 6000,
+        "verdict_agreement_percent": 100.0,
+        "silent_passes": 0,
+        "differences": {}
+      },
+      "fhir_bundle": {
+        "records": 400,
+        "accepted": 400,
+        "quarantined": 0,
+        "claims_field_identical_to_jsonl": 0,
+        "results_compared": 6000,
+        "verdict_agreement_percent": 96.52,
+        "silent_passes": 0,
+        "differences": {
+          "R009: PASS -> UNABLE_TO_ASSESS": 194,
+          "R009: FAIL -> UNABLE_TO_ASSESS": 15
+        }
+      }
+    },
+    "validation": {
+      "reference_claims": 150,
+      "csv_folder": {
+        "records": 150,
+        "accepted": 150,
+        "quarantined": 0,
+        "claims_field_identical_to_jsonl": 150,
+        "results_compared": 2250,
+        "verdict_agreement_percent": 100.0,
+        "silent_passes": 0,
+        "differences": {}
+      },
+      "fhir_bundle": {
+        "records": 150,
+        "accepted": 150,
+        "quarantined": 0,
+        "claims_field_identical_to_jsonl": 0,
+        "results_compared": 2250,
+        "verdict_agreement_percent": 96.53,
+        "silent_passes": 0,
+        "differences": {
+          "R009: PASS -> UNABLE_TO_ASSESS": 73,
+          "R009: FAIL -> UNABLE_TO_ASSESS": 5
+        }
+      }
+    },
+    "stress": {
+      "reference_claims": 50,
+      "csv_folder": {
+        "records": 50,
+        "accepted": 50,
+        "quarantined": 0,
+        "claims_field_identical_to_jsonl": 50,
+        "results_compared": 750,
+        "verdict_agreement_percent": 100.0,
+        "silent_passes": 0,
+        "differences": {}
+      },
+      "fhir_bundle": {
+        "records": 50,
+        "accepted": 50,
+        "quarantined": 0,
+        "claims_field_identical_to_jsonl": 0,
+        "results_compared": 750,
+        "verdict_agreement_percent": 96.93,
+        "silent_passes": 0,
+        "differences": {
+          "R009: PASS -> UNABLE_TO_ASSESS": 20,
+          "R009: FAIL -> UNABLE_TO_ASSESS": 3
+        }
+      }
+    }
+  }
+}

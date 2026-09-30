@@ -1,0 +1,21 @@
+{
+  "experiment": "limits",
+  "finding_prompts_measured": 777,
+  "prompt_chars": {
+    "median": 6867,
+    "p99": 7589,
+    "max": 7847
+  },
+  "limit_chars": 60000,
+  "findings_over_the_prompt_limit": 0,
+  "longest_evidence_value_chars": 539,
+  "per_value_limit_chars": 1000,
+  "values_over_the_per_value_limit": "see longest_evidence_value_chars",
+  "longest_note_chars": 54,
+  "note_limit_chars": 4000,
+  "hostile_5000_line_claim": {
+    "fail_findings": 4,
+    "first_prompt_chars_if_built": null,
+    "failed_closed_to_template": "Prompt of 1783802 characters exceeds the 60000 limit"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "experiment": "quarantine",
+  "valid_records": 100,
+  "damaged_records": 30,
+  "damage_kinds": [
+    "array_line",
+    "deep_nesting",
+    "invalid_utf8",
+    "missing_required_key",
+    "not_json",
+    "null_line",
+    "number_line",
+    "truncated_json",
+    "unknown_key",
+    "wrong_type_amount"
+  ],
+  "claimguard": {
+    "accepted": 103,
+    "quarantined": 27,
+    "quarantine_reasons": {
+      "Invalid JSON": 9,
+      "Expected a JSON object, got NoneType": 3,
+      "Expected a JSON object, got int": 3,
+      "Expected a JSON object, got list": 3,
+      "Invalid UTF-8": 3,
+      "Failed transport validation": 6
+    },
+    "every_record_accounted_for": true,
+    "sound_claims_with_unchanged_verdicts": "100 of 100",
+    "wrong_typed_amount_records_accepted_by_design": {
+      "records": 3,
+      "R012_status": [
+        "UNABLE_TO_ASSESS"
+      ],
+      "any_PASS_on_R012": false
+    },
+    "quarantined_records_that_reached_the_rules": 0
+  },
+  "naive_stop_at_first_error": {
+    "valid_claims_processed_before_stopping": 4,
+    "valid_claims_never_processed": 96
+  },
+  "naive_skip_silently": {
+    "records_dropped_with_no_record_of_why": 12
+  },
+  "note": "parse-only baselines: they do not validate claims, so they understate what a naive reader would miss."
+}

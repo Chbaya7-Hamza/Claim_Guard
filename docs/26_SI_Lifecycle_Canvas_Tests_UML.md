@@ -34,7 +34,7 @@ The brief says visual polish alone is insufficient: a reviewer must be able to v
 | **Interoperability** | Accepts standard claim formats and exposes results to other systems | Partial | JSONL plus a normalized schema, FHIR comparison exists (`outputs/fhir_vs_normalized.json`). No API server yet |
 | **Performance** | Reviewer gets a verdict fast; the system scales to many claims | Partial | Rules run in about 2 s for the demo; AI explanation adds seconds per finding. No queue or load test yet (Celery/ARQ and Redis are Planned) |
 | **Portability** | Runs on Windows, Linux, several Python versions, and fully on-prem | Partial | CI runs on 3 Python versions. The AI explanation currently needs a hosted API; local model serving is Planned (mentor point 8) |
-| **Maintainability** | Rules can be changed without touching engine code; changes are safe | Done | Rules are YARA-X text files, 477 tests, CI, CODEOWNERS, PR template |
+| **Maintainability** | Rules can be changed without touching engine code; changes are safe | Done | Rules are YARA-X text files, 481 tests, CI, CODEOWNERS, PR template |
 | **Reusability** | Rule engine, audit log and explanation guard are usable in another payer or domain | Partial | Modules are separate; no packaging or documented extension guide |
 | **Facility (ease of setup and use)** | A newcomer can install, run and see a result in minutes | Partial | README and `scripts/demo.py` (8 scenes, offline). No installer or container image |
 
@@ -91,7 +91,7 @@ Steps 1, 2 (in part), 3 (Phase 1) and 4 (Phase 1) are complete. Steps 5 and 6 ar
 
 | Environment | Purpose | What runs | Pass condition |
 |---|---|---|---|
-| Developer machine (Windows) | Fast feedback | `unittest discover` (477 tests, about 2 min, offline) | All pass |
+| Developer machine (Windows) | Fast feedback | `unittest discover` (481 tests, about 2 min, offline) | All pass |
 | CI (GitHub Actions, Linux, Python 3.10 / 3.12 / 3.14) | Portability and regression | Build, tests, rule accuracy, security (Bandit, OWASP suites) | All 6 jobs green |
 | Container (clean Linux image) | Facility: install from scratch | Clone, install, run demo | Demo completes with no manual fixes |
 | Staging with the real model endpoint | Explanation quality | AI benchmarks, injection variants | Each benchmark at or above 85%; no ungrounded claims |
