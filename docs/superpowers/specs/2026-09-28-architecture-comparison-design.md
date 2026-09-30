@@ -60,7 +60,7 @@ not something to strip out for "fairness."
 ## Components
 
 1. **`comparison/architecture_b_original/`** — the cloned Architecture B repo, read-only
-   reference copy (already present locally at `C:\Users\moham\cstam\Architecture B`;
+   reference copy (already present locally;
    this is a copy of it committed into Architecture A's own repo so the comparison is
    reproducible without depending on the external clone staying available).
 2. **`comparison/architecture_b/`** — a working copy of just the files

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Source repo: `a teammate's repository`, commit `3249ecb` ("Initial commit") — already cloned locally at `C:\Users\moham\cstam\Architecture B`.
+- Source repo: `a teammate's repository`, commit `3249ecb` ("Initial commit") — already cloned locally.
 - No write access to `a teammate/Architecture B` and no attempt to push there. All deliverables land only in this repo (`PublisherX02/Claim_Guard`, worktree branch `worktree-yara-facts-blob-harness`).
 - No artificial leveling: both systems are compared as complete, real architectures exactly as they work. Do not strip Architecture B's OCR/RAG down to "match" Architecture A's current capabilities.
 - Local model for both sides: `gemma3:4b` via Ollama's OpenAI-compatible endpoint, `http://localhost:11434/v1`, API key placeholder `"ollama-local"` — this is the exact convention `src/llm_adapter.py`'s `OllamaExplanationProvider` already uses; reuse it, don't reinvent it.
