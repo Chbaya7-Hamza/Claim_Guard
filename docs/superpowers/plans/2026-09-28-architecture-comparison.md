@@ -44,7 +44,7 @@
 
 ```bash
 mkdir -p comparison
-cp -r /c/Users/moham/cstam/Architecture B comparison/architecture_b_original
+cp -r <path to a local clone of the teammate's repository> comparison/architecture_b_original
 rm -rf comparison/architecture_b_original/.git
 ```
 
