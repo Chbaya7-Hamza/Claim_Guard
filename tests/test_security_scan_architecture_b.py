@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 
 class DangerousSinkScanTests(unittest.TestCase):
     def test_finds_eval_in_a_fixture_file(self):
-        from security_scan_clinicproj import scan_dangerous_sinks
+        from security_scan_architecture_b import scan_dangerous_sinks
         with tempfile.TemporaryDirectory() as tmp:
             f = Path(tmp) / 'calc.py'
             f.write_text("def calculator(expr):\n    return eval(expr)\n", encoding='utf-8')
@@ -20,7 +20,7 @@ class DangerousSinkScanTests(unittest.TestCase):
         self.assertIn('eval', findings[0]['line'])
 
     def test_clean_file_has_no_findings(self):
-        from security_scan_clinicproj import scan_dangerous_sinks
+        from security_scan_architecture_b import scan_dangerous_sinks
         with tempfile.TemporaryDirectory() as tmp:
             f = Path(tmp) / 'clean.py'
             f.write_text("def add(a, b):\n    return a + b\n", encoding='utf-8')
@@ -30,14 +30,14 @@ class DangerousSinkScanTests(unittest.TestCase):
 
 class GroundingGuardCheckTests(unittest.TestCase):
     def test_no_grounding_guard_found_when_absent(self):
-        from security_scan_clinicproj import has_citation_grounding_guard
+        from security_scan_architecture_b import has_citation_grounding_guard
         with tempfile.TemporaryDirectory() as tmp:
             f = Path(tmp) / 'agent.py'
             f.write_text("def validate_claim(claim, agent):\n    return agent.invoke(claim)\n", encoding='utf-8')
             self.assertFalse(has_citation_grounding_guard(Path(tmp)))
 
     def test_grounding_guard_found_when_present(self):
-        from security_scan_clinicproj import has_citation_grounding_guard
+        from security_scan_architecture_b import has_citation_grounding_guard
         with tempfile.TemporaryDirectory() as tmp:
             f = Path(tmp) / 'agent.py'
             f.write_text("def check_grounding(explanation, finding):\n    pass\n", encoding='utf-8')
@@ -46,10 +46,10 @@ class GroundingGuardCheckTests(unittest.TestCase):
 
 class ScanDirectoriesTests(unittest.TestCase):
     def test_merges_findings_across_several_directories(self):
-        # ClaimGuard's own code spans src/ and scripts/, unlike clinicProj's
+        # Architecture A's own code spans src/ and scripts/, unlike Architecture B's
         # single-directory adapted copy -- _scan_directories() is how both
         # get scored by the same measurement instead of one being hardcoded.
-        from security_scan_clinicproj import _scan_directories
+        from security_scan_architecture_b import _scan_directories
         with tempfile.TemporaryDirectory() as tmp:
             d1, d2 = Path(tmp) / 'src', Path(tmp) / 'scripts'
             d1.mkdir()
@@ -62,7 +62,7 @@ class ScanDirectoriesTests(unittest.TestCase):
         self.assertTrue(result['has_citation_grounding'])  # found in d2, even though d1 has none
 
     def test_clean_directories_have_no_findings_and_no_grounding(self):
-        from security_scan_clinicproj import _scan_directories
+        from security_scan_architecture_b import _scan_directories
         with tempfile.TemporaryDirectory() as tmp:
             d1, d2 = Path(tmp) / 'src', Path(tmp) / 'scripts'
             d1.mkdir()

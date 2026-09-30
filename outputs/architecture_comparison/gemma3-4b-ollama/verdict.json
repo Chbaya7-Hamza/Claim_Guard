@@ -1,34 +1,34 @@
 {
   "categories": {
     "correctness": {
-      "claimguard": 100.0,
-      "clinicproj": 0.0,
-      "winner": "claimguard"
+      "architecture_a": 100.0,
+      "architecture_b": 0.0,
+      "winner": "architecture_a"
     },
     "rapidness": {
-      "claimguard": 100.0,
-      "clinicproj": 0.0,
-      "winner": "claimguard"
+      "architecture_a": 100.0,
+      "architecture_b": 0.0,
+      "winner": "architecture_a"
     },
     "security": {
-      "claimguard": 100.0,
-      "clinicproj": 35.0,
-      "winner": "claimguard"
+      "architecture_a": 100.0,
+      "architecture_b": 35.0,
+      "winner": "architecture_a"
     },
     "deliverability": {
-      "claimguard": 83.33,
-      "clinicproj": 16.67,
-      "winner": "claimguard"
+      "architecture_a": 83.33,
+      "architecture_b": 16.67,
+      "winner": "architecture_a"
     },
     "efficiency": {
-      "claimguard": 100.0,
-      "clinicproj": 20.0,
-      "winner": "claimguard"
+      "architecture_a": 100.0,
+      "architecture_b": 20.0,
+      "winner": "architecture_a"
     }
   },
   "overall": {
-    "clinicproj": 13.33,
-    "claimguard": 96.67,
-    "winner": "claimguard"
+    "architecture_b": 13.33,
+    "architecture_a": 96.67,
+    "winner": "architecture_a"
   }
 }

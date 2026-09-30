@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT / 'src'))
 
 class SampleClaimsTests(unittest.TestCase):
     def test_sample_size_caps_the_number_of_claims_read(self):
-        from run_clinicproj_comparison import sample_claims
+        from run_architecture_comparison import sample_claims
         claims = sample_claims(ROOT / 'data' / 'development' / 'claims.jsonl', sample_size=5)
         self.assertEqual(len(claims), 5)
         self.assertEqual(len({c['claim_id'] for c in claims}), 5)
@@ -19,7 +19,7 @@ class SampleClaimsTests(unittest.TestCase):
 
 class RunSystemTests(unittest.TestCase):
     def test_records_one_row_per_claim_with_latency_and_status(self):
-        from run_clinicproj_comparison import run_system
+        from run_architecture_comparison import run_system
 
         claims = [{'claim_id': 'CG-1'}, {'claim_id': 'CG-2'}]
 
@@ -39,7 +39,7 @@ class RunSystemTests(unittest.TestCase):
         self.assertIsNone(rows[0]['error'])
 
     def test_a_claim_that_raises_is_recorded_not_fatal(self):
-        from run_clinicproj_comparison import run_system
+        from run_architecture_comparison import run_system
 
         claims = [{'claim_id': 'CG-1'}, {'claim_id': 'CG-2'}]
 
@@ -61,8 +61,8 @@ class RunSystemTests(unittest.TestCase):
     def test_a_parse_error_from_the_runner_is_carried_through_to_the_row(self):
         # Distinguishes "not valid JSON at all" from "valid JSON missing the
         # key" (both score as a miss, but only the first is a parse_error) --
-        # see parse_clinicproj_reply.
-        from run_clinicproj_comparison import run_system
+        # see parse_architecture_b_reply.
+        from run_architecture_comparison import run_system
 
         def runner(claim):
             return {'status': None, 'raw_output': 'not json', 'parse_error': 'Expecting value: line 1 column 1'}
@@ -75,7 +75,7 @@ class RunSystemTests(unittest.TestCase):
         self.assertEqual(rows[0]['parse_error'], 'Expecting value: line 1 column 1')
 
     def test_no_parse_error_key_defaults_to_none_not_a_missing_key(self):
-        from run_clinicproj_comparison import run_system
+        from run_architecture_comparison import run_system
 
         def runner(claim):
             return {'status': 'VALID', 'raw_output': '{}'}  # no parse_error key at all
@@ -89,24 +89,24 @@ class RunSystemTests(unittest.TestCase):
         self.assertIsNone(rows[0]['parse_error'])
 
 
-class ParseClinicprojReplyTests(unittest.TestCase):
+class ParseArchitectureBReplyTests(unittest.TestCase):
     def test_invalid_json_sets_parse_error(self):
-        from run_clinicproj_comparison import parse_clinicproj_reply
-        result = parse_clinicproj_reply('not json at all')
+        from run_architecture_comparison import parse_architecture_b_reply
+        result = parse_architecture_b_reply('not json at all')
         self.assertIsNone(result['status'])
         self.assertIsNotNone(result['parse_error'])
 
     def test_valid_json_missing_the_key_has_no_parse_error(self):
         # Distinct from the invalid-JSON case: the agent replied with a real
         # JSON object, it just didn't include overall_status.
-        from run_clinicproj_comparison import parse_clinicproj_reply
-        result = parse_clinicproj_reply('{"findings": []}')
+        from run_architecture_comparison import parse_architecture_b_reply
+        result = parse_architecture_b_reply('{"findings": []}')
         self.assertIsNone(result['status'])
         self.assertIsNone(result['parse_error'])
 
     def test_valid_reply_extracts_the_status(self):
-        from run_clinicproj_comparison import parse_clinicproj_reply
-        result = parse_clinicproj_reply('{"overall_status": "VALID"}')
+        from run_architecture_comparison import parse_architecture_b_reply
+        result = parse_architecture_b_reply('{"overall_status": "VALID"}')
         self.assertEqual(result['status'], 'VALID')
         self.assertIsNone(result['parse_error'])
 

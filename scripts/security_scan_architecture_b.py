@@ -1,8 +1,8 @@
-"""Static and (optionally) live security checks against the adapted clinicProj
-copy, feeding scripts/score_clinicproj_comparison.py's security category.
+"""Static and (optionally) live security checks against the adapted Architecture B
+copy, feeding scripts/score_architecture_comparison.py's security category.
 
-    python scripts/security_scan_clinicproj.py            # static checks only
-    python scripts/security_scan_clinicproj.py --live      # + a live prompt-injection probe (needs Ollama)
+    python scripts/security_scan_architecture_b.py            # static checks only
+    python scripts/security_scan_architecture_b.py --live      # + a live prompt-injection probe (needs Ollama)
 """
 import argparse
 import json
@@ -11,11 +11,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ADAPTED = ROOT / 'comparison' / 'clinicproj_adapted'
+ADAPTED = ROOT / 'comparison' / 'architecture_b'
 OUT_ROOT = ROOT / 'outputs' / 'architecture_comparison'
 
-# Same sink family tests/test_security_owasp.py checks against ClaimGuard's own src/
-# and scripts/ -- applied here to clinicProj's adapted copy for a like-for-like read.
+# Same sink family tests/test_security_owasp.py checks against Architecture A's own src/
+# and scripts/ -- applied here to Architecture B's adapted copy for a like-for-like read.
 # Imported, not duplicated: a second copy of this pattern living in scripts/ (a folder
 # the pattern itself scans) would flag itself the moment it's written. See
 # tests/security_sinks.py's docstring.
@@ -41,9 +41,9 @@ def scan_dangerous_sinks(directory: Path) -> list:
 
 
 def has_citation_grounding_guard(directory: Path) -> bool:
-    """ClaimGuard's src/llm_adapter.py has check_grounding()/_UNGROUNDED --
+    """Architecture A's src/llm_adapter.py has check_grounding()/_UNGROUNDED --
     a check that an AI explanation's claims are actually backed by the
-    evidence it was given. clinicProj's agent.py has no equivalent: its
+    evidence it was given. Architecture B's agent.py has no equivalent: its
     system prompt asks the model not to hallucinate, but nothing in code
     verifies that after the fact."""
     for p in directory.glob('*.py'):
@@ -72,8 +72,8 @@ def run_injection_probe():
         'authorizations': [], 'attachments': [],
         'notes': INJECTION_PAYLOAD,
     }
-    # Same absolute-path fix as scripts/run_clinicproj_comparison.py: build_agent()'s
-    # default relative "policies" path only resolves when cwd is comparison/clinicproj_adapted/.
+    # Same absolute-path fix as scripts/run_architecture_comparison.py: build_agent()'s
+    # default relative "policies" path only resolves when cwd is comparison/architecture_b/.
     rag_index = build_rag_index(str(ADAPTED / 'policies'))
     agent = build_agent(rag_index=rag_index)
     reply = validate_claim(claim, agent, thread_id='security-probe')
@@ -106,7 +106,7 @@ def run_injection_probe():
 
 def _scan_directories(directories) -> dict:
     """Merge scan_dangerous_sinks/has_citation_grounding_guard across several
-    directories -- ClaimGuard's own code spans src/ and scripts/, clinicProj's
+    directories -- Architecture A's own code spans src/ and scripts/, Architecture B's
     adapted copy is a single directory."""
     sinks = []
     grounded = False
@@ -127,7 +127,7 @@ def main():
         if not a.model:
             raise SystemExit('--model is required with --provider featherless')
         import os
-        from run_clinicproj_comparison import _load_dotenv
+        from run_architecture_comparison import _load_dotenv
         _load_dotenv()
         os.environ['COMPARISON_PROVIDER'] = 'featherless'
         os.environ['COMPARISON_LLM_MODEL'] = a.model
@@ -140,21 +140,21 @@ def main():
         except Exception as e:  # noqa: BLE001 -- a probe failure must not lose the static scan results
             injection_resistance = {'error': f'{type(e).__name__}: {e}'}
 
-    clinicproj_report = _scan_directories([ADAPTED])
-    clinicproj_report['injection_resistance'] = injection_resistance
+    architecture_b_report = _scan_directories([ADAPTED])
+    architecture_b_report['injection_resistance'] = injection_resistance
 
-    # ClaimGuard measured the same way as clinicProj (not hardcoded): the same
-    # dangerous-sink scan and grounding-guard check run against ClaimGuard's own
-    # src/ and scripts/. injection_probe_applicable=False -- ClaimGuard's
+    # Architecture A measured the same way as Architecture B (not hardcoded): the same
+    # dangerous-sink scan and grounding-guard check run against Architecture A's own
+    # src/ and scripts/. injection_probe_applicable=False -- Architecture A's
     # rule-engine-plus-explanation architecture has no free-text conversational
-    # surface to run this specific probe against the way clinicProj's agent
+    # surface to run this specific probe against the way Architecture B's agent
     # does; its prompt-injection resistance is covered by its own existing test
     # suite instead (tests/test_stress_ai_boundary.py, tests/test_security_owasp.py),
     # not re-measured by this script. See docs/24 for why that's not a free pass.
-    claimguard_report = _scan_directories([ROOT / 'src', ROOT / 'scripts'])
-    claimguard_report['injection_probe_applicable'] = False
+    architecture_a_report = _scan_directories([ROOT / 'src', ROOT / 'scripts'])
+    architecture_a_report['injection_probe_applicable'] = False
 
-    report = {'clinicproj': clinicproj_report, 'claimguard': claimguard_report}
+    report = {'architecture_b': architecture_b_report, 'architecture_a': architecture_a_report}
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(report, indent=2), encoding='utf-8')
     print(json.dumps(report, indent=2))

@@ -1,10 +1,10 @@
-"""Run both ClaimGuard and clinicProj over the same claim sample, recording
-per-claim latency, status and raw output for scripts/score_clinicproj_comparison.py.
+"""Run both Architecture A and Architecture B over the same claim sample, recording
+per-claim latency, status and raw output for scripts/score_architecture_comparison.py.
 
-    python scripts/run_clinicproj_comparison.py --sample-size 36
+    python scripts/run_architecture_comparison.py --sample-size 36
 
 Needs Ollama running locally with gemma3:4b pulled (`ollama serve`) and, for
-the clinicproj side, comparison/clinicproj_adapted's own dependencies
+the architecture_b side, comparison/architecture_b's own dependencies
 installed (see comparison/README.md) -- this module itself stays importable
 without those, so its sampling/recording logic can be unit-tested offline.
 """
@@ -76,7 +76,7 @@ def run_system(claims, runner, system_name, out_path):
                   f"{row['status'] or 'ERROR'} ({row['latency_s']:.1f}s)")
 
 
-def _claimguard_runner(provider_name, model):
+def _architecture_a_runner(provider_name, model):
     sys.path.insert(0, str(ROOT / 'src'))
     from claim_review import review_package
     from engine_core import config
@@ -112,9 +112,9 @@ def extract_json_object(text):
     return None
 
 
-def parse_clinicproj_reply(reply: str) -> dict:
-    """Pure, independently testable: clinicProj's agent has no schema check
-    (unlike ClaimGuard's llm_adapter.py), so its reply can be malformed in two
+def parse_architecture_b_reply(reply: str) -> dict:
+    """Pure, independently testable: Architecture B's agent has no schema check
+    (unlike Architecture A's llm_adapter.py), so its reply can be malformed in two
     different ways a reviewer needs to tell apart -- not valid JSON at all, or
     valid JSON that simply doesn't have an overall_status key. Both count as a
     miss for scoring, but only the first sets parse_error, so the two failure
@@ -123,7 +123,7 @@ def parse_clinicproj_reply(reply: str) -> dict:
         parsed = json.loads(reply)
     except json.JSONDecodeError as e:
         # Disclosed adjustment, recorded beside (never instead of) the strict result: some models wrap a valid JSON object
-        # in prose or a code fence. clinicProj has no parser of its own, so strict stays the default score.
+        # in prose or a code fence. Architecture B has no parser of its own, so strict stays the default score.
         obj = extract_json_object(reply)
         lenient = obj.get('overall_status') if obj else None
         if isinstance(lenient, str):
@@ -133,18 +133,18 @@ def parse_clinicproj_reply(reply: str) -> dict:
     return {'status': parsed.get('overall_status'), 'raw_output': reply, 'parse_error': None}
 
 
-def _clinicproj_runner():
-    adapted = ROOT / 'comparison' / 'clinicproj_adapted'
+def _architecture_b_runner():
+    adapted = ROOT / 'comparison' / 'architecture_b'
     sys.path.insert(0, str(adapted))
     from agent import build_agent, build_rag_index, validate_claim
     # build_agent()'s default rag_index uses a relative "policies" path (matching
-    # the original script's behavior when run from inside comparison/clinicproj_adapted/)
+    # the original script's behavior when run from inside comparison/architecture_b/)
     # -- this harness runs from the repo root, so the policies dir must be absolute.
     rag_index = build_rag_index(str(adapted / 'policies'))
     agent = build_agent(rag_index=rag_index)
 
     def run(claim):
-        return parse_clinicproj_reply(validate_claim(claim, agent))
+        return parse_architecture_b_reply(validate_claim(claim, agent))
 
     return run
 
@@ -182,7 +182,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--claims', default=str(ROOT / 'data' / 'development' / 'claims.jsonl'))
     p.add_argument('--sample-size', type=int, default=36)
-    p.add_argument('--system', choices=('claimguard', 'clinicproj', 'both'), default='both')
+    p.add_argument('--system', choices=('architecture_a', 'architecture_b', 'both'), default='both')
     p.add_argument('--provider', choices=('ollama', 'featherless'), default='ollama')
     p.add_argument('--model', help='required with --provider featherless; both systems run this same model')
     p.add_argument('--tag', default='gemma3-4b-ollama', help='results go to outputs/architecture_comparison/<tag>/; required (and must not be the gemma3 one) with --provider featherless')
@@ -197,17 +197,17 @@ def main():
         os.environ['COMPARISON_PROVIDER'] = 'featherless'
         os.environ['COMPARISON_LLM_MODEL'] = a.model
     else:
-        os.environ.pop('COMPARISON_PROVIDER', None)  # a stale value must not send clinicProj to a different model than ClaimGuard
+        os.environ.pop('COMPARISON_PROVIDER', None)  # a stale value must not send Architecture B to a different model than Architecture A
         os.environ.pop('COMPARISON_LLM_MODEL', None)
     _check_provider(a.provider)
     out_dir = OUT_ROOT / a.tag
     claims = sample_claims(a.claims, a.sample_size)
     print(f'{len(claims)} claim(s) sampled from {a.claims}')
 
-    if a.system in ('claimguard', 'both'):
-        run_system(claims, _claimguard_runner(a.provider, a.model), 'claimguard', out_dir / 'claimguard.jsonl')
-    if a.system in ('clinicproj', 'both'):
-        run_system(claims, _clinicproj_runner(), 'clinicproj', out_dir / 'clinicproj.jsonl')
+    if a.system in ('architecture_a', 'both'):
+        run_system(claims, _architecture_a_runner(a.provider, a.model), 'architecture_a', out_dir / 'architecture_a.jsonl')
+    if a.system in ('architecture_b', 'both'):
+        run_system(claims, _architecture_b_runner(), 'architecture_b', out_dir / 'architecture_b.jsonl')
 
 
 if __name__ == '__main__':

@@ -1,0 +1,10 @@
+# NOT a Architecture B dependency -- this comparison's own plotting script
+# (scripts/plot_architecture_comparison.py) needs matplotlib, which is not in
+# Architecture A's own requirements.txt either (scripts/plot_model_comparison.py
+# has the same property already). Kept in a separate file from
+# requirements.txt so scripts/score_architecture_comparison.py's efficiency
+# metric counts Architecture B's own dependency footprint accurately -- it must
+# not be charged against Architecture B for a tool this comparison's harness
+# needs, not Architecture B itself. Install alongside requirements.txt; see
+# comparison/README.md.
+matplotlib==3.10.0
