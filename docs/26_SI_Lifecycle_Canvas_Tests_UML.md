@@ -64,7 +64,20 @@ Steps 1, 2 (in part), 3 (Phase 1) and 4 (Phase 1) are complete. Steps 5 and 6 ar
 | Key partners | Payers willing to pilot; model provider or local-serving stack; the mentor and challenge organisers |
 | Cost structure | Developer time; model inference (hosted API or GPU for on-prem); compliance and security review |
 
-**Research still to do (nothing below is done):** interview 3 to 5 claims reviewers about their current process; confirm which rules matter most; find out whether on-prem is a hard requirement; size the market from a real source; compare against existing claim-scrubbing products. Until then the canvas is a structured guess.
+### Desk research behind the canvas (30 September 2026)
+
+What web research supports. These are web summaries, several from vendor or billing-industry blogs, not primary datasets, and the US figures describe the US market; none of it is our own measurement. Check a number against its original report before putting it on a slide.
+
+| Question | What the sources say | Source |
+|---|---|---|
+| Is the problem real? | The all-payer initial claim denial rate was reported as 11.8% in 2024, up from 10.2% in 2020, with about 12.6% estimated for 2026. Administrative errors are cited as 30% to 40% of denials. | [Medical Billing Denial Statistics 2026](https://www.gomedicalbilling.com/medical-billing-denial-statistics-2026), [Claim Denial Statistics 2026](https://nirmitee.io/blog/healthcare-denial-trends-2026-data-root-causes-ai-playbook/) |
+| What does an error cost? | Reworking a denied claim is cited at $25 to $181, about $118 on average. | [Claim Denial Statistics 2026](https://nirmitee.io/blog/healthcare-denial-trends-2026-data-root-causes-ai-playbook/) |
+| Who already sells pre-submission checking? | "Claim scrubbers" are an established product category: Optum, Waystar, Change Healthcare, Cotiviti, Availity and others. They check codes, modifiers and payer-specific rules before submission, and some market AI. | [Top 10 claim scrubber software 2026](https://healthorbit.ai/blog/top-10-claim-scrubber-software-to-cut-rejections-2026/), [Best Claim Scrubber Software](https://gitnux.org/best/claim-scrubber-software/) |
+| Is explainability and an audit trail demanded? | Insurance AI governance sources say regulators expect a decision audit trail, explanation of each decision and human accountability. One source ties this to EU AI Act high-risk obligations for insurance, including Article 13 (explainability) and Article 43 (conformity assessment), with an August 2026 deadline. | [AI Governance for Insurance](https://www.openlayer.com/blog/ai-governance-insurance-eu-ai-act), [AI Governance in Insurance: What Regulators Are Actually Asking](https://sortspoke.com/blog/ai-governance-insurance-what-regulators-ask) |
+
+**What this means for the canvas.** The problem is real and expensive, so the "problem" block holds. The market is **not empty**: established scrubbers exist, so "we check claims before review" is not a differentiator on its own. Our differentiator is a *hypothesis*, not a finding: deterministic rules that an AI cannot override, explanations checked against evidence, a tamper-evident audit trail, and a design that can run on-prem. We have not compared features against any of those vendors, and we do not know that they lack any of these, so the pitch must not say they do. The regulation point is relevant only if this were sold into the EU and needs checking against the actual text of the Act, not a blog summary.
+
+**Research still to do (nothing below is done):** interview 3 to 5 claims reviewers about their current process; confirm which rules matter most; find out whether on-prem is a hard requirement; size the market from a primary source; compare features against two named scrubbers. Until the interviews happen, the customer, revenue and partner blocks of the canvas are a structured guess.
 
 ---
 
