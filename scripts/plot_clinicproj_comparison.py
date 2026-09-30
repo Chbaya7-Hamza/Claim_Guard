@@ -15,7 +15,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_VERDICT = ROOT / 'outputs' / 'architecture_comparison' / 'verdict.json'
+DEFAULT_VERDICT = ROOT / 'outputs' / 'architecture_comparison' / 'gemma3-4b-ollama' / 'verdict.json'
 DEFAULT_OUT_DIR = ROOT / 'docs' / 'figures'
 
 GREEN = '#1a9641'   # ClaimGuard
@@ -23,7 +23,7 @@ AMBER = '#e8971e'   # clinicProj
 INK = '#1c2b3a'
 
 
-def draw(verdict_path, out_dir):
+def draw(verdict_path, out_dir, suffix=''):
     verdict = json.loads(Path(verdict_path).read_text(encoding='utf-8'))
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -47,7 +47,7 @@ def draw(verdict_path, out_dir):
     for spine in ('top', 'right'):
         ax.spines[spine].set_visible(False)
     fig.tight_layout()
-    fig.savefig(out_dir / 'architecture_comparison_categories.png', dpi=150)
+    fig.savefig(out_dir / f'architecture_comparison_categories{suffix}.png', dpi=150)
     plt.close(fig)
 
     fig, ax = plt.subplots(figsize=(4.5, 5))
@@ -65,7 +65,7 @@ def draw(verdict_path, out_dir):
     for spine in ('top', 'right'):
         ax.spines[spine].set_visible(False)
     fig.tight_layout()
-    fig.savefig(out_dir / 'architecture_comparison_overall.png', dpi=150)
+    fig.savefig(out_dir / f'architecture_comparison_overall{suffix}.png', dpi=150)
     plt.close(fig)
 
 
@@ -73,8 +73,9 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--verdict', default=str(DEFAULT_VERDICT))
     p.add_argument('--out-dir', default=str(DEFAULT_OUT_DIR))
+    p.add_argument('--suffix', default='', help="e.g. '_qwen25-7b' so runs don't overwrite each other's figures")
     a = p.parse_args()
-    draw(a.verdict, a.out_dir)
+    draw(a.verdict, a.out_dir, a.suffix)
     print(f'Wrote figures to {a.out_dir}')
 
 

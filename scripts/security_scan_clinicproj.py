@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ADAPTED = ROOT / 'comparison' / 'clinicproj_adapted'
-OUT = ROOT / 'outputs' / 'architecture_comparison' / 'security_report.json'
+OUT_ROOT = ROOT / 'outputs' / 'architecture_comparison'
 
 # Same sink family tests/test_security_owasp.py checks against ClaimGuard's own src/
 # and scripts/ -- applied here to clinicProj's adapted copy for a like-for-like read.
@@ -119,7 +119,19 @@ def _scan_directories(directories) -> dict:
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--live', action='store_true')
+    p.add_argument('--tag', default='gemma3-4b-ollama', help='writes outputs/architecture_comparison/<tag>/security_report.json')
+    p.add_argument('--provider', choices=('ollama', 'featherless'), default='ollama')
+    p.add_argument('--model')
     a = p.parse_args()
+    if a.provider == 'featherless':
+        if not a.model:
+            raise SystemExit('--model is required with --provider featherless')
+        import os
+        from run_clinicproj_comparison import _load_dotenv
+        _load_dotenv()
+        os.environ['COMPARISON_PROVIDER'] = 'featherless'
+        os.environ['COMPARISON_LLM_MODEL'] = a.model
+    OUT = OUT_ROOT / a.tag / 'security_report.json'
 
     injection_resistance = None
     if a.live:

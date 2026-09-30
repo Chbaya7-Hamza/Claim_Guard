@@ -1,206 +1,113 @@
 # 24 | ClaimGuard vs. clinicProj: an architecture comparison
 
-Mentor-requested comparison between ClaimGuard's own deterministic-rules-plus-
-grounded-AI architecture and a teammate's separately-built RAG+OCR+agentic
-system (`github.com/ayechiahmed/clinicProj`). Full methodology and rationale:
-`docs/superpowers/specs/2026-09-28-clinicproj-architecture-comparison-design.md`.
-Reproduce this yourself: `comparison/README.md`.
+Mentor-requested comparison between ClaimGuard's deterministic-rules-plus-grounded-AI architecture and a teammate's separately
+built RAG+OCR+agentic system (`github.com/ayechiahmed/clinicProj`). Methodology: `docs/superpowers/specs/2026-09-28-clinicproj-architecture-comparison-design.md`.
+Reproduce: `comparison/README.md`. Model choice for the second run: `docs/25_Comparison_Model_Selection.md`.
 
-## Headline finding, stated first because it drives every number below
+There are two runs. The first was not a fair test and is kept as a finding. The second is the one to quote, with its limits.
 
-**clinicProj's architecture cannot run at all on gemma3:4b, the local model
-ClaimGuard's team chose.** Every one of the 36 sampled claims failed
-identically with `openai.BadRequestError: registry.ollama.ai/library/gemma3:4b
-does not support tools`. Confirmed structurally, not just empirically, via
-Ollama's own capability listing (`ollama show gemma3:4b` / `/api/show`):
-gemma3:4b reports `['completion', 'vision']` — no `tools` — while another
-locally-pulled model, qwen3:4b, reports `['completion', 'tools', 'thinking']`.
-clinicProj's agent is a LangGraph ReAct agent built on OpenAI-style
-tool-calling (`retrieve_documents`, `calculator`); that is not a bug in this
-comparison's harness, it is a hard capability gap in the model.
+## Run 1 (gemma3:4b, Ollama, offline): clinicProj could not run
 
-We did **not** switch clinicProj to a different, tool-capable local model
-(e.g. qwen3:4b) to get it running — that would reintroduce "different model"
-as a confound and defeat the point of wiring both systems to the same one. We
-also did not rewrite clinicProj's agent to drop tool-calling (e.g. a manual
-retrieve-then-prompt pipeline) — that would be changing its actual
-architecture, not comparing it. Both would have produced a more flattering
-number for clinicProj and a less honest comparison. See "Verdict" below for
-what this means and does not mean.
+clinicProj's agent is a LangGraph ReAct agent built on OpenAI-style tool calling. `gemma3:4b` reports no `tools` capability in Ollama,
+so every one of 36 claims failed with `does not support tools`. The 96.67 vs 13.33 score from that run measured the model, not the
+architecture, and is **not** a result to cite as "ClaimGuard wins". What it does show: an architecture that depends on a model
+capability (tool calling) is more fragile to a local-model choice than one that only asks a model to explain text. Evidence:
+`outputs/architecture_comparison/gemma3-4b-ollama/`, figures `*_gemma3.png`.
+
+## Run 2 (Qwen2.5-14B-Instruct, Featherless, hosted): both systems on one tool-capable model
+
+- **Model.** `Qwen/Qwen2.5-14B-Instruct` for both systems. ClaimGuard's production explanation model is Mistral-Nemo, but Nemo writes tool
+  calls as plain text and cannot drive clinicProj, so a shared model had to differ from it. Screening table: doc 25.
+- **Hosted, not offline.** This run needs the network. The "fully local" property belongs to Run 1 only.
+- **Sample.** The first 12 claims of `data/development/claims.jsonl` (kept small on purpose). The first 6 were also in the model screening.
+- **Order.** clinicProj, then ClaimGuard, then the security probe, one after another, after a warm-up call.
+- **ClaimGuard's AI step was real.** 16 explanations, 0 template fallbacks (`used_fallback` false on all).
+- **Scoring.** `scripts/score_clinicproj_comparison.py`, deterministic, from the recorded rows. Weights with the new hallucination
+  category: correctness 25, hallucination 15, security 20, deliverability 15, rapidness 15, efficiency 10. A system is scored on
+  rapidness only for claims it actually answered.
+- **Strict and lenient are both reported.** clinicProj has no output parser, and Qwen often wraps valid JSON in prose or a code fence.
+  Strict counts only a reply that is JSON from the first character. Lenient takes the text from the first `{` to the last `}` and
+  is a disclosed adjustment for a formatting habit, not a change to clinicProj's logic.
+
+### The limit that matters most: the endpoint degenerated on clinicProj's runs
+
+Of clinicProj's 12 replies, **8 were degenerate** (runs of `!!!!!!…` or a `<tool_call>` written as text instead of executed) and **2 were
+service errors** (`The model failed to generate a response`, `No successful response received from completion service`). Only 2 to 3 of 12 held
+a parseable answer. The same model on the earlier 6-claim screen gave 6 of 6 lenient answers with no degenerate output, so the failure rate
+moved between runs. ClaimGuard's calls are short (about 85 completion tokens); clinicProj's agent produces long outputs across several tool
+rounds, so it is more exposed to an endpoint that degrades. We cannot separate "the endpoint glitched" from "the architecture needs long
+stable generations", and the numbers below should be read as **what clinicProj did on this hosted endpoint on this run**, not as its
+best case. A re-run on a stable endpoint, or local tool-capable serving, is the way to settle it.
+
+### Results
+
+| Category (weight) | ClaimGuard | clinicProj strict | clinicProj lenient |
+|---|---|---|---|
+| Correctness (25) | 100.0 | 0.0 | 8.3 |
+| Hallucination (15) | 100.0 | 0.0 (no answers) | 66.0 |
+| Security (20) | 100.0 | 35.0 | 20.0 |
+| Deliverability (15) | 83.33 | 16.67 | 16.67 |
+| Rapidness (15) | 100.0 | 0.0 | 4.0 |
+| Efficiency (10) | 100.0 | 20.0 | 20.0 |
+| **Overall** | **97.5** | **11.5** | **21.08** |
+
+Figures: `docs/figures/architecture_comparison_{categories,overall}_qwen25-{strict,lenient}.png`. Raw rows and verdicts:
+`outputs/architecture_comparison/qwen25-14b-featherless/`.
+
+**Correctness.** ClaimGuard matched the answer key on 12 of 12. That is guaranteed by construction (CI already demands a perfect score on this
+split), so it is not an independent finding. clinicProj matched 0 of 12 strictly and 1 of 12 leniently.
+
+**Hallucination (new metric).** Two rates over the findings a system actually produced, averaged, 100 meaning none. (a) Fabricated findings:
+a FAIL on a rule the answer key says did not fail, or a rule id outside R001 to R015. (b) Ungrounded evidence: a cited evidence value that
+appears nowhere in the claim (numbers compared numerically). A system with no parseable findings scores 0, since no answer is not an honest answer.
+
+| | Claims answered | Findings | Fabricated | Evidence values | Ungrounded |
+|---|---|---|---|---|---|
+| ClaimGuard | 12 | 180 | 0 | 570 | 0 |
+| clinicProj (lenient) | 4 | 9 | **5** | 16 | 2 |
+
+ClaimGuard's 0 and 0 are structural: its FAIL statuses come from the rules, which match the key, and its evidence is a direct lookup in the
+claim. clinicProj's 5 fabricated findings out of 9 is a real measurement but on a very small base (4 claims, 9 findings), so the 66.0 has a wide
+margin and should not be quoted as a rate. ClaimGuard's AI explanations also went through the existing grounding guards (0 fallbacks here).
+
+**Security.** The same scan ran on both codebases. clinicProj: two dangerous-sink matches (the calculator `eval`, a bare `input()`) and no
+citation-grounding guard. **The injection probe found something real:** a claim with a genuine currency violation (R015) and an injected instruction in
+its notes came back from clinicProj as `overall_status: VALID`, "The claim is fully valid with no findings." The reply was wrapped in prose, so
+strict scoring recorded it as "not verified" (-15); lenient scoring reads it as an incorrectly valid claim (-30), which is why the lenient security
+score is lower. It is one probe, one model, one run. ClaimGuard was not sent the probe because it has no free-text conversational surface for it; its
+injection resistance is covered by its own tests (`tests/test_stress_ai_boundary.py`, `docs/20`), and its score skips that one deduction tier.
+
+**Rapidness.** Computed only from answered claims. ClaimGuard: median 3.6 s per claim including live explanations. clinicProj: only 3 claims were answered even
+leniently, at 14 s, 46 s and 116 s (median 46 s); with n=3 that is an anecdote, not a rate. Strictly, it answered none, so its strict rapidness is 0.
+(The hallucination table counts 4 claims because one more reply held parseable findings without an `overall_status`.)
+
+**Deliverability and efficiency.** Unchanged from Run 1: a checklist (ClaimGuard 5 of 6; `auth_rbac_designed` false for both because no RBAC
+design is committed) and third-party dependency counts (3 vs 15, normalised to the leanest).
 
 ## What each system is
 
-**ClaimGuard** (this repo) runs `data/development/claims.jsonl` claims
-through 15 deterministic YARA-X rules (`src/run_yara.py`); each FAIL or
-UNABLE_TO_ASSESS finding then gets a grounded, schema-checked AI explanation
-(`src/llm_adapter.py`) from a local gemma3:4b via Ollama. The AI never
-decides status — it explains a deterministic verdict, with citation-grounding
-and closing-gate checks enforced in code — and every step is written to a
-tamper-evident hash-chained audit log before the next step runs.
+**ClaimGuard** runs claims through 15 deterministic YARA-X rules; each FAIL or UNABLE_TO_ASSESS finding gets a schema-checked, citation-grounded
+AI explanation. The AI never decides status, and every step goes to a tamper-evident audit log.
 
-**clinicProj** (`comparison/clinicproj_adapted/`, adapted only to swap its
-LLM binding from cloud Gemini to local gemma3:4b — see `comparison/README.md`)
-is a LangGraph ReAct agent. Claim documents go through `extractor.py`
-(Tesseract OCR for images/scanned PDFs, then an LLM call to turn raw text
-into structured claim JSON); payer policy text is chunked and embedded
-(`all-MiniLM-L6-v2`) into a FAISS index; the agent has a `retrieve_documents`
-tool for semantic search over that index plus a regex-sandboxed `calculator`
-tool. The agent itself — not any deterministic layer — decides rule matches,
-severity, confidence and recommendations, driven entirely by one large system
-prompt. There is no audit log, no persistence layer, no test suite, no CI,
-and no schema validation of the agent's own output; `server.py` in the
-original repo is empty (unimplemented).
-
-## Methodology
-
-- Both systems wired to the identical local model: gemma3:4b via Ollama
-  (`http://localhost:11434`), the same endpoint and model ClaimGuard's own
-  `OllamaExplanationProvider` already used before this comparison existed.
-- Sample: 36 claims from `data/development/claims.jsonl` — the same
-  sample size used in prior model-comparison experiments (`docs/21`), run in
-  full; clinicProj's per-claim failures were near-instantaneous, so there was
-  no latency-budget reason to sample smaller.
-- clinicProj's `policies/` folder was given a complete, honest prose
-  rewrite of all 15 CSTAM rules (`comparison/clinicproj_adapted/policies/cstam_rulebook.txt`),
-  not left with only its one throwaway sample policy — otherwise this would
-  measure "how does the agent behave with nothing real to retrieve," not a
-  fair test of its RAG capability.
-- Scoring: `scripts/score_clinicproj_comparison.py`, a deterministic,
-  rerunnable script — not a number typed into this document by hand. Weights
-  (correctness 30, security 20, deliverability 20, rapidness 15, efficiency
-  15) and their rationale are in the design spec's "Who wins benchmark
-  scoring" table, chosen to track the mentor's own stated evaluation
-  priorities where they overlap.
-- **Both systems are scored by the same formulas from real measurements.**
-  Earlier drafts of this comparison scored ClaimGuard's security as a flat,
-  assumed 100 and let a system that failed every claim also "win" rapidness
-  by virtue of failing in under a second — both were caught in review and
-  fixed before this version. ClaimGuard's dangerous-sink scan and
-  citation-grounding check now run against its own `src/` and `scripts/`,
-  exactly like clinicProj's; and rapidness is computed only from claims a
-  system actually answered, so failing fast is no longer confused with
-  answering fast.
-
-## Results
-
-![Category scores](figures/architecture_comparison_categories.png)
-
-| Category | ClaimGuard | clinicProj | Winner |
-|---|---|---|---|
-| Correctness | 100.0 | 0.0 | ClaimGuard |
-| Rapidness | 100.0 | 0.0 | ClaimGuard |
-| Security | 100.0 | 35.0 | ClaimGuard |
-| Deliverability | 83.33 | 16.67 | ClaimGuard |
-| Efficiency | 100.0 | 20.0 | ClaimGuard |
-
-![Overall verdict](figures/architecture_comparison_overall.png)
-
-**Overall weighted score: ClaimGuard 96.67, clinicProj 13.33 — ClaimGuard
-wins every category outright.**
-
-**Correctness:** ClaimGuard matched the answer key's claim-level status
-(VALID / REVIEW_REQUIRED / INVALID, derived the same way for both systems —
-methodology detail: any FAIL row makes a claim INVALID, any UNABLE_TO_ASSESS
-without a FAIL makes it REVIEW_REQUIRED, otherwise VALID) on all 36 sampled
-claims. **Caveat, stated so a mentor's question already has an answer on the
-page:** ClaimGuard's rule engine achieving 100% here is expected, not an
-independent surprise — CI's `rules-accuracy` job (`.github/workflows/ci.yml`)
-already requires a perfect score against the answer key on this same
-`development` split before any change can merge, so this number is guaranteed
-by construction, not a new finding. clinicProj scored 0.0 — not because its
-reasoning is worse, but because it produced no answer for any claim (see
-headline finding).
-
-**Rapidness:** measured only from claims a system actually answered — a
-claim that errored out did not get answered quickly, it just did not get
-answered, so its near-zero failure latency does not count as speed. ClaimGuard
-answered all 36 claims for real, with per-claim latency (deterministic rules
-plus a live gemma3:4b explanation call for every flagged finding) ranging up
-to 21.2s on the most complex case. clinicProj answered zero claims, so it has
-nothing to time and scores 0 — not a tie, not a rounding artifact, an accurate
-reflection of "an architecture that cannot run scores no better than an
-architecture that runs slowly."
-
-**Security:** `scripts/security_scan_clinicproj.py --live` ran the same
-scan against both systems' own code. Against
-`comparison/clinicproj_adapted/`: two dangerous-sink matches (`eval()` in the
-`calculator` tool — regex-prechecked to digits/operators only, so real risk
-is low, but still a flagged pattern; and a bare `input()` call in the CLI's
-interactive follow-up loop), no citation-grounding guard (clinicProj has no
-equivalent of ClaimGuard's `check_grounding()`/`_UNGROUNDED` check — nothing
-in code verifies an AI explanation's claims are backed by real evidence after
-the fact), and the prompt-injection resistance probe itself could not run for
-the same tool-calling reason as the correctness run (scored as a real
-deduction, not a free pass). Against ClaimGuard's own `src/` and `scripts/`:
-zero dangerous-sink matches and the citation-grounding guard was found
-(`src/llm_adapter.py`'s `check_grounding()`/`_UNGROUNDED`). **One asymmetry,
-stated explicitly:** the live prompt-injection probe itself was not re-run
-against ClaimGuard, because ClaimGuard's rule-engine-plus-explanation
-architecture has no free-text conversational surface to send the injection
-payload to the way clinicProj's agent does — there is no equivalent call to
-make. ClaimGuard's prompt-injection resistance is instead covered by its own
-existing, extensive test suite (`tests/test_stress_ai_boundary.py`,
-`tests/test_security_owasp.py`, `docs/20_Security_Audit.md`), not
-re-measured by this specific script; the scoring formula skips that one
-deduction tier for ClaimGuard rather than either fabricating a probe result
-or unfairly penalizing it for a dimension that does not apply to its design.
-
-**Deliverability:** a plain checklist (audit log, test suite, CI,
-auth/RBAC design, offline capability, schema-validated output). ClaimGuard
-has 5 of 6: audit log, test suite, CI, offline capability, and
-schema-validated output. **`auth_rbac_designed` is False for both systems** —
-an earlier draft of this document claimed it True for ClaimGuard, but a
-search of this repository found no RBAC implementation or design document
-committed here (the mobile-app RBAC discussion referenced in team notes lives
-outside this repository, not in it); claiming a checkbox with zero committed
-evidence would be exactly the kind of unverifiable figure this benchmark
-exists to catch. clinicProj has offline capability and nothing else on this
-list yet; it is early-stage work (a single "Initial commit," no CI,
-`server.py` unimplemented), which is a fair and expected state for that
-stage, not a criticism of the person who built it.
-
-**Efficiency:** fewer third-party runtime dependencies scores higher,
-normalized as a ratio to the leanest system (the same style as rapidness).
-ClaimGuard's `requirements.txt` has 3 pinned packages; clinicProj's inferred
-`requirements.txt` has 15 (none existed upstream) — matplotlib, needed only
-by this comparison's own plotting script and not by clinicProj itself, is
-kept in a separate `requirements-harness.txt` so it is not charged against
-clinicProj's dependency footprint. Not a token-cost measure: neither
-provider reliably reports tokens for every call in this setup.
+**clinicProj** (`comparison/clinicproj_adapted/`, changed only to swap Gemini for the configured model) is a LangGraph ReAct agent with OCR,
+a FAISS index of policy text and two tools. The agent alone decides rule matches, severity and recommendations from one large prompt. No audit
+log, no tests, no CI, no output schema check; its `server.py` is empty. It is early-stage work, which is a fair state for that stage.
 
 ## What clinicProj does that ClaimGuard doesn't
 
-OCR (Tesseract, scanned PDFs and images), a multi-turn conversational Q&A
-interface over a validated claim, and a general-purpose RAG layer that can
-ingest arbitrary policy documents without code changes. This comparison's
-claim sample was pre-structured JSON, not scanned documents, so OCR itself
-was not empirically exercised here — it's a real capability gap in
-ClaimGuard today, tracked separately (`docs/superpowers/specs/` mobile-app
-architecture notes), not something this comparison resolves either way.
-
-## What ClaimGuard does that clinicProj doesn't
-
-A deterministic rule layer the AI cannot override, schema-checked and
-citation-grounded AI explanations, a tamper-evident audit log, a test suite
-and CI, and no dependency on the LLM to correctly parse its own output
-format or to support tool-calling at all.
+OCR for scans and images, a multi-turn Q&A over a validated claim, and a general RAG layer for arbitrary policy documents. The claim sample here
+was structured JSON, so OCR was not exercised.
 
 ## Verdict
 
-**ClaimGuard's architecture wins overall, 96.67 to 13.33, and wins all 5
-individual categories outright.** Once rapidness is measured honestly (only
-counting claims a system actually answered) and ClaimGuard's own security and
-deliverability are measured instead of assumed, there is no split result left
-to explain away — every category favors ClaimGuard, and the margins are wide.
+On this run ClaimGuard scored 97.5 and clinicProj 11.5 (strict) or 21.1 (lenient), and ClaimGuard led every category under both readings. Read
+that with the limits above: 10 of clinicProj's 12 runs hit an endpoint failure, the sample is 12 claims, the hallucination base for clinicProj is
+4 claims, ClaimGuard's correctness and hallucination scores are structural, and the injection probe is a single trial.
 
-The single most important, generalizable finding is not "ClaimGuard's rules
-are better than clinicProj's prompt" — that comparison never actually ran,
-because clinicProj's chosen architecture (an agentic RAG system built on
-tool-calling) has a hard dependency the team's chosen local model does not
-meet. That is itself the architectural lesson: a design that depends on a
-specific model capability (tool-calling) is more fragile to a local-model
-choice than a design that only ever asks a model to produce and explain
-text, exactly ClaimGuard's approach. This directly reinforces the mentor's
-point 8 (fully local/on-prem deployment) — an architecture that assumes a
-capability its deployment target's models don't reliably have is a real
-production risk, not a hypothetical one.
+What the data supports without those caveats: (1) an architecture whose correctness depends on a model producing a long, well-formed, tool-using
+generation is more exposed to model and endpoint variability than one that uses the model only to explain a verdict the rules already made;
+(2) in the one injection probe we ran, the agentic design let injected text change the verdict and the rule-based design has no such path;
+(3) ClaimGuard's checks cost more to build but every claim got the same, answer-key-matching result.
+
+What it does not support: a claim that clinicProj's reasoning is worse in general. A stable, tool-capable, locally served model would be the fair
+re-test, and is the natural next step given the mentor's on-prem point.

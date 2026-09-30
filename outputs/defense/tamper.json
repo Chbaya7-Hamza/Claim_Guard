@@ -1,0 +1,100 @@
+{
+  "experiment": "tamper",
+  "attacks": [
+    "edit_row_no_rechain",
+    "delete_middle_row",
+    "swap_two_rows",
+    "truncate_tail",
+    "edit_and_rechain_anchor_untouched",
+    "rewrite_all_and_anchor_without_key",
+    "append_forged_rows_valid_chain",
+    "append_forged_rows_and_reanchor_without_key"
+  ],
+  "detected": {
+    "no_key": {
+      "edit_row_no_rechain": {
+        "chain_only": true,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      },
+      "delete_middle_row": {
+        "chain_only": true,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      },
+      "swap_two_rows": {
+        "chain_only": true,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      },
+      "truncate_tail": {
+        "chain_only": false,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      },
+      "edit_and_rechain_anchor_untouched": {
+        "chain_only": false,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      },
+      "rewrite_all_and_anchor_without_key": {
+        "chain_only": false,
+        "chain_plus_anchor": false,
+        "chain_plus_anchor_strict": false
+      },
+      "append_forged_rows_valid_chain": {
+        "chain_only": false,
+        "chain_plus_anchor": false,
+        "chain_plus_anchor_strict": true
+      },
+      "append_forged_rows_and_reanchor_without_key": {
+        "chain_only": false,
+        "chain_plus_anchor": false,
+        "chain_plus_anchor_strict": false
+      }
+    },
+    "hmac_key": {
+      "edit_row_no_rechain": {
+        "chain_only": true,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      },
+      "delete_middle_row": {
+        "chain_only": true,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      },
+      "swap_two_rows": {
+        "chain_only": true,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      },
+      "truncate_tail": {
+        "chain_only": false,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      },
+      "edit_and_rechain_anchor_untouched": {
+        "chain_only": false,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      },
+      "rewrite_all_and_anchor_without_key": {
+        "chain_only": false,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      },
+      "append_forged_rows_valid_chain": {
+        "chain_only": false,
+        "chain_plus_anchor": false,
+        "chain_plus_anchor_strict": true
+      },
+      "append_forged_rows_and_reanchor_without_key": {
+        "chain_only": false,
+        "chain_plus_anchor": true,
+        "chain_plus_anchor_strict": true
+      }
+    }
+  },
+  "note": "True = tampering detected. plain unchained log: nothing to verify, detection 0 by definition."
+}

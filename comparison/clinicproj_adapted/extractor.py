@@ -309,10 +309,21 @@ def build_local_llm(max_tokens: int = 800):
     this machine. Swapped in here so both systems in the comparison run the
     literal same model instance; nothing else about extraction changes."""
     from langchain_openai import ChatOpenAI
+    # Default: local Ollama gemma3:4b (the original comparison). The harness can repoint BOTH
+    # systems at one other model via COMPARISON_PROVIDER=featherless + COMPARISON_LLM_MODEL
+    # (see scripts/run_clinicproj_comparison.py); nothing else about extraction changes.
+    if os.environ.get("COMPARISON_PROVIDER") == "featherless":
+        base_url = "https://api.featherless.ai/v1"
+        api_key = os.environ["FEATHERLESS_API_KEY"]
+        model = os.environ["COMPARISON_LLM_MODEL"]
+    else:
+        base_url = "http://localhost:11434/v1"
+        api_key = "ollama-local"  # Ollama ignores the key; a placeholder, not a secret
+        model = "gemma3:4b"
     return ChatOpenAI(
-        base_url="http://localhost:11434/v1",
-        api_key="ollama-local",  # Ollama ignores the key; a placeholder, not a secret
-        model="gemma3:4b",
+        base_url=base_url,
+        api_key=api_key,
+        model=model,
         max_tokens=max_tokens,
         temperature=0,
     )

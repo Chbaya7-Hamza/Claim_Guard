@@ -3,7 +3,8 @@
     python scripts/verify_audit.py --log outputs/audit_dev/audit.jsonl \
         [--results outputs/yara_dev_predictions.jsonl]
 
-1. Hash chain intact and consistent with the anchor file (truncation / replacement).
+1. Hash chain intact and consistent with the anchor file (truncation / replacement), and no rows after the
+   anchored position (rows appended outside the writer; pass --allow-unanchored for a log still being written).
 2. AI ordering: every AI action was registered (ai_request: the question, the deterministic
    verdict, finding + prompt hashes, action type) BEFORE the model was called, answered once, and
    classified human_escalation; auto_correct never appears.
@@ -26,9 +27,11 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--log', required=True)
     p.add_argument('--results')
+    p.add_argument('--allow-unanchored', action='store_true',
+                   help='do not fail on rows after the anchored position (only for a log a writer is still appending to)')
     a = p.parse_args()
-    head, count = verify_with_anchor(a.log)
-    print(f'Chain OK: {count} events, matches anchor; head {head}')
+    head, count = verify_with_anchor(a.log, strict=not a.allow_unanchored)
+    print(f'Chain OK: {count} events, matches anchor exactly; head {head}')
     stats = verify_ai_ordering(a.log)
     print('AI ordering OK:', json.dumps(stats))
     if not a.results:

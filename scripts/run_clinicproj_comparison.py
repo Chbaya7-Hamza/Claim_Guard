@@ -10,12 +10,24 @@ without those, so its sampling/recording logic can be unit-tested offline.
 """
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT_DIR = ROOT / 'outputs' / 'architecture_comparison'
+OUT_ROOT = ROOT / 'outputs' / 'architecture_comparison'
+
+
+def _load_dotenv():
+    # tiny .env loader (same contract as src/llm_adapter.py: a real env var always wins)
+    f = ROOT / '.env'
+    if f.exists():
+        for line in f.read_text(encoding='utf-8').splitlines():
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                k, v = line.split('=', 1)
+                os.environ.setdefault(k.strip(), v.strip())
 
 
 def sample_claims(claims_path, sample_size=None):
@@ -42,13 +54,15 @@ def run_system(claims, runner, system_name, out_path):
     with out_path.open('w', encoding='utf-8') as f:
         for claim in claims:
             t0 = time.perf_counter()
-            row = {'claim_id': claim['claim_id'], 'system': system_name,
+            row = {'claim_id': claim['claim_id'], 'system': system_name, 'lenient_status': None, 'wrapped_json': False,
                    'latency_s': None, 'status': None, 'raw_output': None, 'error': None, 'parse_error': None}
             try:
                 result = runner(claim)
                 row['status'] = result['status']
                 row['raw_output'] = result['raw_output']
                 row['parse_error'] = result.get('parse_error')
+                row['lenient_status'] = result.get('lenient_status')
+                row['wrapped_json'] = result.get('wrapped_json', False)
             except Exception as e:  # noqa: BLE001 -- one claim's failure must never abort the batch
                 row['error'] = f'{type(e).__name__}: {e}'
             row['latency_s'] = time.perf_counter() - t0
@@ -57,13 +71,13 @@ def run_system(claims, runner, system_name, out_path):
                   f"{row['status'] or 'ERROR'} ({row['latency_s']:.1f}s)")
 
 
-def _claimguard_runner():
+def _claimguard_runner(provider_name, model):
     sys.path.insert(0, str(ROOT / 'src'))
     from claim_review import review_package
     from engine_core import config
-    from llm_adapter import OllamaExplanationProvider
+    from llm_adapter import FeatherlessExplanationProvider, OllamaExplanationProvider
     cfg = config(ROOT)
-    provider = OllamaExplanationProvider()
+    provider = FeatherlessExplanationProvider(model=model) if provider_name == 'featherless'         else OllamaExplanationProvider()
 
     def run(claim):
         rule_results, ai_explanations, trace = review_package(claim, cfg, provider=provider)
@@ -86,7 +100,18 @@ def parse_clinicproj_reply(reply: str) -> dict:
     try:
         parsed = json.loads(reply)
     except json.JSONDecodeError as e:
-        return {'status': None, 'raw_output': reply, 'parse_error': str(e)}
+        # Disclosed adjustment, recorded beside (never instead of) the strict result: some models wrap a valid JSON object
+        # in prose or a code fence. clinicProj has no parser of its own, so strict stays the default score.
+        lenient = None
+        i, j = reply.find('{'), reply.rfind('}')
+        if 0 <= i < j:
+            try:
+                obj = json.loads(reply[i:j + 1])
+                lenient = obj.get('overall_status') if isinstance(obj, dict) else None
+            except json.JSONDecodeError:
+                pass
+        return {'status': None, 'raw_output': reply, 'parse_error': str(e), 'lenient_status': lenient,
+                'wrapped_json': lenient is not None}
     return {'status': parsed.get('overall_status'), 'raw_output': reply, 'parse_error': None}
 
 
@@ -106,15 +131,25 @@ def _clinicproj_runner():
     return run
 
 
+def _check_provider(provider_name):
+    if provider_name == 'featherless':
+        if not os.environ.get('FEATHERLESS_API_KEY'):
+            raise SystemExit('FEATHERLESS_API_KEY is not set (put it in .env or the environment).')
+        return
+    _check_ollama_is_serving()
+
+
 def _check_ollama_is_serving():
     """One clear upfront message instead of discovering claim-by-claim (see
     the plan's Review Focus: 'the harness must fail loudly ... instead of
     a bare traceback or a silently-empty output file')."""
-    import urllib.request
-    import urllib.error
+    import http.client
     try:
-        urllib.request.urlopen('http://localhost:11434/v1/models', timeout=3)
-    except (urllib.error.URLError, ConnectionError, OSError) as e:
+        conn = http.client.HTTPConnection('localhost', 11434, timeout=3)
+        conn.request('GET', '/v1/models')
+        conn.getresponse().read()
+        conn.close()
+    except (ConnectionError, OSError) as e:
         raise SystemExit(
             f'Cannot reach Ollama at http://localhost:11434 ({type(e).__name__}: {e}). '
             f'Is Ollama running? Start it with `ollama serve` and confirm gemma3:4b is '
@@ -127,16 +162,26 @@ def main():
     p.add_argument('--claims', default=str(ROOT / 'data' / 'development' / 'claims.jsonl'))
     p.add_argument('--sample-size', type=int, default=36)
     p.add_argument('--system', choices=('claimguard', 'clinicproj', 'both'), default='both')
+    p.add_argument('--provider', choices=('ollama', 'featherless'), default='ollama')
+    p.add_argument('--model', help='required with --provider featherless; both systems run this same model')
+    p.add_argument('--tag', default='gemma3-4b-ollama', help='results go to outputs/architecture_comparison/<tag>/')
     a = p.parse_args()
 
-    _check_ollama_is_serving()
+    _load_dotenv()
+    if a.provider == 'featherless':
+        if not a.model:
+            raise SystemExit('--model is required with --provider featherless')
+        os.environ['COMPARISON_PROVIDER'] = 'featherless'
+        os.environ['COMPARISON_LLM_MODEL'] = a.model
+    _check_provider(a.provider)
+    out_dir = OUT_ROOT / a.tag
     claims = sample_claims(a.claims, a.sample_size)
     print(f'{len(claims)} claim(s) sampled from {a.claims}')
 
     if a.system in ('claimguard', 'both'):
-        run_system(claims, _claimguard_runner(), 'claimguard', OUT_DIR / 'claimguard.jsonl')
+        run_system(claims, _claimguard_runner(a.provider, a.model), 'claimguard', out_dir / 'claimguard.jsonl')
     if a.system in ('clinicproj', 'both'):
-        run_system(claims, _clinicproj_runner(), 'clinicproj', OUT_DIR / 'clinicproj.jsonl')
+        run_system(claims, _clinicproj_runner(), 'clinicproj', out_dir / 'clinicproj.jsonl')
 
 
 if __name__ == '__main__':

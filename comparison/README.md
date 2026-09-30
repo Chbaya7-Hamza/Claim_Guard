@@ -18,7 +18,25 @@ path.
 Full design: `docs/superpowers/specs/2026-09-28-clinicproj-architecture-comparison-design.md`
 Results and verdict: `docs/24_Architecture_Comparison.md`
 
-## Running the comparison yourself
+## Two runs, two models
+
+1. `gemma3-4b-ollama` (original, offline): clinicProj could not run at all because gemma3:4b has no tool-calling. Results are
+   kept in `outputs/architecture_comparison/gemma3-4b-ollama/`.
+2. `qwen25-14b-featherless` (hosted, tool-capable): both systems on `Qwen/Qwen2.5-14B-Instruct` through Featherless. Why this model:
+   `docs/25_Comparison_Model_Selection.md`. Needs `FEATHERLESS_API_KEY` in `.env`. Run the systems **one after another**, never
+   in parallel (Featherless returns "No successful response" errors under contention).
+
+    comparison/.venv/Scripts/python scripts/run_clinicproj_comparison.py --sample-size 12 --system clinicproj --provider featherless --model Qwen/Qwen2.5-14B-Instruct --tag qwen25-14b-featherless
+    .venv/Scripts/python scripts/run_clinicproj_comparison.py --sample-size 12 --system claimguard --provider featherless --model Qwen/Qwen2.5-14B-Instruct --tag qwen25-14b-featherless
+    comparison/.venv/Scripts/python scripts/security_scan_clinicproj.py --live --provider featherless --model Qwen/Qwen2.5-14B-Instruct --tag qwen25-14b-featherless
+    .venv/Scripts/python scripts/score_clinicproj_comparison.py --tag qwen25-14b-featherless --hallucination            # strict (default)
+    .venv/Scripts/python scripts/score_clinicproj_comparison.py --tag qwen25-14b-featherless --hallucination --lenient # JSON wrapped in prose/fences accepted
+
+Both scorings are reported. Strict is the default because clinicProj has no parser of its own; lenient is a disclosed
+adjustment for a formatting habit of the model, not a change to clinicProj's logic. The `hallucination` category rebalances
+the weights (correctness 25, hallucination 15, security 20, deliverability 15, rapidness 15, efficiency 10).
+
+## Running the comparison yourself (original gemma3 run)
 
 clinicProj's dependencies (`langchain`, `langgraph`, `faiss-cpu`,
 `sentence-transformers`) are NOT part of ClaimGuard's own `requirements.txt`
