@@ -1,4 +1,6 @@
-# 26 | ClaimGuard as an information system: quality, business canvas, realisation plan, tests, UML
+# BLUEPRINT: ClaimGuard as an information system
+
+What we deliver, what makes it good, who it is for, how it gets built, how we test it, and what it looks like in UML. The deliverables checklist (section 0) maps every submission item to its file.
 
 Status legend: **Done** = built and tested in this repo. **Partial** = some evidence, gaps stated. **Planned** = mentor-requested or designed, not built.
 Anything about customers or the market is a **hypothesis** until someone interviews real users. None of it is measured data.
