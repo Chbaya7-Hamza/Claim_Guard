@@ -240,6 +240,17 @@ _UNGROUNDED = [
                 r'\b(?:recommend|prescrib)\w*\s+(?:treatment|surgery|medication|therapy)\b|'
                 r'\bpatient(?:\'s)?\s+(?:condition|suffers)\b', re.I),
      'clinical, fraud or medical-necessity judgement; out of scope for this system (docs/01)'),
+    # The engine never approves or pays a claim, and the prompt forbids the model from saying so, but until this pattern nothing
+    # ENFORCED it: a reply saying "the claim is approved" for a FAIL finding passed every text check (the verdict and review flag
+    # could not change, but a reviewer would have read it). Deliberately claim-level: "authorized" and "pre-approved" are ordinary
+    # vocabulary in these findings (authorization records), and a wider pattern wrongly rejected 75 of 3,926 real accepted answers;
+    # this one rejects 0 of them. Words already present in the finding or rule text stay allowed, like every entry here.
+    (re.compile(r'\b(?:(?:claim|request|submission|invoice)\s+(?:is|was|has\s+been|will\s+be|can\s+be|should\s+be)\s+'
+                r'(?:fully\s+)?(?:approved|accepted|paid|processed|cleared|payable)'
+                r'|approved\s+for\s+payment|payment\s+(?:is\s+|has\s+been\s+|will\s+be\s+)?(?:approved|authori[sz]ed|released|made)'
+                r'|(?:will|can|should)\s+be\s+(?:paid|reimbursed)|ready\s+for\s+payment|cleared\s+for\s+payment'
+                r'|no\s+further\s+review\s+(?:is\s+)?(?:needed|required)|(?:we|i)\s+approve|hereby\s+approved)\b', re.I),
+     'approval or payment language; the engine never approves or pays a claim'),
 ]
 
 
