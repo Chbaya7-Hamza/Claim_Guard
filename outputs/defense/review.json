@@ -1,0 +1,61 @@
+{
+  "experiment": "review",
+  "claims": 40,
+  "reviewable_findings": 62,
+  "valid_decisions_accepted": {
+    "accepted": 248,
+    "of": 248
+  },
+  "invalid_decisions_wrongly_accepted": {
+    "empty_reason": {
+      "tried": 62,
+      "wrongly_accepted": 0
+    },
+    "blank_actor": {
+      "tried": 62,
+      "wrongly_accepted": 0
+    },
+    "unknown_action": {
+      "tried": 62,
+      "wrongly_accepted": 0
+    },
+    "extra_field": {
+      "tried": 62,
+      "wrongly_accepted": 0
+    },
+    "wrong_original_status": {
+      "tried": 62,
+      "wrongly_accepted": 0
+    },
+    "unknown_claim": {
+      "tried": 62,
+      "wrongly_accepted": 0
+    },
+    "bad_timestamp": {
+      "tried": 62,
+      "wrongly_accepted": 0
+    },
+    "missing_field": {
+      "tried": 62,
+      "wrongly_accepted": 0
+    }
+  },
+  "decision_on_a_PASS_finding": {
+    "tried": 500,
+    "wrongly_accepted": 0
+  },
+  "batch_with_one_bad_decision": {
+    "rejected_whole_batch": true,
+    "log_rows_before": 884,
+    "log_rows_after": 884
+  },
+  "recheck": {
+    "claims_rechecked": 22,
+    "original_claim_and_results_untouched": 22,
+    "new_run_id_differs": 22,
+    "still_failing_finding_back_to_unreviewed": 22,
+    "currency_corrections_tried": 1,
+    "currency_corrections_that_turned_R015_to_PASS": 1
+  },
+  "audit_log_still_verifies_strict": true
+}

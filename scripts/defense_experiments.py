@@ -8,6 +8,11 @@ could make the decision look wrong, and every result is written to outputs/defen
     python scripts/defense_experiments.py aivstemplate  # AI explanations vs the engine's own sentence
     python scripts/defense_experiments.py precedence    # every status-precedence order vs the key and the oracle
     python scripts/defense_experiments.py load          # engine, audit append and AI-step timings
+    python scripts/defense_experiments.py ingestformats # CSV and FHIR vs JSONL: same verdicts, silent passes
+    python scripts/defense_experiments.py quarantine    # damaged records vs two naive readers
+    python scripts/defense_experiments.py limits        # do the prompt limits bite real data, and stop hostile data
+    python scripts/defense_experiments.py workers       # worker count, from the recorded E4 data
+    python scripts/defense_experiments.py review        # decision validation, batch atomicity, recheck
     python scripts/defense_experiments.py all
 """
 import copy
@@ -542,9 +547,319 @@ def load():
     return res
 
 
+# ---------------------------------------------------------------- ingestion formats
+def ingestformats():
+    """Do the three input shapes reach the same verdicts? JSONL is the reference; CSV folder and FHIR bundle are compared with it
+    claim by claim, field by field and rule by rule. A result where a lossy path says PASS but the full data does not is a
+    silent pass and is counted separately."""
+    import ingest as ing
+    cfg = config(ROOT)
+    out = {'experiment': 'ingestformats', 'splits': {}}
+    for split in ('development', 'validation', 'stress'):
+        base = ROOT / 'data' / split
+        ref = {c['claim_id']: c for c in (x.claim for x in ing.ingest(base / 'claims.jsonl'))}
+        ref_status = {cid: {r['rule_id']: r['status'] for r in yara_engine.evaluate(c, cfg)} for cid, c in ref.items()}
+        row = {'reference_claims': len(ref)}
+        for label, path in (('csv_folder', base / 'csv'), ('fhir_bundle', base / 'fhir_bundles.jsonl')):
+            items = list(ing.ingest(path))
+            accepted = [i.claim for i in items if i.accepted]
+            identical = verdict_same = results = silent = 0
+            diffs = {}
+            for c in accepted:
+                identical += c == ref[c['claim_id']]
+                got = {r['rule_id']: r['status'] for r in yara_engine.evaluate(c, cfg)}
+                for rid, st in ref_status[c['claim_id']].items():
+                    results += 1
+                    if got[rid] == st:
+                        verdict_same += 1
+                    else:
+                        diffs[f'{rid}: {st} -> {got[rid]}'] = diffs.get(f'{rid}: {st} -> {got[rid]}', 0) + 1
+                        silent += got[rid] == 'PASS'
+            row[label] = {'records': len(items), 'accepted': len(accepted), 'quarantined': len(items) - len(accepted),
+                          'claims_field_identical_to_jsonl': identical, 'results_compared': results,
+                          'verdict_agreement_percent': round(100.0 * verdict_same / results, 2) if results else None,
+                          'silent_passes': silent, 'differences': diffs}
+        out['splits'][split] = row
+    save('ingestformats', out)
+    return out
+
+
+# ---------------------------------------------------------------- quarantine
+def _corrupt_lines(valid_claims):
+    """Ten kinds of damaged record, each as a raw line (bytes) so invalid UTF-8 can be included."""
+    good = json.dumps(valid_claims[0])
+    bad = []
+    bad.append(('not_json', b'this is not json'))
+    bad.append(('truncated_json', good[:len(good) // 2].encode()))
+    bad.append(('null_line', b'null'))
+    bad.append(('number_line', b'12345'))
+    bad.append(('array_line', b'[1, 2, 3]'))
+    bad.append(('invalid_utf8', b'{"claim_id": "\xff\xfe"}'))
+    c = dict(valid_claims[1]); del c['currency']
+    bad.append(('missing_required_key', json.dumps(c).encode()))
+    c = dict(valid_claims[2]); c['unexpected'] = 1
+    bad.append(('unknown_key', json.dumps(c).encode()))
+    c = dict(valid_claims[3]); c['total_amount'] = 'not a number'
+    bad.append(('wrong_type_amount', json.dumps(c).encode()))
+    bad.append(('deep_nesting', b'[' * 50000 + b']' * 50000))
+    return bad
+
+
+def quarantine(n_valid=100, copies=3):
+    """A file with valid claims and damaged records interleaved. Compare ClaimGuard's ingestion with two naive readers: one that
+    stops at the first bad line, one that skips bad lines without a trace."""
+    import ingest as ing
+    cfg = config(ROOT)
+    valid = load_claims(n_valid)
+    bad = _corrupt_lines(valid) * copies
+    lines, kinds, rng = [], [], random.Random(7)
+    slots = sorted(rng.sample(range(len(valid) + len(bad)), len(bad)))
+    vi = bi = 0
+    for pos in range(len(valid) + len(bad)):
+        if bi < len(bad) and pos == slots[bi]:
+            lines.append(bad[bi][1]); kinds.append(bad[bi][0]); bi += 1
+        else:
+            lines.append(json.dumps(valid[vi]).encode()); kinds.append('valid'); vi += 1
+    d = tempfile.mkdtemp()
+    try:
+        path = Path(d) / 'mixed.jsonl'
+        path.write_bytes(b'\n'.join(lines) + b'\n')
+        items = list(ing.ingest(path))
+        accepted = [i.claim for i in items if i.accepted]
+        quarantined = [i for i in items if not i.accepted]
+        clean = {c['claim_id']: {r['rule_id']: r['status'] for r in yara_engine.evaluate(c, cfg)} for c in valid}
+        # a wrong-typed amount is accepted by design and read as unknown by the rules; measure that separately
+        soft = [c for c in accepted if isinstance(c.get('total_amount'), str)]
+        sound = [c for c in accepted if not isinstance(c.get('total_amount'), str)]
+        same = sum(1 for c in sound if {r['rule_id']: r['status'] for r in yara_engine.evaluate(c, cfg)} == clean[c['claim_id']])
+        soft_status = [{r['rule_id']: r['status'] for r in yara_engine.evaluate(c, cfg)} for c in soft]
+        # R012 (claim total equals the line amounts) is the rule that depends on total_amount; R001 does not look at it
+        soft_summary = {'records': len(soft), 'R012_status': sorted({x['R012'] for x in soft_status}),
+                        'any_PASS_on_R012': any(x['R012'] == 'PASS' for x in soft_status)}
+        reasons = {}
+        for i in quarantined:
+            reasons[i.error.split(':')[0]] = reasons.get(i.error.split(':')[0], 0) + 1
+        # naive reader 1: stops at the first line that does not parse
+        processed_before_crash = 0
+        for ln in lines:
+            try:
+                json.loads(ln)
+                processed_before_crash += 1
+            except Exception:
+                break
+        # naive reader 2: skips what does not parse, records nothing
+        parsed = 0
+        for ln in lines:
+            try:
+                json.loads(ln)
+                parsed += 1
+            except Exception:
+                pass
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    res = {'experiment': 'quarantine', 'valid_records': len(valid), 'damaged_records': len(bad),
+           'damage_kinds': sorted({k for k, _ in bad}),
+           'claimguard': {'accepted': len(accepted), 'quarantined': len(quarantined), 'quarantine_reasons': reasons,
+                          'every_record_accounted_for': len(accepted) + len(quarantined) == len(lines),
+                          'sound_claims_with_unchanged_verdicts': f'{same} of {len(sound)}',
+                          'wrong_typed_amount_records_accepted_by_design': soft_summary,
+                          'quarantined_records_that_reached_the_rules': len([i for i in quarantined if i.claim is not None])},
+           'naive_stop_at_first_error': {'valid_claims_processed_before_stopping': processed_before_crash,
+                                         'valid_claims_never_processed': len(valid) - min(processed_before_crash, len(valid))},
+           'naive_skip_silently': {'records_dropped_with_no_record_of_why': len(lines) - parsed},
+           'note': 'parse-only baselines: they do not validate claims, so they understate what a naive reader would miss.'}
+    save('quarantine', res)
+    return res
+
+
+# ---------------------------------------------------------------- input limits
+def limits():
+    """Do the prompt size limits bite real data, and do they stop hostile data? Measured on every finding that would be sent
+    to the model in the three public splits, then on a hostile 5,000-line claim."""
+    import llm_adapter as la
+    cfg = config(ROOT)
+    rules = {r['rule_id']: r for r in cfg['rules']}
+    lengths, longest_value, notes_len = [], 0, []
+    for split in ('development', 'validation', 'stress'):
+        for c in load_jsonl_split(split):
+            notes_len.append(len(str(c.get('notes') or '')))
+            for r in yara_engine.evaluate(c, cfg):
+                if r['status'] in ('FAIL', 'UNABLE_TO_ASSESS'):
+                    lengths.append(len(la.build_prompt(r, rules[r['rule_id']])))
+                    for e in r['evidence']:
+                        longest_value = max(longest_value, len(json.dumps(e['value'], ensure_ascii=False)))
+    lengths.sort()
+    pct = lambda q: lengths[min(len(lengths) - 1, int(q * len(lengths)))]
+    # hostile claim: thousands of lines, every one a finding
+    big = copy.deepcopy(load_claims(1)[0])
+    line = big['lines'][0]
+    big['lines'] = [{**line, 'line_id': f'L{i}', 'quantity': 0} for i in range(5000)]
+    hostile = [r for r in yara_engine.evaluate(big, cfg) if r['status'] == 'FAIL']
+    hostile_len = len(la.build_prompt(hostile[0], rules[hostile[0]['rule_id']])) if False else None
+    results = {'finding_prompts_measured': len(lengths), 'prompt_chars': {'median': pct(0.5), 'p99': pct(0.99), 'max': lengths[-1]},
+               'limit_chars': la.MAX_PROMPT_CHARS, 'findings_over_the_prompt_limit': sum(1 for n in lengths if n > la.MAX_PROMPT_CHARS),
+               'longest_evidence_value_chars': longest_value, 'per_value_limit_chars': la.MAX_VALUE_CHARS,
+               'values_over_the_per_value_limit': 'see longest_evidence_value_chars',
+               'longest_note_chars': max(notes_len), 'note_limit_chars': la.MAX_NOTE_CHARS}
+    failed_closed = None
+    for f in hostile:
+        try:
+            n = len(la.build_prompt(f, rules[f['rule_id']]))
+            hostile_len = n
+        except ValueError as e:
+            failed_closed = str(e)
+            break
+    results['hostile_5000_line_claim'] = {'fail_findings': len(hostile), 'first_prompt_chars_if_built': hostile_len,
+                                          'failed_closed_to_template': failed_closed}
+    res = {'experiment': 'limits', **results}
+    save('limits', res)
+    return res
+
+
+def load_jsonl_split(split):
+    return [c for c in load_claims_from(ROOT / 'data' / split / 'claims.jsonl')]
+
+
+def load_claims_from(path):
+    out = []
+    for _, line, err in read_lines(path):
+        if err:
+            continue
+        c, perr = parse_json(line)
+        if not perr:
+            out.append(c)
+    return out
+
+
+# ---------------------------------------------------------------- worker count (recorded E4)
+def workers():
+    """Throughput and quality by worker count, from the recorded E4 concurrency experiment (experiments/raw/e4.jsonl)."""
+    import statistics
+    rows = [json.loads(l) for l in (ROOT / 'experiments' / 'raw' / 'e4.jsonl').read_text(encoding='utf-8').splitlines() if l.strip()]
+    table = {}
+    for b in (r for r in rows if r['type'] == 'batch'):
+        model = b['cfg_id'].split('|')[0]
+        calls = [r for r in rows if r['type'] == 'call' and r['cfg_id'] == b['cfg_id']]
+        lat = sorted(r['latency_ms'] / 1000 for r in calls)
+        table.setdefault(model, {})[b['workers']] = {
+            'calls': b['calls'], 'wall_seconds': b['wall_s'], 'calls_per_second': round(b['calls'] / b['wall_s'], 3),
+            'live': sum(1 for r in calls if r['outcome'] == 'live'), 'rejected': sum(1 for r in calls if r['outcome'] != 'live'),
+            'latency_p50_s': round(statistics.median(lat), 2), 'latency_p95_s': round(lat[int(0.95 * len(lat))], 2)}
+    res = {'experiment': 'workers', 'source': 'experiments/raw/e4.jsonl (36 calls per level)', 'by_model': table}
+    save('workers', res)
+    return res
+
+
+def _count_lines(path):
+    with open(path, encoding='utf-8') as f:
+        return sum(1 for _ in f)
+
+
+# ---------------------------------------------------------------- review workflow
+def review(n_claims=40):
+    """Decision validation, batch atomicity, and recheck, each against an adversarial battery."""
+    import review_workflow as rw
+    from llm_adapter import MockExplanationProvider
+    cfg = config(ROOT)
+    claims = load_claims(n_claims)
+    provider = MockExplanationProvider()
+    d = tempfile.mkdtemp()
+    try:
+        log = audit_log.AuditLog(Path(d) / 'review.jsonl')
+        runs = {}
+        for c in claims:
+            res, ai, trace = audit_log.audited_review(log, copy.deepcopy(c), cfg, provider=provider)
+            runs[c['claim_id']] = (c, res, trace)
+        all_results = [r for _, res, _ in runs.values() for r in res]
+        findings = rw.index_findings(all_results)
+        reviewable = [r for r in all_results if r['status'] in rw.REVIEWABLE]
+        passes = [r for r in all_results if r['status'] == 'PASS']
+        now = '2026-09-30T12:00:00+00:00'
+
+        def good(r, action='confirm_issue'):
+            return {'claim_id': r['claim_id'], 'rule_id': r['rule_id'], 'action': action, 'actor': 'tester',
+                    'reason': 'because', 'created_at': now, 'original_status': r['status']}
+
+        def accepted(dec):
+            try:
+                rw.validate_decision(dec, findings)
+                return True
+            except rw.DecisionError:
+                return False
+
+        valid_ok = sum(accepted(good(r, a)) for r in reviewable for a in ('confirm_issue', 'dismiss_with_reason',
+                                                                        'request_information', 'mark_corrected_for_recheck'))
+        valid_total = len(reviewable) * 4
+        mutations = {
+            'empty_reason': lambda r: {**good(r), 'reason': '   '},
+            'blank_actor': lambda r: {**good(r), 'actor': ''},
+            'unknown_action': lambda r: {**good(r), 'action': 'auto_approve'},
+            'extra_field': lambda r: {**good(r), 'confidence': 0.99},
+            'wrong_original_status': lambda r: {**good(r), 'original_status': 'PASS'},
+            'unknown_claim': lambda r: {**good(r), 'claim_id': 'CG-DOES-NOT-EXIST'},
+            'bad_timestamp': lambda r: {**good(r), 'created_at': 'yesterday'},
+            'missing_field': lambda r: {k: v for k, v in good(r).items() if k != 'reason'},
+        }
+        mut = {}
+        for name, fn in mutations.items():
+            wrong = sum(accepted(fn(r)) for r in reviewable)
+            mut[name] = {'tried': len(reviewable), 'wrongly_accepted': wrong}
+        pass_finding = {'tried': len(passes), 'wrongly_accepted': sum(accepted({**good(r), 'original_status': 'PASS'}) for r in passes)}
+        # batch atomicity
+        before = _count_lines(log.path)
+        batch = [good(r) for r in reviewable[:5]] + [{**good(reviewable[5]), 'reason': ''}]
+        try:
+            rw.apply_decisions(log, batch, all_results)
+            rejected_batch = False
+        except rw.DecisionError:
+            rejected_batch = True
+        after = _count_lines(log.path)
+        # recheck: originals untouched, new run linked, a still-failing finding goes back to unreviewed
+        originals = {cid: copy.deepcopy(c) for cid, (c, _, _) in runs.items()}
+        prior_results = {cid: copy.deepcopy(res) for cid, (_, res, _) in runs.items()}
+        rechecked = untouched = linked = back_to_unreviewed = fixed = fixable = 0
+        for cid, (c, res, trace) in runs.items():
+            fails = [r for r in res if r['status'] == 'FAIL']
+            if not fails:
+                continue
+            target = fails[0]
+            corrected = copy.deepcopy(c)
+            corrected['notes'] = (corrected.get('notes') or '') + ' [reviewer note: checked with provider]'
+            rw.apply_decisions(log, [good(target, 'confirm_issue')], res)
+            new_res, _, new_trace, changes = rw.recheck(log, c, corrected, res, trace, cfg, [target['rule_id']],
+                                                        'tester', 'rechecked', provider=provider)
+            rechecked += 1
+            untouched += (c == originals[cid]) and (res == prior_results[cid])
+            linked += new_trace['run_id'] != trace['run_id']
+            state = rw.review_state(new_res, log.path)
+            back_to_unreviewed += (changes[target['rule_id']][1] == 'FAIL' and
+                                   state.get((cid, target['rule_id'])) == 'unreviewed')
+            if target['rule_id'] == 'R015':
+                fixable += 1
+                fixed_claim = copy.deepcopy(c)
+                fixed_claim['currency'] = 'SAR'
+                _, _, t2, ch2 = rw.recheck(log, c, fixed_claim, res, trace, cfg, ['R015'], 'tester', 'currency corrected',
+                                           provider=provider)
+                fixed += ch2['R015'][1] == 'PASS'
+        verify = audit_log.verify_with_anchor(log.path, strict=True)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    res = {'experiment': 'review', 'claims': len(claims), 'reviewable_findings': len(reviewable),
+           'valid_decisions_accepted': {'accepted': valid_ok, 'of': valid_total},
+           'invalid_decisions_wrongly_accepted': mut, 'decision_on_a_PASS_finding': pass_finding,
+           'batch_with_one_bad_decision': {'rejected_whole_batch': rejected_batch, 'log_rows_before': before, 'log_rows_after': after},
+           'recheck': {'claims_rechecked': rechecked, 'original_claim_and_results_untouched': untouched,
+                       'new_run_id_differs': linked, 'still_failing_finding_back_to_unreviewed': back_to_unreviewed,
+                       'currency_corrections_tried': fixable, 'currency_corrections_that_turned_R015_to_PASS': fixed},
+           'audit_log_still_verifies_strict': True if verify else False}
+    save('review', res)
+    return res
+
+
 def main():
     which = sys.argv[1] if len(sys.argv) > 1 else 'all'
-    runners = {'failclosed': failclosed, 'injection': injection, 'tamper': tamper, 'ablation': ablation, 'aivstemplate': aivstemplate, 'precedence': precedence, 'load': load}
+    runners = {'failclosed': failclosed, 'injection': injection, 'tamper': tamper, 'ablation': ablation, 'aivstemplate': aivstemplate, 'precedence': precedence, 'load': load,
+               'ingestformats': ingestformats, 'quarantine': quarantine, 'limits': limits, 'workers': workers, 'review': review}
     for name in (runners if which == 'all' else [which]):
         print(f'--- {name}')
         print(json.dumps(runners[name](), indent=2)[:6000])

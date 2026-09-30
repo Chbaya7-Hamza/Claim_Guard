@@ -1,0 +1,82 @@
+{
+  "experiment": "workers",
+  "source": "experiments/raw/e4.jsonl (36 calls per level)",
+  "by_model": {
+    "Qwen2.5-7B-Instruct": {
+      "1": {
+        "calls": 36,
+        "wall_seconds": 75.03,
+        "calls_per_second": 0.48,
+        "live": 34,
+        "rejected": 2,
+        "latency_p50_s": 1.96,
+        "latency_p95_s": 2.48
+      },
+      "2": {
+        "calls": 36,
+        "wall_seconds": 62.5,
+        "calls_per_second": 0.576,
+        "live": 34,
+        "rejected": 2,
+        "latency_p50_s": 2.09,
+        "latency_p95_s": 17.05
+      },
+      "4": {
+        "calls": 36,
+        "wall_seconds": 20.48,
+        "calls_per_second": 1.758,
+        "live": 34,
+        "rejected": 2,
+        "latency_p50_s": 1.92,
+        "latency_p95_s": 4.5
+      },
+      "8": {
+        "calls": 36,
+        "wall_seconds": 10.44,
+        "calls_per_second": 3.448,
+        "live": 34,
+        "rejected": 2,
+        "latency_p50_s": 2.05,
+        "latency_p95_s": 3.31
+      }
+    },
+    "Mistral-Nemo-Instruct-2407": {
+      "1": {
+        "calls": 36,
+        "wall_seconds": 192.08,
+        "calls_per_second": 0.187,
+        "live": 35,
+        "rejected": 1,
+        "latency_p50_s": 2.27,
+        "latency_p95_s": 21.3
+      },
+      "2": {
+        "calls": 36,
+        "wall_seconds": 44.88,
+        "calls_per_second": 0.802,
+        "live": 35,
+        "rejected": 1,
+        "latency_p50_s": 2.28,
+        "latency_p95_s": 4.09
+      },
+      "4": {
+        "calls": 36,
+        "wall_seconds": 65.75,
+        "calls_per_second": 0.548,
+        "live": 35,
+        "rejected": 1,
+        "latency_p50_s": 2.45,
+        "latency_p95_s": 22.17
+      },
+      "8": {
+        "calls": 36,
+        "wall_seconds": 13.17,
+        "calls_per_second": 2.733,
+        "live": 34,
+        "rejected": 2,
+        "latency_p50_s": 2.49,
+        "latency_p95_s": 4.84
+      }
+    }
+  }
+}
