@@ -270,6 +270,9 @@ Also built and tested, but off by default: a **cascade** (fluent model, then a r
 | `docs/21_Experiments.md` | AI experiments: temperature, model, prompt, concurrency |
 | [docs/22_Architecture_and_Data_Flow.md](docs/22_Architecture_and_Data_Flow.md) | Architecture diagram, trust boundaries, tool permissions, data flow |
 | [docs/23_Demo_Video_Kit.md](docs/23_Demo_Video_Kit.md) | Script, shot list and checklist for recording the demo video |
+| [docs/24_Architecture_Comparison.md](docs/24_Architecture_Comparison.md) | ClaimGuard compared with the clinicProj architecture on the same model: method, scores, hallucination metric, and the limits of the result |
+| [docs/25_Comparison_Model_Selection.md](docs/25_Comparison_Model_Selection.md) | Why the comparison was re-run on Qwen2.5-14B-Instruct: the models screened and why the others were rejected |
+| [docs/28_Upgrades_Phase2.md](docs/28_Upgrades_Phase2.md) | Proposed Phase 2 upgrades, each tied to a measurement; nothing in it is built yet |
 | `docs/00_Starter_Pack_README.md` | The organizers' original starter-pack README, kept in full |
 
 ## Boundaries
