@@ -1,43 +1,43 @@
 {
   "categories": {
     "correctness": {
-      "claimguard": 100.0,
-      "clinicproj": 0.0,
-      "winner": "claimguard"
+      "architecture_a": 100.0,
+      "architecture_b": 0.0,
+      "winner": "architecture_a"
     },
     "rapidness": {
-      "claimguard": 100.0,
-      "clinicproj": 0.0,
-      "winner": "claimguard"
+      "architecture_a": 100.0,
+      "architecture_b": 0.0,
+      "winner": "architecture_a"
     },
     "security": {
-      "claimguard": 100.0,
-      "clinicproj": 35.0,
-      "winner": "claimguard"
+      "architecture_a": 100.0,
+      "architecture_b": 35.0,
+      "winner": "architecture_a"
     },
     "deliverability": {
-      "claimguard": 83.33,
-      "clinicproj": 16.67,
-      "winner": "claimguard"
+      "architecture_a": 83.33,
+      "architecture_b": 16.67,
+      "winner": "architecture_a"
     },
     "efficiency": {
-      "claimguard": 100.0,
-      "clinicproj": 20.0,
-      "winner": "claimguard"
+      "architecture_a": 100.0,
+      "architecture_b": 20.0,
+      "winner": "architecture_a"
     },
     "hallucination": {
-      "claimguard": 100.0,
-      "clinicproj": 0.0,
-      "winner": "claimguard"
+      "architecture_a": 100.0,
+      "architecture_b": 0.0,
+      "winner": "architecture_a"
     }
   },
   "overall": {
-    "clinicproj": 11.5,
-    "claimguard": 97.5,
-    "winner": "claimguard"
+    "architecture_b": 11.5,
+    "architecture_a": 97.5,
+    "winner": "architecture_a"
   },
   "hallucination_detail": {
-    "claimguard": {
+    "architecture_a": {
       "score": 100.0,
       "answered_claims": 12,
       "findings": 180,
@@ -45,7 +45,7 @@
       "evidence_items": 570,
       "ungrounded_evidence": 0
     },
-    "clinicproj": {
+    "architecture_b": {
       "score": 0.0,
       "answered_claims": 0
     }

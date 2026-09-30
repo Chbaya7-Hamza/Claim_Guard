@@ -304,14 +304,14 @@ def _strip_code_fence(text: str) -> str:
 
 
 def build_local_llm(max_tokens: int = 800):
-    """The same local Ollama endpoint ClaimGuard's own OllamaExplanationProvider
+    """The same local Ollama endpoint Architecture A's own OllamaExplanationProvider
     uses (src/llm_adapter.py) -- gemma3:4b, fully offline, no API key leaves
     this machine. Swapped in here so both systems in the comparison run the
     literal same model instance; nothing else about extraction changes."""
     from langchain_openai import ChatOpenAI
     # Default: local Ollama gemma3:4b (the original comparison). The harness can repoint BOTH
     # systems at one other model via COMPARISON_PROVIDER=featherless + COMPARISON_LLM_MODEL
-    # (see scripts/run_clinicproj_comparison.py); nothing else about extraction changes.
+    # (see scripts/run_architecture_comparison.py); nothing else about extraction changes.
     if os.environ.get("COMPARISON_PROVIDER") == "featherless":
         base_url = "https://api.featherless.ai/v1"
         api_key = os.environ["FEATHERLESS_API_KEY"]

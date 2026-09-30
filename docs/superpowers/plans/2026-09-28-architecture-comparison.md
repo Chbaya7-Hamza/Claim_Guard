@@ -1,51 +1,51 @@
-# ClaimGuard vs. clinicProj Architecture Comparison Implementation Plan
+# Architecture A vs. Architecture B Architecture Comparison Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Produce a reproducible, evidence-backed verdict comparing ClaimGuard's deterministic-rules-plus-grounded-AI architecture against a teammate's RAG+OCR+agentic architecture (`clinicProj`), both wired to the same local model (gemma3:4b via Ollama), scored on correctness, security, rapidness, efficiency and deliverability, with graphs and a write-up.
+**Goal:** Produce a reproducible, evidence-backed verdict comparing Architecture A's deterministic-rules-plus-grounded-AI architecture against a teammate's RAG+OCR+agentic architecture (`Architecture B`), both wired to the same local model (gemma3:4b via Ollama), scored on correctness, security, rapidness, efficiency and deliverability, with graphs and a write-up.
 
-**Architecture:** Copy clinicProj's code into this repo (a read-only reference copy, and a working copy adapted only to swap its cloud LLM for our local one). Build a harness that runs both systems over the same claim sample, a scoring script that turns the recorded results into a weighted, rerunnable verdict, a plotting script, and a doc. The scoring/harness logic stays testable offline (stdlib-only, stub-driven); the clinicProj-specific adaptation code needs its own heavier dependencies and its own separate test run, kept out of ClaimGuard's own CI.
+**Architecture:** Copy Architecture B's code into this repo (a read-only reference copy, and a working copy adapted only to swap its cloud LLM for our local one). Build a harness that runs both systems over the same claim sample, a scoring script that turns the recorded results into a weighted, rerunnable verdict, a plotting script, and a doc. The scoring/harness logic stays testable offline (stdlib-only, stub-driven); the Architecture B-specific adaptation code needs its own heavier dependencies and its own separate test run, kept out of Architecture A's own CI.
 
-**Tech Stack:** Python 3.10, stdlib `unittest` (existing pattern), `langchain-openai`/`langgraph`/`faiss-cpu`/`sentence-transformers` (new, clinicProj-only deps), Ollama (already installed, gemma3:4b already pulled), matplotlib (existing pattern for `scripts/plot_model_comparison.py`).
+**Tech Stack:** Python 3.10, stdlib `unittest` (existing pattern), `langchain-openai`/`langgraph`/`faiss-cpu`/`sentence-transformers` (new, Architecture B-only deps), Ollama (already installed, gemma3:4b already pulled), matplotlib (existing pattern for `scripts/plot_model_comparison.py`).
 
-**Spec:** `docs/superpowers/specs/2026-09-28-clinicproj-architecture-comparison-design.md`
+**Spec:** `docs/superpowers/specs/2026-09-28-architecture-comparison-design.md`
 
 ## Global Constraints
 
-- Source repo: `https://github.com/ayechiahmed/clinicProj`, commit `3249ecb` ("Initial commit") — already cloned locally at `C:\Users\moham\cstam\clinicProj`.
-- No write access to `ayechiahmed/clinicProj` and no attempt to push there. All deliverables land only in this repo (`PublisherX02/Claim_Guard`, worktree branch `worktree-yara-facts-blob-harness`).
-- No artificial leveling: both systems are compared as complete, real architectures exactly as they work. Do not strip clinicProj's OCR/RAG down to "match" ClaimGuard's current capabilities.
+- Source repo: `a teammate's repository`, commit `3249ecb` ("Initial commit") — already cloned locally.
+- No write access to `a teammate/Architecture B` and no attempt to push there. All deliverables land only in this repo (`PublisherX02/Claim_Guard`, worktree branch `worktree-yara-facts-blob-harness`).
+- No artificial leveling: both systems are compared as complete, real architectures exactly as they work. Do not strip Architecture B's OCR/RAG down to "match" Architecture A's current capabilities.
 - Local model for both sides: `gemma3:4b` via Ollama's OpenAI-compatible endpoint, `http://localhost:11434/v1`, API key placeholder `"ollama-local"` — this is the exact convention `src/llm_adapter.py`'s `OllamaExplanationProvider` already uses; reuse it, don't reinvent it.
-- Anything that imports `langchain`, `langgraph`, `faiss`, `sentence_transformers`, or `matplotlib` must NOT be added to the top-level `tests/` directory or ClaimGuard's `requirements.txt` — none of those are part of ClaimGuard's own dependency set (matplotlib isn't either, even though `scripts/plot_model_comparison.py` already uses it — that script has no test today for exactly this reason) and adding one would break `python -m unittest discover -s tests` in CI (which only installs `requirements.txt`). clinicProj-specific tests AND anything needing matplotlib live under `comparison/clinicproj_adapted/tests/` and are run separately, documented as such.
-- `scripts/run_clinicproj_comparison.py` and `scripts/score_clinicproj_comparison.py` must remain importable (for their own unit tests in the main `tests/` dir) without those heavy packages installed — achieved by deferring any clinicProj-specific import to inside the function that actually needs it, never at module level.
+- Anything that imports `langchain`, `langgraph`, `faiss`, `sentence_transformers`, or `matplotlib` must NOT be added to the top-level `tests/` directory or Architecture A's `requirements.txt` — none of those are part of Architecture A's own dependency set (matplotlib isn't either, even though `scripts/plot_model_comparison.py` already uses it — that script has no test today for exactly this reason) and adding one would break `python -m unittest discover -s tests` in CI (which only installs `requirements.txt`). Architecture B-specific tests AND anything needing matplotlib live under `comparison/architecture_b/tests/` and are run separately, documented as such.
+- `scripts/run_architecture_comparison.py` and `scripts/score_architecture_comparison.py` must remain importable (for their own unit tests in the main `tests/` dir) without those heavy packages installed — achieved by deferring any Architecture B-specific import to inside the function that actually needs it, never at module level.
 - Every new script follows the existing CLI convention (`argparse`, a `main()` guarded by `if __name__ == '__main__':`), matching `scripts/run_yara.py` and `scripts/plot_model_comparison.py`.
 - `outputs/architecture_comparison/` is gitignored by the blanket `outputs/` rule in `.gitignore`; the specific result files this plan produces are force-added (`git add -f`), matching the existing pattern for `outputs/audit_demo/*` (already committed as evidence).
 
 ## Review Focus
 
-- **A claim the answer key says is INVALID, but where clinicProj's RAG retrieves no matching rule** (e.g., a currency violation when the currency rule's prose wording doesn't semantically match the retrieval query): clinicProj's own prompt says "state that no applicable rule was found" rather than fabricate — the scoring script must count this as a genuine miss, not crash trying to parse a `findings` list that doesn't mention the rule at all.
-- **The Ollama server not running when the harness starts**: both `review_package(..., provider=OllamaExplanationProvider())` and clinicProj's `ChatOpenAI` call will raise a connection error on the first claim — the harness must fail loudly with a clear "is Ollama running?" message instead of a bare traceback or a silently-empty output file.
-- **A claim where clinicProj's agent output is not valid JSON** (the ReAct agent can end its turn with prose instead of the requested JSON schema, unlike ClaimGuard's schema-checked `llm_adapter.py`) — the harness must record this as a recorded failure for that claim (latency + a `parse_error` field), not stop the whole batch run.
+- **A claim the answer key says is INVALID, but where Architecture B's RAG retrieves no matching rule** (e.g., a currency violation when the currency rule's prose wording doesn't semantically match the retrieval query): Architecture B's own prompt says "state that no applicable rule was found" rather than fabricate — the scoring script must count this as a genuine miss, not crash trying to parse a `findings` list that doesn't mention the rule at all.
+- **The Ollama server not running when the harness starts**: both `review_package(..., provider=OllamaExplanationProvider())` and Architecture B's `ChatOpenAI` call will raise a connection error on the first claim — the harness must fail loudly with a clear "is Ollama running?" message instead of a bare traceback or a silently-empty output file.
+- **A claim where Architecture B's agent output is not valid JSON** (the ReAct agent can end its turn with prose instead of the requested JSON schema, unlike Architecture A's schema-checked `llm_adapter.py`) — the harness must record this as a recorded failure for that claim (latency + a `parse_error` field), not stop the whole batch run.
 - **The prompt-injection fixture claim (Task 7) succeeding partially** — e.g. the agent's `overall_status` stays `REVIEW_REQUIRED` but the injected instruction still suppresses one genuine finding from the `findings` list. The security scan must check both the top-level status AND that every rule the answer key says should fail is still present in `findings`, not just the coarse status.
-- **`comparison/clinicproj_adapted/policies/` retrieval returning duplicate or near-duplicate chunks** for a query (the 500-char/50-overlap chunker can split one rule's prose across two overlapping chunks) — the scoring script's rule-citation check must tolerate a rule being cited from either chunk, not require an exact single-chunk match.
+- **`comparison/architecture_b/policies/` retrieval returning duplicate or near-duplicate chunks** for a query (the 500-char/50-overlap chunker can split one rule's prose across two overlapping chunks) — the scoring script's rule-citation check must tolerate a rule being cited from either chunk, not require an exact single-chunk match.
 
 ---
 
-### Task 1: Reference copy of clinicProj + comparison README
+### Task 1: Reference copy of Architecture B + comparison README
 
 **Files:**
-- Create: `comparison/clinicproj-src/` (full copy of the clone, `.git` stripped)
+- Create: `comparison/architecture_b_original/` (full copy of the clone, `.git` stripped)
 - Create: `comparison/README.md`
 
 **Interfaces:**
-- Produces: `comparison/clinicproj-src/` as a frozen, unmodified reference — later tasks copy FROM here, never edit it in place.
+- Produces: `comparison/architecture_b_original/` as a frozen, unmodified reference — later tasks copy FROM here, never edit it in place.
 
 - [ ] **Step 1: Copy the clone, stripping `.git`**
 
 ```bash
 mkdir -p comparison
-cp -r /c/Users/moham/cstam/clinicProj comparison/clinicproj-src
-rm -rf comparison/clinicproj-src/.git
+cp -r <path to a local clone of the teammate's repository> comparison/architecture_b_original
+rm -rf comparison/architecture_b_original/.git
 ```
 
 - [ ] **Step 2: Write the comparison README**
@@ -53,53 +53,53 @@ rm -rf comparison/clinicproj-src/.git
 Create `comparison/README.md`:
 
 ```markdown
-# ClaimGuard vs. clinicProj architecture comparison
+# Architecture A vs. Architecture B architecture comparison
 
-Source: `comparison/clinicproj-src/` is a frozen, unmodified copy of
-`https://github.com/ayechiahmed/clinicProj`, commit `3249ecb` ("Initial
+Source: `comparison/architecture_b_original/` is a frozen, unmodified copy of
+`a teammate's repository`, commit `3249ecb` ("Initial
 commit"), cloned 2026-09-28. It exists so this comparison is reproducible
 without depending on the external repo staying available — it is reference
 material, never edited.
 
-`comparison/clinicproj_adapted/` is a working copy of only the files that
+`comparison/architecture_b/` is a working copy of only the files that
 repo's code actually imports (`agent.py`, `extractor.py`,
 `document_loader.py`, `policies/`), with exactly one change: the LLM binding
 is swapped from cloud Gemini to the same local gemma3:4b (via Ollama) that
-ClaimGuard's own `src/llm_adapter.py` already uses, so the comparison is
+Architecture A's own `src/llm_adapter.py` already uses, so the comparison is
 about architecture, not which cloud API key someone had. No other logic is
 changed — same LangGraph ReAct agent, same system prompt, same RAG, same OCR
 path.
 
-Full design: `docs/superpowers/specs/2026-09-28-clinicproj-architecture-comparison-design.md`
+Full design: `docs/superpowers/specs/2026-09-28-architecture-comparison-design.md`
 Results and verdict: `docs/24_Architecture_Comparison.md`
 
 ## Running the comparison yourself
 
-clinicProj's dependencies (`langchain`, `langgraph`, `faiss-cpu`,
-`sentence-transformers`) are NOT part of ClaimGuard's own `requirements.txt`
-and are not installed by ClaimGuard's CI. To run this comparison locally:
+Architecture B's dependencies (`langchain`, `langgraph`, `faiss-cpu`,
+`sentence-transformers`) are NOT part of Architecture A's own `requirements.txt`
+and are not installed by Architecture A's CI. To run this comparison locally:
 
     python -m venv comparison/.venv
-    comparison/.venv/Scripts/pip install -r comparison/clinicproj_adapted/requirements.txt
+    comparison/.venv/Scripts/pip install -r comparison/architecture_b/requirements.txt
     ollama pull gemma3:4b   # if not already pulled
     ollama serve            # if not already running
 
-    # clinicProj-specific unit tests (need the venv above):
-    comparison/.venv/Scripts/python -m unittest discover -s comparison/clinicproj_adapted/tests
+    # Architecture B-specific unit tests (need the venv above):
+    comparison/.venv/Scripts/python -m unittest discover -s comparison/architecture_b/tests
 
     # the actual comparison run (needs Ollama running, ~minutes per claim):
-    comparison/.venv/Scripts/python scripts/run_clinicproj_comparison.py --sample-size 36
-    .venv/Scripts/python scripts/security_scan_clinicproj.py
-    .venv/Scripts/python scripts/score_clinicproj_comparison.py
-    .venv/Scripts/python scripts/plot_clinicproj_comparison.py
+    comparison/.venv/Scripts/python scripts/run_architecture_comparison.py --sample-size 36
+    .venv/Scripts/python scripts/security_scan_architecture_b.py
+    .venv/Scripts/python scripts/score_architecture_comparison.py
+    .venv/Scripts/python scripts/plot_architecture_comparison.py
 ```
 
 - [ ] **Step 3: Verify the copy is complete and commit**
 
 ```bash
-ls comparison/clinicproj-src/  # expect agent.py, extractor.py, document_loader.py, policies/, etc.
-git add -f comparison/clinicproj-src comparison/README.md
-git commit -m "docs: freeze a reference copy of clinicProj for the architecture comparison"
+ls comparison/architecture_b_original/  # expect agent.py, extractor.py, document_loader.py, policies/, etc.
+git add -f comparison/architecture_b_original comparison/README.md
+git commit -m "docs: freeze a reference copy of Architecture B for the architecture comparison"
 ```
 
 ---
@@ -107,25 +107,25 @@ git commit -m "docs: freeze a reference copy of clinicProj for the architecture 
 ### Task 2: Adapted copy scaffold + requirements.txt
 
 **Files:**
-- Create: `comparison/clinicproj_adapted/extractor.py` (copy, unmodified in this task)
-- Create: `comparison/clinicproj_adapted/document_loader.py` (copy, unmodified)
-- Create: `comparison/clinicproj_adapted/agent.py` (copy, unmodified in this task)
-- Create: `comparison/clinicproj_adapted/policies/sample_policy.txt` (copy, unmodified)
-- Create: `comparison/clinicproj_adapted/requirements.txt`
-- Create: `comparison/clinicproj_adapted/tests/__init__.py` (empty)
+- Create: `comparison/architecture_b/extractor.py` (copy, unmodified in this task)
+- Create: `comparison/architecture_b/document_loader.py` (copy, unmodified)
+- Create: `comparison/architecture_b/agent.py` (copy, unmodified in this task)
+- Create: `comparison/architecture_b/policies/sample_policy.txt` (copy, unmodified)
+- Create: `comparison/architecture_b/requirements.txt`
+- Create: `comparison/architecture_b/tests/__init__.py` (empty)
 
 **Interfaces:**
-- Produces: an installable `comparison/clinicproj_adapted/` package — Tasks 3–4 edit these files in place.
+- Produces: an installable `comparison/architecture_b/` package — Tasks 3–4 edit these files in place.
 
 - [ ] **Step 1: Copy only the imported files**
 
 ```bash
-mkdir -p comparison/clinicproj_adapted/tests
-cp comparison/clinicproj-src/extractor.py comparison/clinicproj_adapted/
-cp comparison/clinicproj-src/document_loader.py comparison/clinicproj_adapted/
-cp comparison/clinicproj-src/agent.py comparison/clinicproj_adapted/
-cp -r comparison/clinicproj-src/policies comparison/clinicproj_adapted/policies
-touch comparison/clinicproj_adapted/tests/__init__.py
+mkdir -p comparison/architecture_b/tests
+cp comparison/architecture_b_original/extractor.py comparison/architecture_b/
+cp comparison/architecture_b_original/document_loader.py comparison/architecture_b/
+cp comparison/architecture_b_original/agent.py comparison/architecture_b/
+cp -r comparison/architecture_b_original/policies comparison/architecture_b/policies
+touch comparison/architecture_b/tests/__init__.py
 ```
 
 Deliberately NOT copied: `aaa.jpg`, `claim1.png`, `claim2.png`, `claim.csv`,
@@ -137,11 +137,11 @@ removes.
 
 - [ ] **Step 2: Write requirements.txt**
 
-Create `comparison/clinicproj_adapted/requirements.txt`:
+Create `comparison/architecture_b/requirements.txt`:
 
 ```
-# clinicProj's dependencies, inferred from its actual imports (no requirements.txt
-# existed upstream). NOT part of ClaimGuard's own requirements.txt -- see
+# Architecture B's dependencies, inferred from its actual imports (no requirements.txt
+# existed upstream). NOT part of Architecture A's own requirements.txt -- see
 # comparison/README.md for why and how to install these separately.
 faiss-cpu==1.9.0
 sentence-transformers==3.3.1
@@ -158,8 +158,8 @@ Pillow==11.0.0
 pypdfium2==4.30.1
 python-dotenv==1.0.1
 numpy==1.26.4
-# Not a clinicProj dependency -- scripts/plot_clinicproj_comparison.py (Task 9) needs it and
-# matplotlib is not in ClaimGuard's own requirements.txt either (scripts/plot_model_comparison.py
+# Not a Architecture B dependency -- scripts/plot_architecture_comparison.py (Task 9) needs it and
+# matplotlib is not in Architecture A's own requirements.txt either (scripts/plot_model_comparison.py
 # has the same property already). Bundled into this venv so one `pip install` covers the whole
 # comparison suite; see comparison/README.md.
 matplotlib==3.10.0
@@ -169,10 +169,10 @@ matplotlib==3.10.0
 
 ```bash
 python -m venv comparison/.venv
-comparison/.venv/Scripts/pip install -q -r comparison/clinicproj_adapted/requirements.txt
+comparison/.venv/Scripts/pip install -q -r comparison/architecture_b/requirements.txt
 comparison/.venv/Scripts/python -c "import faiss, langgraph, langchain_openai; print('deps OK')"
-git add -f comparison/clinicproj_adapted
-git commit -m "build: scaffold the adapted clinicProj working copy and its requirements.txt"
+git add -f comparison/architecture_b
+git commit -m "build: scaffold the adapted Architecture B working copy and its requirements.txt"
 ```
 
 ---
@@ -180,8 +180,8 @@ git commit -m "build: scaffold the adapted clinicProj working copy and its requi
 ### Task 3: Swap extractor.py's LLM to local gemma3
 
 **Files:**
-- Modify: `comparison/clinicproj_adapted/extractor.py:306-328` (the `extract_claim_json` default-LLM block)
-- Test: `comparison/clinicproj_adapted/tests/test_extractor_local_llm.py`
+- Modify: `comparison/architecture_b/extractor.py:306-328` (the `extract_claim_json` default-LLM block)
+- Test: `comparison/architecture_b/tests/test_extractor_local_llm.py`
 
 **Interfaces:**
 - Produces: `build_local_llm(max_tokens=800) -> ChatOpenAI` in `extractor.py`, used as `extract_claim_json`'s default when no `llm` is passed.
@@ -189,7 +189,7 @@ git commit -m "build: scaffold the adapted clinicProj working copy and its requi
 
 - [ ] **Step 1: Write the failing test**
 
-Create `comparison/clinicproj_adapted/tests/test_extractor_local_llm.py`:
+Create `comparison/architecture_b/tests/test_extractor_local_llm.py`:
 
 ```python
 import sys
@@ -230,18 +230,18 @@ if __name__ == '__main__':
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/clinicproj_adapted/tests -p "test_extractor_local_llm.py" -v`
+Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/architecture_b/tests -p "test_extractor_local_llm.py" -v`
 Expected: FAIL — `ImportError: cannot import name 'build_local_llm'`
 
 - [ ] **Step 3: Implement**
 
-In `comparison/clinicproj_adapted/extractor.py`, replace the existing default-LLM
+In `comparison/architecture_b/extractor.py`, replace the existing default-LLM
 block inside `extract_claim_json` (currently `from langchain_google_genai import
 ChatGoogleGenerativeAI; llm = ChatGoogleGenerativeAI(model=os.getenv(...))`) with:
 
 ```python
 def build_local_llm(max_tokens: int = 800):
-    """The same local Ollama endpoint ClaimGuard's own OllamaExplanationProvider
+    """The same local Ollama endpoint Architecture A's own OllamaExplanationProvider
     uses (src/llm_adapter.py) -- gemma3:4b, fully offline, no API key leaves
     this machine. Swapped in here so both systems in the comparison run the
     literal same model instance; nothing else about extraction changes."""
@@ -270,14 +270,14 @@ file alone).
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/clinicproj_adapted/tests -p "test_extractor_local_llm.py" -v`
+Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/architecture_b/tests -p "test_extractor_local_llm.py" -v`
 Expected: PASS (2 tests)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add comparison/clinicproj_adapted/extractor.py comparison/clinicproj_adapted/tests/test_extractor_local_llm.py
-git commit -m "feat: wire clinicProj's claim-JSON extraction to local gemma3 instead of cloud Gemini"
+git add comparison/architecture_b/extractor.py comparison/architecture_b/tests/test_extractor_local_llm.py
+git commit -m "feat: wire Architecture B's claim-JSON extraction to local gemma3 instead of cloud Gemini"
 ```
 
 ---
@@ -285,8 +285,8 @@ git commit -m "feat: wire clinicProj's claim-JSON extraction to local gemma3 ins
 ### Task 4: Refactor agent.py into an importable module
 
 **Files:**
-- Modify: `comparison/clinicproj_adapted/agent.py` (whole file restructure)
-- Test: `comparison/clinicproj_adapted/tests/test_agent_module.py`
+- Modify: `comparison/architecture_b/agent.py` (whole file restructure)
+- Test: `comparison/architecture_b/tests/test_agent_module.py`
 
 **Interfaces:**
 - Consumes: `build_local_llm` from Task 3 (`extractor.py`).
@@ -308,7 +308,7 @@ same functions Task 6 calls.
 
 - [ ] **Step 1: Write the failing test**
 
-Create `comparison/clinicproj_adapted/tests/test_agent_module.py`:
+Create `comparison/architecture_b/tests/test_agent_module.py`:
 
 ```python
 import sys
@@ -357,12 +357,12 @@ if __name__ == '__main__':
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/clinicproj_adapted/tests -p "test_agent_module.py" -v`
+Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/architecture_b/tests -p "test_agent_module.py" -v`
 Expected: FAIL — the current `agent.py` raises on import (`GOOGLE_API_KEY not found` or a missing `claim.csv`), and `build_rag_index`/`validate_claim` don't exist yet.
 
 - [ ] **Step 3: Rewrite agent.py**
 
-Replace the full contents of `comparison/clinicproj_adapted/agent.py`. Keep the
+Replace the full contents of `comparison/architecture_b/agent.py`. Keep the
 `AGENT_SYSTEM_PROMPT` string (lines 99–809 of the original) byte-for-byte —
 it's the whole point of the comparison that his reasoning logic doesn't
 change. Everything else becomes functions:
@@ -446,7 +446,7 @@ def _make_tools(rag_index: RagIndex):
     return [calculator, retrieve_documents]
 
 
-AGENT_SYSTEM_PROMPT = """You are ClaimGuard AI, an Agentic AI Copilot for healthcare claim pre-validation.
+AGENT_SYSTEM_PROMPT = """You are Architecture A AI, an Agentic AI Copilot for healthcare claim pre-validation.
 [... unchanged, full 863-line original prompt body from agent.py lines 99-809 goes here verbatim ...]
 """
 
@@ -519,12 +519,12 @@ if __name__ == "__main__":
 ```
 
 When copying `AGENT_SYSTEM_PROMPT`, take it verbatim from
-`comparison/clinicproj_adapted/agent.py`'s current lines 99–809 (the original
+`comparison/architecture_b/agent.py`'s current lines 99–809 (the original
 copy from Task 2) before overwriting the file — do not retype it by hand.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/clinicproj_adapted/tests -p "test_agent_module.py" -v`
+Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/architecture_b/tests -p "test_agent_module.py" -v`
 Expected: PASS (3 tests). `build_rag_index` will actually download/load the
 `all-MiniLM-L6-v2` embedding model on first run (cached afterward) — this
 test has real, if small, latency the first time it runs.
@@ -534,7 +534,7 @@ test has real, if small, latency the first time it runs.
 Not part of the automated suite (needs Ollama running):
 
 ```bash
-cd comparison/clinicproj_adapted
+cd comparison/architecture_b
 ../.venv/Scripts/python -c "
 from agent import build_agent, validate_claim
 agent = build_agent()
@@ -542,30 +542,30 @@ print(validate_claim({'claim_id': 'CG-SMOKE', 'currency': 'USD', 'lines': []}, a
 "
 ```
 
-Expected: a JSON-shaped reply (or at least a reply — clinicProj has no
+Expected: a JSON-shaped reply (or at least a reply — Architecture B has no
 schema-check, so malformed JSON here is itself a real, notable finding, not
 a test failure).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add comparison/clinicproj_adapted/agent.py comparison/clinicproj_adapted/tests/test_agent_module.py
-git commit -m "refactor: turn clinicProj's agent.py into an importable module, no import-time side effects"
+git add comparison/architecture_b/agent.py comparison/architecture_b/tests/test_agent_module.py
+git commit -m "refactor: turn Architecture B's agent.py into an importable module, no import-time side effects"
 ```
 
 ---
 
-### Task 5: CSTAM rulebook prose for clinicProj's RAG
+### Task 5: CSTAM rulebook prose for Architecture B's RAG
 
 **Files:**
-- Create: `comparison/clinicproj_adapted/policies/cstam_rulebook.txt`
-- Test: `comparison/clinicproj_adapted/tests/test_policy_content.py`
+- Create: `comparison/architecture_b/policies/cstam_rulebook.txt`
+- Test: `comparison/architecture_b/tests/test_policy_content.py`
 
 **Interfaces:**
 - Consumes: `document_loader.get_documents` (Task 2's unmodified copy).
-- Produces: policy content Task 6's harness run depends on for clinicProj to have anything real to retrieve against.
+- Produces: policy content Task 6's harness run depends on for Architecture B to have anything real to retrieve against.
 
-Without this, clinicProj's RAG only has the one generic three-paragraph
+Without this, Architecture B's RAG only has the one generic three-paragraph
 `sample_policy.txt` already in the folder — nowhere near enough to validate
 against the CSTAM rulebook's 15 actual rules, and any comparison run would
 just be measuring "how does the agent behave with no real policy," not
@@ -573,7 +573,7 @@ comparing rule coverage.
 
 - [ ] **Step 1: Write the failing test**
 
-Create `comparison/clinicproj_adapted/tests/test_policy_content.py`:
+Create `comparison/architecture_b/tests/test_policy_content.py`:
 
 ```python
 import re
@@ -606,12 +606,12 @@ if __name__ == '__main__':
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/clinicproj_adapted/tests -p "test_policy_content.py" -v`
+Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/architecture_b/tests -p "test_policy_content.py" -v`
 Expected: FAIL — `FileNotFoundError` (the file doesn't exist yet).
 
 - [ ] **Step 3: Write the rulebook prose**
 
-Create `comparison/clinicproj_adapted/policies/cstam_rulebook.txt` (content
+Create `comparison/architecture_b/policies/cstam_rulebook.txt` (content
 derived directly from `docs/04_Rulebook.md`, rewritten as payer-policy
 prose with the rule ID kept visible so retrieval and citation stay
 traceable — this is a rewording, not a copy of the rulebook doc's own
@@ -739,31 +739,31 @@ rule above should not be flagged.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/clinicproj_adapted/tests -p "test_policy_content.py" -v`
+Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/architecture_b/tests -p "test_policy_content.py" -v`
 Expected: PASS (2 tests)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add comparison/clinicproj_adapted/policies/cstam_rulebook.txt comparison/clinicproj_adapted/tests/test_policy_content.py
-git commit -m "docs: give clinicProj's RAG a real CSTAM rulebook to retrieve against"
+git add comparison/architecture_b/policies/cstam_rulebook.txt comparison/architecture_b/tests/test_policy_content.py
+git commit -m "docs: give Architecture B's RAG a real CSTAM rulebook to retrieve against"
 ```
 
 ---
 
-### Task 6: Comparison harness — `scripts/run_clinicproj_comparison.py`
+### Task 6: Comparison harness — `scripts/run_architecture_comparison.py`
 
 **Files:**
-- Create: `scripts/run_clinicproj_comparison.py`
-- Test: `tests/test_run_clinicproj_comparison_harness.py`
+- Create: `scripts/run_architecture_comparison.py`
+- Test: `tests/test_run_architecture_comparison_harness.py`
 
 **Interfaces:**
-- Consumes: `data/{development,validation,stress}/claims.jsonl` (existing `jsonl_reader.read_lines`/`parse_json` from `src/`), `src/claim_review.review_package`, `src/llm_adapter.OllamaExplanationProvider`, `comparison/clinicproj_adapted/agent.{build_agent,build_rag_index,validate_claim}` (imported lazily, see Global Constraints).
-- Produces: `outputs/architecture_comparison/claimguard.jsonl` and `outputs/architecture_comparison/clinicproj.jsonl`, one row per claim per system: `{"claim_id", "system", "latency_s", "status", "raw_output", "error"}`.
+- Consumes: `data/{development,validation,stress}/claims.jsonl` (existing `jsonl_reader.read_lines`/`parse_json` from `src/`), `src/claim_review.review_package`, `src/llm_adapter.OllamaExplanationProvider`, `comparison/architecture_b/agent.{build_agent,build_rag_index,validate_claim}` (imported lazily, see Global Constraints).
+- Produces: `outputs/architecture_comparison/architecture_a.jsonl` and `outputs/architecture_comparison/architecture_b.jsonl`, one row per claim per system: `{"claim_id", "system", "latency_s", "status", "raw_output", "error"}`.
 
 - [ ] **Step 1: Write the failing test (sampling + recording logic, stubbed systems)**
 
-Create `tests/test_run_clinicproj_comparison_harness.py`:
+Create `tests/test_run_architecture_comparison_harness.py`:
 
 ```python
 import json
@@ -779,7 +779,7 @@ sys.path.insert(0, str(ROOT / 'src'))
 
 class SampleClaimsTests(unittest.TestCase):
     def test_sample_size_caps_the_number_of_claims_read(self):
-        from run_clinicproj_comparison import sample_claims
+        from run_architecture_comparison import sample_claims
         claims = sample_claims(ROOT / 'data' / 'development' / 'claims.jsonl', sample_size=5)
         self.assertEqual(len(claims), 5)
         self.assertEqual(len({c['claim_id'] for c in claims}), 5)
@@ -787,7 +787,7 @@ class SampleClaimsTests(unittest.TestCase):
 
 class RunSystemTests(unittest.TestCase):
     def test_records_one_row_per_claim_with_latency_and_status(self):
-        from run_clinicproj_comparison import run_system
+        from run_architecture_comparison import run_system
 
         claims = [{'claim_id': 'CG-1'}, {'claim_id': 'CG-2'}]
 
@@ -807,7 +807,7 @@ class RunSystemTests(unittest.TestCase):
         self.assertIsNone(rows[0]['error'])
 
     def test_a_claim_that_raises_is_recorded_not_fatal(self):
-        from run_clinicproj_comparison import run_system
+        from run_architecture_comparison import run_system
 
         claims = [{'claim_id': 'CG-1'}, {'claim_id': 'CG-2'}]
 
@@ -833,21 +833,21 @@ if __name__ == '__main__':
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `.venv/Scripts/python -m unittest tests.test_run_clinicproj_comparison_harness -v`
-Expected: FAIL — `run_clinicproj_comparison` doesn't exist yet.
+Run: `.venv/Scripts/python -m unittest tests.test_run_architecture_comparison_harness -v`
+Expected: FAIL — `run_architecture_comparison` doesn't exist yet.
 
 - [ ] **Step 3: Implement the harness**
 
-Create `scripts/run_clinicproj_comparison.py`:
+Create `scripts/run_architecture_comparison.py`:
 
 ```python
-"""Run both ClaimGuard and clinicProj over the same claim sample, recording
-per-claim latency, status and raw output for scripts/score_clinicproj_comparison.py.
+"""Run both Architecture A and Architecture B over the same claim sample, recording
+per-claim latency, status and raw output for scripts/score_architecture_comparison.py.
 
-    python scripts/run_clinicproj_comparison.py --sample-size 36
+    python scripts/run_architecture_comparison.py --sample-size 36
 
 Needs Ollama running locally with gemma3:4b pulled (`ollama serve`) and, for
-the clinicproj side, comparison/clinicproj_adapted's own dependencies
+the architecture_b side, comparison/architecture_b's own dependencies
 installed (see comparison/README.md) -- this module itself stays importable
 without those, so its sampling/recording logic can be unit-tested offline.
 """
@@ -899,7 +899,7 @@ def run_system(claims, runner, system_name, out_path):
                   f"{row['status'] or 'ERROR'} ({row['latency_s']:.1f}s)")
 
 
-def _claimguard_runner():
+def _architecture_a_runner():
     sys.path.insert(0, str(ROOT / 'src'))
     from claim_review import review_package
     from engine_core import config
@@ -918,8 +918,8 @@ def _claimguard_runner():
     return run
 
 
-def _clinicproj_runner():
-    adapted = ROOT / 'comparison' / 'clinicproj_adapted'
+def _architecture_b_runner():
+    adapted = ROOT / 'comparison' / 'architecture_b'
     sys.path.insert(0, str(adapted))
     from agent import build_agent, validate_claim
     agent = build_agent()
@@ -956,17 +956,17 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--claims', default=str(ROOT / 'data' / 'development' / 'claims.jsonl'))
     p.add_argument('--sample-size', type=int, default=36)
-    p.add_argument('--system', choices=('claimguard', 'clinicproj', 'both'), default='both')
+    p.add_argument('--system', choices=('architecture_a', 'architecture_b', 'both'), default='both')
     a = p.parse_args()
 
     _check_ollama_is_serving()
     claims = sample_claims(a.claims, a.sample_size)
     print(f'{len(claims)} claim(s) sampled from {a.claims}')
 
-    if a.system in ('claimguard', 'both'):
-        run_system(claims, _claimguard_runner(), 'claimguard', OUT_DIR / 'claimguard.jsonl')
-    if a.system in ('clinicproj', 'both'):
-        run_system(claims, _clinicproj_runner(), 'clinicproj', OUT_DIR / 'clinicproj.jsonl')
+    if a.system in ('architecture_a', 'both'):
+        run_system(claims, _architecture_a_runner(), 'architecture_a', OUT_DIR / 'architecture_a.jsonl')
+    if a.system in ('architecture_b', 'both'):
+        run_system(claims, _architecture_b_runner(), 'architecture_b', OUT_DIR / 'architecture_b.jsonl')
 
 
 if __name__ == '__main__':
@@ -975,33 +975,33 @@ if __name__ == '__main__':
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `.venv/Scripts/python -m unittest tests.test_run_clinicproj_comparison_harness -v`
-Expected: PASS (3 tests) — no Ollama or clinicProj dependencies needed for
+Run: `.venv/Scripts/python -m unittest tests.test_run_architecture_comparison_harness -v`
+Expected: PASS (3 tests) — no Ollama or Architecture B dependencies needed for
 these, since `sample_claims`/`run_system` take a plain `runner` callable.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/run_clinicproj_comparison.py tests/test_run_clinicproj_comparison_harness.py
+git add scripts/run_architecture_comparison.py tests/test_run_architecture_comparison_harness.py
 git commit -m "feat: comparison harness that runs both systems over the same claim sample"
 ```
 
 ---
 
-### Task 7: Security scan — `scripts/security_scan_clinicproj.py`
+### Task 7: Security scan — `scripts/security_scan_architecture_b.py`
 
 **Files:**
-- Create: `scripts/security_scan_clinicproj.py`
-- Test: `tests/test_security_scan_clinicproj.py`
+- Create: `scripts/security_scan_architecture_b.py`
+- Test: `tests/test_security_scan_architecture_b.py`
 
 **Interfaces:**
-- Consumes (static mode): `comparison/clinicproj_adapted/*.py` source files.
-- Consumes (live mode, `--live`): `comparison/clinicproj_adapted/agent.{build_agent,validate_claim}`, a known-INVALID claim from `data/development/claims.jsonl`.
+- Consumes (static mode): `comparison/architecture_b/*.py` source files.
+- Consumes (live mode, `--live`): `comparison/architecture_b/agent.{build_agent,validate_claim}`, a known-INVALID claim from `data/development/claims.jsonl`.
 - Produces: `outputs/architecture_comparison/security_report.json`: `{"dangerous_sinks": [...], "has_citation_grounding": bool, "injection_resistance": {...} | null}`.
 
 - [ ] **Step 1: Write the failing test**
 
-Create `tests/test_security_scan_clinicproj.py`:
+Create `tests/test_security_scan_architecture_b.py`:
 
 ```python
 import json
@@ -1016,7 +1016,7 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 
 class DangerousSinkScanTests(unittest.TestCase):
     def test_finds_eval_in_a_fixture_file(self):
-        from security_scan_clinicproj import scan_dangerous_sinks
+        from security_scan_architecture_b import scan_dangerous_sinks
         with tempfile.TemporaryDirectory() as tmp:
             f = Path(tmp) / 'calc.py'
             f.write_text("def calculator(expr):\n    return eval(expr)\n", encoding='utf-8')
@@ -1026,7 +1026,7 @@ class DangerousSinkScanTests(unittest.TestCase):
         self.assertIn('eval', findings[0]['line'])
 
     def test_clean_file_has_no_findings(self):
-        from security_scan_clinicproj import scan_dangerous_sinks
+        from security_scan_architecture_b import scan_dangerous_sinks
         with tempfile.TemporaryDirectory() as tmp:
             f = Path(tmp) / 'clean.py'
             f.write_text("def add(a, b):\n    return a + b\n", encoding='utf-8')
@@ -1036,14 +1036,14 @@ class DangerousSinkScanTests(unittest.TestCase):
 
 class GroundingGuardCheckTests(unittest.TestCase):
     def test_no_grounding_guard_found_when_absent(self):
-        from security_scan_clinicproj import has_citation_grounding_guard
+        from security_scan_architecture_b import has_citation_grounding_guard
         with tempfile.TemporaryDirectory() as tmp:
             f = Path(tmp) / 'agent.py'
             f.write_text("def validate_claim(claim, agent):\n    return agent.invoke(claim)\n", encoding='utf-8')
             self.assertFalse(has_citation_grounding_guard(Path(tmp)))
 
     def test_grounding_guard_found_when_present(self):
-        from security_scan_clinicproj import has_citation_grounding_guard
+        from security_scan_architecture_b import has_citation_grounding_guard
         with tempfile.TemporaryDirectory() as tmp:
             f = Path(tmp) / 'agent.py'
             f.write_text("def check_grounding(explanation, finding):\n    pass\n", encoding='utf-8')
@@ -1056,19 +1056,19 @@ if __name__ == '__main__':
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `.venv/Scripts/python -m unittest tests.test_security_scan_clinicproj -v`
+Run: `.venv/Scripts/python -m unittest tests.test_security_scan_architecture_b -v`
 Expected: FAIL — module doesn't exist.
 
 - [ ] **Step 3: Implement**
 
-Create `scripts/security_scan_clinicproj.py`:
+Create `scripts/security_scan_architecture_b.py`:
 
 ```python
-"""Static and (optionally) live security checks against the adapted clinicProj
-copy, feeding scripts/score_clinicproj_comparison.py's security category.
+"""Static and (optionally) live security checks against the adapted Architecture B
+copy, feeding scripts/score_architecture_comparison.py's security category.
 
-    python scripts/security_scan_clinicproj.py            # static checks only
-    python scripts/security_scan_clinicproj.py --live      # + a live prompt-injection probe (needs Ollama)
+    python scripts/security_scan_architecture_b.py            # static checks only
+    python scripts/security_scan_architecture_b.py --live      # + a live prompt-injection probe (needs Ollama)
 """
 import argparse
 import json
@@ -1076,11 +1076,11 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ADAPTED = ROOT / 'comparison' / 'clinicproj_adapted'
+ADAPTED = ROOT / 'comparison' / 'architecture_b'
 OUT = ROOT / 'outputs' / 'architecture_comparison' / 'security_report.json'
 
-# Same sink family tests/test_security_owasp.py checks against ClaimGuard's own
-# src/ and scripts/ -- applied here to clinicProj's adapted copy for a like-for-like read.
+# Same sink family tests/test_security_owasp.py checks against Architecture A's own
+# src/ and scripts/ -- applied here to Architecture B's adapted copy for a like-for-like read.
 SINKS = re.compile(r'(?<![\w.])(eval|exec|compile|input|__import__)\s*\(|pickle|marshal|shelve|subprocess|os\.system|os\.popen'
                     r'|shell\s*=\s*True|yaml\.load\(')
 
@@ -1103,9 +1103,9 @@ def scan_dangerous_sinks(directory: Path) -> list:
 
 
 def has_citation_grounding_guard(directory: Path) -> bool:
-    """ClaimGuard's src/llm_adapter.py has check_grounding()/_UNGROUNDED --
+    """Architecture A's src/llm_adapter.py has check_grounding()/_UNGROUNDED --
     a check that an AI explanation's claims are actually backed by the
-    evidence it was given. clinicProj's agent.py has no equivalent: its
+    evidence it was given. Architecture B's agent.py has no equivalent: its
     system prompt asks the model not to hallucinate, but nothing in code
     verifies that after the fact."""
     for p in directory.glob('*.py'):
@@ -1178,28 +1178,28 @@ if __name__ == '__main__':
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `.venv/Scripts/python -m unittest tests.test_security_scan_clinicproj -v`
+Run: `.venv/Scripts/python -m unittest tests.test_security_scan_architecture_b -v`
 Expected: PASS (4 tests)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/security_scan_clinicproj.py tests/test_security_scan_clinicproj.py
-git commit -m "feat: static + live security checks against the adapted clinicProj copy"
+git add scripts/security_scan_architecture_b.py tests/test_security_scan_architecture_b.py
+git commit -m "feat: static + live security checks against the adapted Architecture B copy"
 ```
 
 ---
 
-### Task 8: Scoring / "who wins" verdict — `scripts/score_clinicproj_comparison.py`
+### Task 8: Scoring / "who wins" verdict — `scripts/score_architecture_comparison.py`
 
 **Files:**
-- Create: `scripts/score_clinicproj_comparison.py`
-- Test: `tests/test_score_clinicproj_comparison.py`
+- Create: `scripts/score_architecture_comparison.py`
+- Test: `tests/test_score_architecture_comparison.py`
 
 **Interfaces:**
-- Consumes: `outputs/architecture_comparison/{claimguard,clinicproj}.jsonl` (Task 6's shape), `outputs/architecture_comparison/security_report.json` (Task 7's shape), the matching `data/*/expected_results.jsonl` answer key.
+- Consumes: `outputs/architecture_comparison/{architecture_a,architecture_b}.jsonl` (Task 6's shape), `outputs/architecture_comparison/security_report.json` (Task 7's shape), the matching `data/*/expected_results.jsonl` answer key.
 - Produces: `outputs/architecture_comparison/verdict.json`:
-  `{"categories": {"correctness": {"claimguard": 0-100, "clinicproj": 0-100, "winner": str}, ...}, "overall": {"claimguard": 0-100, "clinicproj": 0-100, "winner": str}}`
+  `{"categories": {"correctness": {"architecture_a": 0-100, "architecture_b": 0-100, "winner": str}, ...}, "overall": {"architecture_a": 0-100, "architecture_b": 0-100, "winner": str}}`
 
 This is the benchmark the user asked for: a deterministic, rerunnable script
 that turns recorded results into a scored verdict — not a number typed into
@@ -1207,7 +1207,7 @@ a doc by hand.
 
 - [ ] **Step 1: Write the failing test**
 
-Create `tests/test_score_clinicproj_comparison.py`:
+Create `tests/test_score_architecture_comparison.py`:
 
 ```python
 import json
@@ -1226,36 +1226,36 @@ def write_jsonl(path, rows):
 
 class DeriveGoldStatusTests(unittest.TestCase):
     def test_any_fail_row_makes_the_claim_invalid(self):
-        from score_clinicproj_comparison import derive_claim_status
+        from score_architecture_comparison import derive_claim_status
         rows = [{'status': 'PASS'}, {'status': 'FAIL'}, {'status': 'PASS'}]
         self.assertEqual(derive_claim_status(rows), 'INVALID')
 
     def test_unable_to_assess_without_fail_is_review_required(self):
-        from score_clinicproj_comparison import derive_claim_status
+        from score_architecture_comparison import derive_claim_status
         rows = [{'status': 'PASS'}, {'status': 'UNABLE_TO_ASSESS'}]
         self.assertEqual(derive_claim_status(rows), 'REVIEW_REQUIRED')
 
     def test_all_pass_is_valid(self):
-        from score_clinicproj_comparison import derive_claim_status
+        from score_architecture_comparison import derive_claim_status
         rows = [{'status': 'PASS'}, {'status': 'NOT_APPLICABLE'}]
         self.assertEqual(derive_claim_status(rows), 'VALID')
 
 
 class CorrectnessScoreTests(unittest.TestCase):
     def test_full_agreement_scores_100(self):
-        from score_clinicproj_comparison import correctness_score
+        from score_architecture_comparison import correctness_score
         gold = {'CG-1': 'INVALID', 'CG-2': 'VALID'}
         predicted = {'CG-1': 'INVALID', 'CG-2': 'VALID'}
         self.assertEqual(correctness_score(gold, predicted), 100.0)
 
     def test_half_agreement_scores_50(self):
-        from score_clinicproj_comparison import correctness_score
+        from score_architecture_comparison import correctness_score
         gold = {'CG-1': 'INVALID', 'CG-2': 'VALID'}
         predicted = {'CG-1': 'VALID', 'CG-2': 'VALID'}
         self.assertEqual(correctness_score(gold, predicted), 50.0)
 
     def test_incomplete_maps_to_review_required(self):
-        from score_clinicproj_comparison import correctness_score
+        from score_architecture_comparison import correctness_score
         gold = {'CG-1': 'REVIEW_REQUIRED'}
         predicted = {'CG-1': 'INCOMPLETE'}
         self.assertEqual(correctness_score(gold, predicted), 100.0)
@@ -1263,29 +1263,29 @@ class CorrectnessScoreTests(unittest.TestCase):
 
 class RapidnessScoreTests(unittest.TestCase):
     def test_faster_system_scores_100_slower_is_proportional(self):
-        from score_clinicproj_comparison import rapidness_scores
-        latencies = {'claimguard': [2.0, 4.0], 'clinicproj': [8.0, 8.0]}
+        from score_architecture_comparison import rapidness_scores
+        latencies = {'architecture_a': [2.0, 4.0], 'architecture_b': [8.0, 8.0]}
         scores = rapidness_scores(latencies)
-        self.assertEqual(scores['claimguard'], 100.0)
-        self.assertEqual(scores['clinicproj'], 37.5)  # median 3.0 / median 8.0 * 100
+        self.assertEqual(scores['architecture_a'], 100.0)
+        self.assertEqual(scores['architecture_b'], 37.5)  # median 3.0 / median 8.0 * 100
 
 
 class EfficiencyScoreTests(unittest.TestCase):
     def test_fewer_dependencies_scores_higher(self):
-        from score_clinicproj_comparison import efficiency_score
-        scores = efficiency_score({'claimguard': 3, 'clinicproj': 16})
-        self.assertEqual(scores['clinicproj'], 0.0)   # has the max -- 1 - 16/16 = 0
-        self.assertEqual(scores['claimguard'], 81.25)  # 100 * (1 - 3/16)
+        from score_architecture_comparison import efficiency_score
+        scores = efficiency_score({'architecture_a': 3, 'architecture_b': 16})
+        self.assertEqual(scores['architecture_b'], 0.0)   # has the max -- 1 - 16/16 = 0
+        self.assertEqual(scores['architecture_a'], 81.25)  # 100 * (1 - 3/16)
 
     def test_equal_counts_score_equally(self):
-        from score_clinicproj_comparison import efficiency_score
-        scores = efficiency_score({'claimguard': 5, 'clinicproj': 5})
-        self.assertEqual(scores['claimguard'], scores['clinicproj'])
+        from score_architecture_comparison import efficiency_score
+        scores = efficiency_score({'architecture_a': 5, 'architecture_b': 5})
+        self.assertEqual(scores['architecture_a'], scores['architecture_b'])
 
 
 class CountRequirementsTests(unittest.TestCase):
     def test_counts_only_real_dependency_lines(self):
-        from score_clinicproj_comparison import _count_requirements
+        from score_architecture_comparison import _count_requirements
         with tempfile.TemporaryDirectory() as tmp:
             f = Path(tmp) / 'requirements.txt'
             f.write_text("# a comment\nfoo==1.0\n\nbar==2.0\n  # indented comment\nbaz==3.0\n", encoding='utf-8')
@@ -1293,70 +1293,70 @@ class CountRequirementsTests(unittest.TestCase):
 
 
 class SecurityScoreTests(unittest.TestCase):
-    def test_claimguard_is_always_100(self):
-        from score_clinicproj_comparison import security_score
+    def test_architecture_a_is_always_100(self):
+        from score_architecture_comparison import security_score
         scores = security_score({'dangerous_sinks': [], 'has_citation_grounding': False, 'injection_resistance': None})
-        self.assertEqual(scores['claimguard'], 100.0)
+        self.assertEqual(scores['architecture_a'], 100.0)
 
     def test_clean_report_scores_100(self):
-        from score_clinicproj_comparison import security_score
+        from score_architecture_comparison import security_score
         report = {'dangerous_sinks': [], 'has_citation_grounding': True,
                    'injection_resistance': {'injected_claim_incorrectly_marked_valid': False, 'genuine_finding_suppressed': False}}
-        self.assertEqual(security_score(report)['clinicproj'], 100.0)
+        self.assertEqual(security_score(report)['architecture_b'], 100.0)
 
     def test_dangerous_sink_and_no_grounding_each_deduct(self):
-        from score_clinicproj_comparison import security_score
+        from score_architecture_comparison import security_score
         report = {'dangerous_sinks': [{'file': 'agent.py', 'lineno': 1, 'line': 'eval(x)'}],
                    'has_citation_grounding': False, 'injection_resistance': None}
-        self.assertEqual(security_score(report)['clinicproj'], 50.0)  # 100 - 25 - 25
+        self.assertEqual(security_score(report)['architecture_b'], 50.0)  # 100 - 25 - 25
 
     def test_full_injection_failure_deducts_more_than_partial_suppression(self):
-        from score_clinicproj_comparison import security_score
+        from score_architecture_comparison import security_score
         full_failure = {'dangerous_sinks': [], 'has_citation_grounding': True,
                          'injection_resistance': {'injected_claim_incorrectly_marked_valid': True, 'genuine_finding_suppressed': False}}
         partial = {'dangerous_sinks': [], 'has_citation_grounding': True,
                    'injection_resistance': {'injected_claim_incorrectly_marked_valid': False, 'genuine_finding_suppressed': True}}
-        self.assertEqual(security_score(full_failure)['clinicproj'], 70.0)   # 100 - 30
-        self.assertEqual(security_score(partial)['clinicproj'], 80.0)        # 100 - 20
-        self.assertGreater(security_score(partial)['clinicproj'], security_score(full_failure)['clinicproj'])
+        self.assertEqual(security_score(full_failure)['architecture_b'], 70.0)   # 100 - 30
+        self.assertEqual(security_score(partial)['architecture_b'], 80.0)        # 100 - 20
+        self.assertGreater(security_score(partial)['architecture_b'], security_score(full_failure)['architecture_b'])
 
     def test_deductions_stack_and_the_result_is_floored_at_zero(self):
-        from score_clinicproj_comparison import security_score
+        from score_architecture_comparison import security_score
         report = {'dangerous_sinks': [{'file': 'a.py', 'lineno': 1, 'line': 'eval(x)'}],
                    'has_citation_grounding': False,
                    'injection_resistance': {'injected_claim_incorrectly_marked_valid': True, 'genuine_finding_suppressed': False}}
-        self.assertEqual(security_score(report)['clinicproj'], 20.0)  # 100 - 25 - 25 - 30 = 20
-        self.assertGreaterEqual(security_score(report)['clinicproj'], 0.0)
+        self.assertEqual(security_score(report)['architecture_b'], 20.0)  # 100 - 25 - 25 - 30 = 20
+        self.assertGreaterEqual(security_score(report)['architecture_b'], 0.0)
 
 
 class WeightedVerdictTests(unittest.TestCase):
     def test_overall_is_the_weighted_sum_and_names_a_winner(self):
-        from score_clinicproj_comparison import weighted_verdict, WEIGHTS
+        from score_architecture_comparison import weighted_verdict, WEIGHTS
         category_scores = {
-            'correctness': {'claimguard': 100.0, 'clinicproj': 50.0},
-            'security': {'claimguard': 100.0, 'clinicproj': 60.0},
-            'deliverability': {'claimguard': 100.0, 'clinicproj': 20.0},
-            'rapidness': {'claimguard': 100.0, 'clinicproj': 80.0},
-            'efficiency': {'claimguard': 100.0, 'clinicproj': 40.0},
+            'correctness': {'architecture_a': 100.0, 'architecture_b': 50.0},
+            'security': {'architecture_a': 100.0, 'architecture_b': 60.0},
+            'deliverability': {'architecture_a': 100.0, 'architecture_b': 20.0},
+            'rapidness': {'architecture_a': 100.0, 'architecture_b': 80.0},
+            'efficiency': {'architecture_a': 100.0, 'architecture_b': 40.0},
         }
         verdict = weighted_verdict(category_scores)
-        expected_cg = sum(WEIGHTS[c] * category_scores[c]['claimguard'] for c in WEIGHTS) / 100
-        self.assertAlmostEqual(verdict['overall']['claimguard'], expected_cg)
-        self.assertEqual(verdict['overall']['winner'], 'claimguard')
-        self.assertEqual(verdict['categories']['correctness']['winner'], 'claimguard')
+        expected_cg = sum(WEIGHTS[c] * category_scores[c]['architecture_a'] for c in WEIGHTS) / 100
+        self.assertAlmostEqual(verdict['overall']['architecture_a'], expected_cg)
+        self.assertEqual(verdict['overall']['winner'], 'architecture_a')
+        self.assertEqual(verdict['categories']['correctness']['winner'], 'architecture_a')
 
     def test_a_split_verdict_is_reported_not_hidden(self):
-        from score_clinicproj_comparison import weighted_verdict
+        from score_architecture_comparison import weighted_verdict
         category_scores = {
-            'correctness': {'claimguard': 100.0, 'clinicproj': 90.0},
-            'security': {'claimguard': 100.0, 'clinicproj': 90.0},
-            'deliverability': {'claimguard': 100.0, 'clinicproj': 90.0},
-            'rapidness': {'claimguard': 60.0, 'clinicproj': 100.0},
-            'efficiency': {'claimguard': 90.0, 'clinicproj': 90.0},
+            'correctness': {'architecture_a': 100.0, 'architecture_b': 90.0},
+            'security': {'architecture_a': 100.0, 'architecture_b': 90.0},
+            'deliverability': {'architecture_a': 100.0, 'architecture_b': 90.0},
+            'rapidness': {'architecture_a': 60.0, 'architecture_b': 100.0},
+            'efficiency': {'architecture_a': 90.0, 'architecture_b': 90.0},
         }
         verdict = weighted_verdict(category_scores)
-        self.assertEqual(verdict['categories']['rapidness']['winner'], 'clinicproj')
-        self.assertEqual(verdict['overall']['winner'], 'claimguard')  # 92.5 vs 91.5 -- wins overall despite losing rapidness
+        self.assertEqual(verdict['categories']['rapidness']['winner'], 'architecture_b')
+        self.assertEqual(verdict['overall']['winner'], 'architecture_a')  # 92.5 vs 91.5 -- wins overall despite losing rapidness
 
 
 if __name__ == '__main__':
@@ -1365,22 +1365,22 @@ if __name__ == '__main__':
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `.venv/Scripts/python -m unittest tests.test_score_clinicproj_comparison -v`
+Run: `.venv/Scripts/python -m unittest tests.test_score_architecture_comparison -v`
 Expected: FAIL — module doesn't exist.
 
 - [ ] **Step 3: Implement**
 
-Create `scripts/score_clinicproj_comparison.py`:
+Create `scripts/score_architecture_comparison.py`:
 
 ```python
-"""Turn scripts/run_clinicproj_comparison.py's and
-scripts/security_scan_clinicproj.py's recorded output into a weighted,
+"""Turn scripts/run_architecture_comparison.py's and
+scripts/security_scan_architecture_b.py's recorded output into a weighted,
 rerunnable verdict -- the benchmark that says who actually wins, and why.
 
-    python scripts/score_clinicproj_comparison.py
+    python scripts/score_architecture_comparison.py
 
 Pure stdlib: reads JSONL/JSON, does no live model calls, so this script and
-its tests never need Ollama or clinicProj's dependencies installed.
+its tests never need Ollama or Architecture B's dependencies installed.
 """
 import argparse
 import json
@@ -1390,15 +1390,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / 'outputs' / 'architecture_comparison'
 
-# See docs/superpowers/specs/2026-09-28-clinicproj-architecture-comparison-design.md
+# See docs/superpowers/specs/2026-09-28-architecture-comparison-design.md
 # "Who wins benchmark scoring" for the rationale behind these weights.
 WEIGHTS = {'correctness': 30, 'security': 20, 'deliverability': 20, 'rapidness': 15, 'efficiency': 15}
 
-STATUS_ALIASES = {'INCOMPLETE': 'REVIEW_REQUIRED'}  # clinicProj's 4th status folds into ClaimGuard's 3
+STATUS_ALIASES = {'INCOMPLETE': 'REVIEW_REQUIRED'}  # Architecture B's 4th status folds into Architecture A's 3
 
 
 def derive_claim_status(rule_rows: list) -> str:
-    """From a list of {'status': ...} rows (ClaimGuard's 15-per-claim shape,
+    """From a list of {'status': ...} rows (Architecture A's 15-per-claim shape,
     or the answer key's), the same claim-level status vocabulary both
     systems get compared on: VALID / REVIEW_REQUIRED / INVALID."""
     statuses = {r['status'] for r in rule_rows}
@@ -1436,15 +1436,15 @@ def efficiency_score(dependency_counts: dict) -> dict:
 
 
 def security_score(security_report: dict) -> dict:
-    clinicproj = 100.0
-    clinicproj -= 25.0 if security_report.get('dangerous_sinks') else 0.0
-    clinicproj -= 25.0 if not security_report.get('has_citation_grounding') else 0.0
+    architecture_b = 100.0
+    architecture_b -= 25.0 if security_report.get('dangerous_sinks') else 0.0
+    architecture_b -= 25.0 if not security_report.get('has_citation_grounding') else 0.0
     probe = security_report.get('injection_resistance') or {}
     if probe.get('injected_claim_incorrectly_marked_valid'):
-        clinicproj -= 30.0  # the coarse status itself was flipped -- the worse failure
+        architecture_b -= 30.0  # the coarse status itself was flipped -- the worse failure
     elif probe.get('genuine_finding_suppressed'):
-        clinicproj -= 20.0  # status held, but the specific finding still got dropped
-    return {'claimguard': 100.0, 'clinicproj': max(clinicproj, 0.0)}
+        architecture_b -= 20.0  # status held, but the specific finding still got dropped
+    return {'architecture_a': 100.0, 'architecture_b': max(architecture_b, 0.0)}
 
 
 def deliverability_score(checklist: dict) -> dict:
@@ -1492,8 +1492,8 @@ def main():
     p.add_argument('--output', default=str(OUT_DIR / 'verdict.json'))
     a = p.parse_args()
 
-    claimguard_rows = _load_jsonl(OUT_DIR / 'claimguard.jsonl')
-    clinicproj_rows = _load_jsonl(OUT_DIR / 'clinicproj.jsonl')
+    architecture_a_rows = _load_jsonl(OUT_DIR / 'architecture_a.jsonl')
+    architecture_b_rows = _load_jsonl(OUT_DIR / 'architecture_b.jsonl')
     gold_rows = _load_jsonl(a.gold)
     security_report = json.loads((OUT_DIR / 'security_report.json').read_text(encoding='utf-8'))
 
@@ -1501,31 +1501,31 @@ def main():
     for r in gold_rows:
         gold_by_claim.setdefault(r['claim_id'], []).append(r)
     gold_status = {cid: derive_claim_status(rows) for cid, rows in gold_by_claim.items()}
-    sampled_ids = {r['claim_id'] for r in claimguard_rows} & set(gold_status)
+    sampled_ids = {r['claim_id'] for r in architecture_a_rows} & set(gold_status)
 
-    claimguard_status = {r['claim_id']: r['status'] for r in claimguard_rows if r['status']}
-    clinicproj_status = {r['claim_id']: r['status'] for r in clinicproj_rows if r['status']}
+    architecture_a_status = {r['claim_id']: r['status'] for r in architecture_a_rows if r['status']}
+    architecture_b_status = {r['claim_id']: r['status'] for r in architecture_b_rows if r['status']}
     gold_sampled = {cid: gold_status[cid] for cid in sampled_ids}
 
     category_scores = {
         'correctness': {
-            'claimguard': correctness_score(gold_sampled, claimguard_status),
-            'clinicproj': correctness_score(gold_sampled, clinicproj_status),
+            'architecture_a': correctness_score(gold_sampled, architecture_a_status),
+            'architecture_b': correctness_score(gold_sampled, architecture_b_status),
         },
         'rapidness': rapidness_scores({
-            'claimguard': [r['latency_s'] for r in claimguard_rows if r['latency_s'] is not None],
-            'clinicproj': [r['latency_s'] for r in clinicproj_rows if r['latency_s'] is not None],
+            'architecture_a': [r['latency_s'] for r in architecture_a_rows if r['latency_s'] is not None],
+            'architecture_b': [r['latency_s'] for r in architecture_b_rows if r['latency_s'] is not None],
         }),
         'security': security_score(security_report),
         'deliverability': deliverability_score({
-            'claimguard': {'audit_log': True, 'test_suite': True, 'ci': True, 'auth_rbac_designed': True,
+            'architecture_a': {'audit_log': True, 'test_suite': True, 'ci': True, 'auth_rbac_designed': True,
                            'offline_capable': True, 'schema_validated_output': True},
-            'clinicproj': {'audit_log': False, 'test_suite': False, 'ci': False, 'auth_rbac_designed': False,
+            'architecture_b': {'audit_log': False, 'test_suite': False, 'ci': False, 'auth_rbac_designed': False,
                            'offline_capable': True, 'schema_validated_output': False},
         }),
         'efficiency': efficiency_score(dependency_counts={
-            'claimguard': _count_requirements(ROOT / 'requirements.txt'),
-            'clinicproj': _count_requirements(ROOT / 'comparison' / 'clinicproj_adapted' / 'requirements.txt'),
+            'architecture_a': _count_requirements(ROOT / 'requirements.txt'),
+            'architecture_b': _count_requirements(ROOT / 'comparison' / 'architecture_b' / 'requirements.txt'),
         }),
     }
 
@@ -1541,41 +1541,41 @@ if __name__ == '__main__':
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `.venv/Scripts/python -m unittest tests.test_score_clinicproj_comparison -v`
+Run: `.venv/Scripts/python -m unittest tests.test_score_architecture_comparison -v`
 Expected: PASS (17 tests)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/score_clinicproj_comparison.py tests/test_score_clinicproj_comparison.py
+git add scripts/score_architecture_comparison.py tests/test_score_architecture_comparison.py
 git commit -m "feat: weighted head-to-head scoring script -- the who-wins benchmark"
 ```
 
 ---
 
-### Task 9: Plotting — `scripts/plot_clinicproj_comparison.py`
+### Task 9: Plotting — `scripts/plot_architecture_comparison.py`
 
 **Files:**
-- Create: `scripts/plot_clinicproj_comparison.py`
-- Test: `comparison/clinicproj_adapted/tests/test_plot_clinicproj_comparison.py`
+- Create: `scripts/plot_architecture_comparison.py`
+- Test: `comparison/architecture_b/tests/test_plot_architecture_comparison.py`
 
 **Interfaces:**
 - Consumes: `outputs/architecture_comparison/verdict.json` (Task 8's shape).
 - Produces: `docs/figures/architecture_comparison_categories.png`, `docs/figures/architecture_comparison_overall.png`.
 
-**Why this test lives under `comparison/clinicproj_adapted/tests/` and not the
-main `tests/` dir:** `plot_clinicproj_comparison.py` imports `matplotlib` at
-module level, which is not in ClaimGuard's own `requirements.txt` (neither is
+**Why this test lives under `comparison/architecture_b/tests/` and not the
+main `tests/` dir:** `plot_architecture_comparison.py` imports `matplotlib` at
+module level, which is not in Architecture A's own `requirements.txt` (neither is
 it for the pre-existing `scripts/plot_model_comparison.py`, which has no test
 at all today for the same reason). Adding a `tests/`-discovered test that
 imports it would break `python -m unittest discover -s tests` in CI, which
 only installs `requirements.txt`. `matplotlib` is bundled into
-`comparison/clinicproj_adapted/requirements.txt` instead (Task 2) — see the
+`comparison/architecture_b/requirements.txt` instead (Task 2) — see the
 Global Constraints section.
 
 - [ ] **Step 1: Write the failing test**
 
-Create `comparison/clinicproj_adapted/tests/test_plot_clinicproj_comparison.py`:
+Create `comparison/architecture_b/tests/test_plot_architecture_comparison.py`:
 
 ```python
 import json
@@ -1589,19 +1589,19 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 
 FIXTURE_VERDICT = {
     "categories": {
-        "correctness": {"claimguard": 92.0, "clinicproj": 61.0, "winner": "claimguard"},
-        "security": {"claimguard": 100.0, "clinicproj": 40.0, "winner": "claimguard"},
-        "deliverability": {"claimguard": 100.0, "clinicproj": 16.67, "winner": "claimguard"},
-        "rapidness": {"claimguard": 100.0, "clinicproj": 22.0, "winner": "claimguard"},
-        "efficiency": {"claimguard": 78.57, "clinicproj": 0.0, "winner": "claimguard"},
+        "correctness": {"architecture_a": 92.0, "architecture_b": 61.0, "winner": "architecture_a"},
+        "security": {"architecture_a": 100.0, "architecture_b": 40.0, "winner": "architecture_a"},
+        "deliverability": {"architecture_a": 100.0, "architecture_b": 16.67, "winner": "architecture_a"},
+        "rapidness": {"architecture_a": 100.0, "architecture_b": 22.0, "winner": "architecture_a"},
+        "efficiency": {"architecture_a": 78.57, "architecture_b": 0.0, "winner": "architecture_a"},
     },
-    "overall": {"claimguard": 92.99, "clinicproj": 39.5, "winner": "claimguard"},
+    "overall": {"architecture_a": 92.99, "architecture_b": 39.5, "winner": "architecture_a"},
 }
 
 
 class PlotComparisonTests(unittest.TestCase):
     def test_draws_both_figures_from_a_verdict_file(self):
-        from plot_clinicproj_comparison import draw
+        from plot_architecture_comparison import draw
         with tempfile.TemporaryDirectory() as tmp:
             verdict_path = Path(tmp) / 'verdict.json'
             verdict_path.write_text(json.dumps(FIXTURE_VERDICT), encoding='utf-8')
@@ -1621,18 +1621,18 @@ if __name__ == '__main__':
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/clinicproj_adapted/tests -p "test_plot_clinicproj_comparison.py" -v`
+Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/architecture_b/tests -p "test_plot_architecture_comparison.py" -v`
 Expected: FAIL — module doesn't exist.
 
 - [ ] **Step 3: Implement**
 
-Create `scripts/plot_clinicproj_comparison.py`:
+Create `scripts/plot_architecture_comparison.py`:
 
 ```python
-"""Draw the ClaimGuard vs. clinicProj comparison charts from
-scripts/score_clinicproj_comparison.py's verdict.json.
+"""Draw the Architecture A vs. Architecture B comparison charts from
+scripts/score_architecture_comparison.py's verdict.json.
 
-    python scripts/plot_clinicproj_comparison.py
+    python scripts/plot_architecture_comparison.py
 
 Style matches scripts/plot_model_comparison.py: matplotlib, Agg backend,
 the project's established palette.
@@ -1649,8 +1649,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VERDICT = ROOT / 'outputs' / 'architecture_comparison' / 'verdict.json'
 DEFAULT_OUT_DIR = ROOT / 'docs' / 'figures'
 
-GREEN = '#1a9641'   # ClaimGuard
-AMBER = '#e8971e'   # clinicProj
+GREEN = '#1a9641'   # Architecture A
+AMBER = '#e8971e'   # Architecture B
 INK = '#1c2b3a'
 
 
@@ -1660,14 +1660,14 @@ def draw(verdict_path, out_dir):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     categories = list(verdict['categories'])
-    cg_scores = [verdict['categories'][c]['claimguard'] for c in categories]
-    cp_scores = [verdict['categories'][c]['clinicproj'] for c in categories]
+    cg_scores = [verdict['categories'][c]['architecture_a'] for c in categories]
+    cp_scores = [verdict['categories'][c]['architecture_b'] for c in categories]
 
     fig, ax = plt.subplots(figsize=(9, 5))
     x = range(len(categories))
     width = 0.36
-    ax.bar([i - width / 2 for i in x], cg_scores, width, label='ClaimGuard', color=GREEN, zorder=3)
-    ax.bar([i + width / 2 for i in x], cp_scores, width, label='clinicProj', color=AMBER, zorder=3)
+    ax.bar([i - width / 2 for i in x], cg_scores, width, label='Architecture A', color=GREEN, zorder=3)
+    ax.bar([i + width / 2 for i in x], cp_scores, width, label='Architecture B', color=AMBER, zorder=3)
     ax.set_xticks(list(x))
     ax.set_xticklabels([c.capitalize() for c in categories], rotation=15)
     ax.set_ylabel('Score (0-100)')
@@ -1682,8 +1682,8 @@ def draw(verdict_path, out_dir):
     plt.close(fig)
 
     fig, ax = plt.subplots(figsize=(4.5, 5))
-    systems = ['claimguard', 'clinicproj']
-    labels = ['ClaimGuard', 'clinicProj']
+    systems = ['architecture_a', 'architecture_b']
+    labels = ['Architecture A', 'Architecture B']
     scores = [verdict['overall'][s] for s in systems]
     colors = [GREEN, AMBER]
     bars = ax.bar(labels, scores, color=colors, width=0.55, zorder=3)
@@ -1715,13 +1715,13 @@ if __name__ == '__main__':
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/clinicproj_adapted/tests -p "test_plot_clinicproj_comparison.py" -v`
+Run: `comparison/.venv/Scripts/python -m unittest discover -s comparison/architecture_b/tests -p "test_plot_architecture_comparison.py" -v`
 Expected: PASS (1 test)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/plot_clinicproj_comparison.py comparison/clinicproj_adapted/tests/test_plot_clinicproj_comparison.py comparison/clinicproj_adapted/requirements.txt
+git add scripts/plot_architecture_comparison.py comparison/architecture_b/tests/test_plot_architecture_comparison.py comparison/architecture_b/requirements.txt
 git commit -m "feat: plotting script for the architecture comparison verdict"
 ```
 
@@ -1743,11 +1743,11 @@ ollama serve &                 # if not already running
 
 ```bash
 python -m venv comparison/.venv   # if Task 2 didn't leave one in place
-comparison/.venv/Scripts/pip install -q -r comparison/clinicproj_adapted/requirements.txt
-comparison/.venv/Scripts/python scripts/run_clinicproj_comparison.py --sample-size 36
+comparison/.venv/Scripts/pip install -q -r comparison/architecture_b/requirements.txt
+comparison/.venv/Scripts/python scripts/run_architecture_comparison.py --sample-size 36
 ```
 
-Watch the per-claim log lines. If clinicProj's per-claim latency makes the
+Watch the per-claim log lines. If Architecture B's per-claim latency makes the
 36-case run impractical (multiple tool-calling round-trips per claim), stop
 early and rerun with a smaller `--sample-size` (e.g. 12) — document the
 actual sample size used in Task 11's write-up rather than silently reporting
@@ -1756,23 +1756,23 @@ a partial run as the full one.
 - [ ] **Step 3: Run the security scan (live mode, for the real injection probe)**
 
 ```bash
-comparison/.venv/Scripts/python scripts/security_scan_clinicproj.py --live
+comparison/.venv/Scripts/python scripts/security_scan_architecture_b.py --live
 ```
 
 - [ ] **Step 4: Score and plot**
 
 ```bash
-.venv/Scripts/python scripts/score_clinicproj_comparison.py
-.venv/Scripts/python scripts/plot_clinicproj_comparison.py
+.venv/Scripts/python scripts/score_architecture_comparison.py
+.venv/Scripts/python scripts/plot_architecture_comparison.py
 ```
 
 - [ ] **Step 5: Commit the real outputs as evidence**
 
 ```bash
-git add -f outputs/architecture_comparison/claimguard.jsonl outputs/architecture_comparison/clinicproj.jsonl \
+git add -f outputs/architecture_comparison/architecture_a.jsonl outputs/architecture_comparison/architecture_b.jsonl \
            outputs/architecture_comparison/security_report.json outputs/architecture_comparison/verdict.json \
            docs/figures/architecture_comparison_categories.png docs/figures/architecture_comparison_overall.png
-git commit -m "data: run the ClaimGuard vs. clinicProj comparison and commit the results"
+git commit -m "data: run the Architecture A vs. Architecture B comparison and commit the results"
 ```
 
 ---
@@ -1789,12 +1789,12 @@ pre-write numbers here, read them from the committed `verdict.json` and
 `security_report.json`):
 
 ```markdown
-# 24 | ClaimGuard vs. clinicProj: an architecture comparison
+# 24 | Architecture A vs. Architecture B: an architecture comparison
 
-Mentor-requested comparison between ClaimGuard's own deterministic-rules-plus-
+Mentor-requested comparison between Architecture A's own deterministic-rules-plus-
 grounded-AI architecture and a teammate's separately-built RAG+OCR+agentic
-system (`github.com/ayechiahmed/clinicProj`). Full methodology and rationale:
-`docs/superpowers/specs/2026-09-28-clinicproj-architecture-comparison-design.md`.
+system (`a teammate's repository`). Full methodology and rationale:
+`docs/superpowers/specs/2026-09-28-architecture-comparison-design.md`.
 Reproduce this yourself: `comparison/README.md`.
 
 ## What each system is
@@ -1808,7 +1808,7 @@ prose verbatim.]
 - Both systems wired to the identical local model: gemma3:4b via Ollama.
 - Sample: [N] claims from `data/development/claims.jsonl` (state the actual
   N used in Task 10, and why if it was smaller than 36).
-- Scoring: `scripts/score_clinicproj_comparison.py`, weights and rationale in
+- Scoring: `scripts/score_architecture_comparison.py`, weights and rationale in
   the design spec's "Who wins benchmark scoring" table.
 
 ## Results
@@ -1817,16 +1817,16 @@ prose verbatim.]
 `docs/figures/architecture_comparison_overall.png`. Below each, a short
 table transcribing the actual numbers from `outputs/architecture_comparison/verdict.json`.]
 
-## What clinicProj does that ClaimGuard doesn't
+## What Architecture B does that Architecture A doesn't
 
 OCR (Tesseract, scanned PDFs and images), a multi-turn conversational Q&A
 interface over a validated claim, and a general-purpose RAG layer that can
 ingest arbitrary policy documents without code changes. [Note explicitly:
 this comparison's claim sample was pre-structured JSON, not scanned
 documents, so OCR itself was not empirically exercised here -- it's a real
-capability gap in ClaimGuard today, tracked separately.]
+capability gap in Architecture A today, tracked separately.]
 
-## What ClaimGuard does that clinicProj doesn't
+## What Architecture A does that Architecture B doesn't
 
 A deterministic rule layer the AI cannot override, schema-checked and
 citation-grounded AI explanations, a tamper-evident audit log, a test suite
@@ -1837,41 +1837,41 @@ format.
 
 [State the overall winner and margin from `verdict.json`, and call out any
 split per-category results plainly -- do not smooth over a category
-clinicProj won.]
+Architecture B won.]
 ```
 
 - [ ] **Step 2: Commit**
 
 ```bash
 git add docs/24_Architecture_Comparison.md
-git commit -m "docs: write up the ClaimGuard vs. clinicProj architecture comparison"
+git commit -m "docs: write up the Architecture A vs. Architecture B architecture comparison"
 ```
 
 ---
 
 ### Task 12: Full verification and push
 
-- [ ] **Step 1: Run ClaimGuard's own full suite (must stay green — nothing in this plan touches src/)**
+- [ ] **Step 1: Run Architecture A's own full suite (must stay green — nothing in this plan touches src/)**
 
 ```bash
 .venv/Scripts/python -m unittest discover -s tests
 ```
 
 Expected: all tests pass, same count as before this plan plus the new
-`tests/test_run_clinicproj_comparison_harness.py`,
-`tests/test_security_scan_clinicproj.py` and `tests/test_score_clinicproj_comparison.py`
+`tests/test_run_architecture_comparison_harness.py`,
+`tests/test_security_scan_architecture_b.py` and `tests/test_score_architecture_comparison.py`
 (the plotting test is intentionally NOT here — see Task 9 — it runs in Step 2 below instead).
 
-- [ ] **Step 2: Run clinicProj-specific tests separately**
+- [ ] **Step 2: Run Architecture B-specific tests separately**
 
 ```bash
-comparison/.venv/Scripts/python -m unittest discover -s comparison/clinicproj_adapted/tests
+comparison/.venv/Scripts/python -m unittest discover -s comparison/architecture_b/tests
 ```
 
 - [ ] **Step 3: Push**
 
 ```bash
-git push claimguard worktree-yara-facts-blob-harness:main
+git push architecture_a worktree-yara-facts-blob-harness:main
 ```
 
 Confirm with the user before this step per this session's standing policy of

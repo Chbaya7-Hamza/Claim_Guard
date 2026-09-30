@@ -115,7 +115,7 @@ Do not say:
 - Reviewer identity is self-declared.
 - With no API key the explanation is a deterministic template, not a model. The demo says which one it is using.
 - The answer key is the organisers' public data; a different set may score differently.
-- The clinicProj comparison result carries the limits written in `docs/24_Architecture_Comparison.md`. Do not quote its score without them.
+- The Architecture B comparison result carries the limits written in `docs/24_Architecture_Comparison.md`. Do not quote its score without them.
 
 ## 6. If the video runs long
 

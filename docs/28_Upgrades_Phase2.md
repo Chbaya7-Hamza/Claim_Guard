@@ -13,7 +13,7 @@ Measurements are from `docs/27_Decisions_Proofs_and_Defense.md` and `outputs/def
 | 6 | **Merkle-tree audit log with inclusion proofs and an externally held or time-stamped root** (Certificate-Transparency style, RFC 6962; RFC 3161 time-stamping). | The audit log is tamper-evident, not immutable. Without the HMAC key anyone who can write both files can rewrite the log and its anchor (tamper matrix, rows 6 and 8) | Phase 2 |
 | 7 | **Keep the HMAC key off the writer's machine** (a secrets manager) and **alert when the strict verifier finds unanchored rows.** | The strict check now detects appended rows, but only if the anchor is trustworthy | Phase 2 |
 | 8 | **Authentication and roles** before any web or mobile review interface. | Reviewer identity is self-declared today | Phase 2 |
-| 9 | **Re-run the clinicProj comparison on a stable, locally served tool-capable model.** | 10 of clinicProj's 12 runs hit hosted-endpoint failures, so the result is a floor, not its best case | Phase 2 |
+| 9 | **Re-run the Architecture B comparison on a stable, locally served tool-capable model.** | 10 of Architecture B's 12 runs hit hosted-endpoint failures, so the result is a floor, not its best case | Phase 2 |
 | 10 | **Load test the whole path** (queue, workers, model server) once items 1 to 4 exist. | The engine was measured alone at about 500 to 1,300 claims/s per core; the full path has not been | Phase 2 |
 
 ## Dependencies: checked tonight

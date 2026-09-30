@@ -1,6 +1,6 @@
-"""The dangerous-sink pattern shared by test_security_owasp.py (scanning ClaimGuard's
-own src/ and scripts/) and scripts/security_scan_clinicproj.py (scanning the adapted
-clinicProj copy). Lives here, not in src/ or scripts/, on purpose: those two folders
+"""The dangerous-sink pattern shared by test_security_owasp.py (scanning Architecture A's
+own src/ and scripts/) and scripts/security_scan_architecture_b.py (scanning the adapted
+Architecture B copy). Lives here, not in src/ or scripts/, on purpose: those two folders
 are exactly what the scanner itself scans, and a copy of this pattern sitting in
 either one would flag itself the moment it's written (the pattern's own text contains
 the words it's looking for). tests/ is never scanned, so this is the one place the

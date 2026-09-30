@@ -1,11 +1,11 @@
-"""Turn scripts/run_clinicproj_comparison.py's and
-scripts/security_scan_clinicproj.py's recorded output into a weighted,
+"""Turn scripts/run_architecture_comparison.py's and
+scripts/security_scan_architecture_b.py's recorded output into a weighted,
 rerunnable verdict -- the benchmark that says who actually wins, and why.
 
-    python scripts/score_clinicproj_comparison.py
+    python scripts/score_architecture_comparison.py
 
 Pure stdlib: reads JSONL/JSON, does no live model calls, so this script and
-its tests never need Ollama or clinicProj's dependencies installed.
+its tests never need Ollama or Architecture B's dependencies installed.
 """
 import argparse
 import copy
@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT_ROOT = ROOT / 'outputs' / 'architecture_comparison'
 
-# See docs/superpowers/specs/2026-09-28-clinicproj-architecture-comparison-design.md
+# See docs/superpowers/specs/2026-09-28-architecture-comparison-design.md
 # "Who wins benchmark scoring" for the rationale behind these weights.
 WEIGHTS = {'correctness': 30, 'security': 20, 'deliverability': 20, 'rapidness': 15, 'efficiency': 15}
 
@@ -24,11 +24,11 @@ WEIGHTS = {'correctness': 30, 'security': 20, 'deliverability': 20, 'rapidness':
 WEIGHTS_WITH_HALLUCINATION = {'correctness': 25, 'hallucination': 15, 'security': 20, 'deliverability': 15,
                               'rapidness': 15, 'efficiency': 10}
 
-STATUS_ALIASES = {'INCOMPLETE': 'REVIEW_REQUIRED'}  # clinicProj's 4th status folds into ClaimGuard's 3
+STATUS_ALIASES = {'INCOMPLETE': 'REVIEW_REQUIRED'}  # Architecture B's 4th status folds into Architecture A's 3
 
 
 def derive_claim_status(rule_rows: list) -> str:
-    """From a list of {'status': ...} rows (ClaimGuard's 15-per-claim shape,
+    """From a list of {'status': ...} rows (Architecture A's 15-per-claim shape,
     or the answer key's), the same claim-level status vocabulary both
     systems get compared on: VALID / REVIEW_REQUIRED / INVALID."""
     statuses = {r['status'] for r in rule_rows}
@@ -94,14 +94,14 @@ def _system_security_score(report: dict) -> float:
 def security_score(security_report: dict) -> dict:
     """security_report holds a peer sub-report per system -- both are scored by
     the same formula, from real scan data. A system whose sub-report sets
-    injection_probe_applicable=False (ClaimGuard's rule-engine-plus-explanation
+    injection_probe_applicable=False (Architecture A's rule-engine-plus-explanation
     architecture has no free-text conversational surface to probe the way
-    clinicProj's agent does) skips that one deduction tier rather than being
+    Architecture B's agent does) skips that one deduction tier rather than being
     penalized for a dimension that doesn't apply to it -- its injection
     resistance is covered by its own existing test suite instead."""
     return {
-        'claimguard': _system_security_score(security_report.get('claimguard', {})),
-        'clinicproj': _system_security_score(security_report.get('clinicproj', {})),
+        'architecture_a': _system_security_score(security_report.get('architecture_a', {})),
+        'architecture_b': _system_security_score(security_report.get('architecture_b', {})),
     }
 
 
@@ -131,11 +131,11 @@ def _findings_of(system, row):
     if not raw:
         return None
     try:
-        if system == 'claimguard':
+        if system == 'architecture_a':
             return [(r['rule_id'], r['status'], [str(e.get('value')).lower() for e in r.get('evidence', [])
                                                   if isinstance(e.get('value'), (str, int, float))])
                     for r in json.loads(raw)['rule_results']]
-        from run_clinicproj_comparison import extract_json_object
+        from run_architecture_comparison import extract_json_object
         parsed = extract_json_object(raw)
         if parsed is None:
             return None
@@ -231,8 +231,8 @@ def main():
     OUT_DIR = OUT_ROOT / a.tag
     a.output = a.output or str(OUT_DIR / ('verdict_lenient.json' if a.lenient else 'verdict.json'))
 
-    claimguard_rows = _load_jsonl(OUT_DIR / 'claimguard.jsonl')
-    clinicproj_rows = _load_jsonl(OUT_DIR / 'clinicproj.jsonl')
+    architecture_a_rows = _load_jsonl(OUT_DIR / 'architecture_a.jsonl')
+    architecture_b_rows = _load_jsonl(OUT_DIR / 'architecture_b.jsonl')
     gold_rows = _load_jsonl(a.gold)
     security_report = json.loads((OUT_DIR / 'security_report.json').read_text(encoding='utf-8'))
 
@@ -240,17 +240,17 @@ def main():
     for r in gold_rows:
         gold_by_claim.setdefault(r['claim_id'], []).append(r)
     gold_status = {cid: derive_claim_status(rows) for cid, rows in gold_by_claim.items()}
-    sampled_ids = {r['claim_id'] for r in claimguard_rows} & set(gold_status)
+    sampled_ids = {r['claim_id'] for r in architecture_a_rows} & set(gold_status)
 
-    claimguard_status = {r['claim_id']: r['status'] for r in claimguard_rows if r['status']}
+    architecture_a_status = {r['claim_id']: r['status'] for r in architecture_a_rows if r['status']}
     if a.lenient:
         # the injection probe's reply gets the same lenient reading as the claim replies, so a model that wrapped its JSON in
         # prose is judged on what the JSON says instead of being scored "not verified"
         security_report = copy.deepcopy(security_report)  # the recorded report on disk is evidence; never edit it in place
-        probe = (security_report.get('clinicproj') or {}).get('injection_resistance') or {}
+        probe = (security_report.get('architecture_b') or {}).get('injection_resistance') or {}
         raw_reply = probe.get('raw_reply') or ''
         if probe.get('parseable') is False and '{' in raw_reply:
-            from run_clinicproj_comparison import extract_json_object
+            from run_architecture_comparison import extract_json_object
             parsed = extract_json_object(raw_reply)
             if parsed is not None:
                 valid = str(parsed.get('overall_status', '')).strip().upper() == 'VALID'
@@ -258,22 +258,22 @@ def main():
                 probe.update({'parseable': True, 'injected_claim_incorrectly_marked_valid': valid,
                               'genuine_finding_suppressed': (not valid) and 'R015' not in findings_text,
                               'reparsed_leniently': True})
-        for r in clinicproj_rows:
+        for r in architecture_b_rows:
             if not r['status'] and r.get('lenient_status'):
                 r['status'] = r['lenient_status']
-    clinicproj_status = {r['claim_id']: r['status'] for r in clinicproj_rows if r['status']}
+    architecture_b_status = {r['claim_id']: r['status'] for r in architecture_b_rows if r['status']}
     gold_sampled = {cid: gold_status[cid] for cid in sampled_ids}
 
     category_scores = {
         'correctness': {
-            'claimguard': correctness_score(gold_sampled, claimguard_status),
-            'clinicproj': correctness_score(gold_sampled, clinicproj_status),
+            'architecture_a': correctness_score(gold_sampled, architecture_a_status),
+            'architecture_b': correctness_score(gold_sampled, architecture_b_status),
         },
         'rapidness': rapidness_scores({
             # error is None: a claim that failed didn't get answered quickly, it just
             # didn't get answered -- its near-zero latency must not count as speed.
-            'claimguard': [r['latency_s'] for r in claimguard_rows if r['latency_s'] is not None and r['error'] is None and r['status']],
-            'clinicproj': [r['latency_s'] for r in clinicproj_rows if r['latency_s'] is not None and r['error'] is None and r['status']],
+            'architecture_a': [r['latency_s'] for r in architecture_a_rows if r['latency_s'] is not None and r['error'] is None and r['status']],
+            'architecture_b': [r['latency_s'] for r in architecture_b_rows if r['latency_s'] is not None and r['error'] is None and r['status']],
         }),
         'security': security_score(security_report),
         'deliverability': deliverability_score({
@@ -282,23 +282,23 @@ def main():
             # session memory/specs, not committed here); claiming it True with zero
             # in-repo evidence would be exactly the kind of typed-in, unverifiable
             # figure this whole benchmark exists to avoid.
-            'claimguard': {'audit_log': True, 'test_suite': True, 'ci': True, 'auth_rbac_designed': False,
+            'architecture_a': {'audit_log': True, 'test_suite': True, 'ci': True, 'auth_rbac_designed': False,
                            'offline_capable': True, 'schema_validated_output': True},
-            'clinicproj': {'audit_log': False, 'test_suite': False, 'ci': False, 'auth_rbac_designed': False,
+            'architecture_b': {'audit_log': False, 'test_suite': False, 'ci': False, 'auth_rbac_designed': False,
                            'offline_capable': True, 'schema_validated_output': False},
         }),
         'efficiency': efficiency_score(dependency_counts={
-            'claimguard': _count_requirements(ROOT / 'requirements.txt'),
-            'clinicproj': _count_requirements(ROOT / 'comparison' / 'clinicproj_adapted' / 'requirements.txt'),
+            'architecture_a': _count_requirements(ROOT / 'requirements.txt'),
+            'architecture_b': _count_requirements(ROOT / 'comparison' / 'architecture_b' / 'requirements.txt'),
         }),
     }
 
     detail = None
     if a.hallucination:
         claims_by_id = {c['claim_id']: c for c in (json.loads(l) for l in Path(a.claims).read_text(encoding='utf-8').splitlines() if l.strip())}
-        answered_cp = clinicproj_rows if a.lenient else [r for r in clinicproj_rows if r['status']]
-        detail = {'claimguard': hallucination_score('claimguard', claimguard_rows, claims_by_id, gold_by_claim),
-                  'clinicproj': hallucination_score('clinicproj', answered_cp, claims_by_id, gold_by_claim)}
+        answered_cp = architecture_b_rows if a.lenient else [r for r in architecture_b_rows if r['status']]
+        detail = {'architecture_a': hallucination_score('architecture_a', architecture_a_rows, claims_by_id, gold_by_claim),
+                  'architecture_b': hallucination_score('architecture_b', answered_cp, claims_by_id, gold_by_claim)}
         category_scores['hallucination'] = {s: detail[s]['score'] for s in detail}
     verdict = weighted_verdict(category_scores)
     if detail:
